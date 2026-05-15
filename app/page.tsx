@@ -4,6 +4,7 @@ import { listArticles } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import type { Env } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
 export const runtime = "edge";
 
 export default async function HomePage({ searchParams }: {
