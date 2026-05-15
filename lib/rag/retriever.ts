@@ -9,9 +9,9 @@ import { getArticlesByIds } from "../db";
  * Vectorize supports simple equality filters on indexed metadata fields
  * — we put category/region/subcategory on every vector at ingest time.
  */
-function buildFilter(ctx: ChatRequest["context"]): Record<string, unknown> | undefined {
+function buildFilter(ctx: ChatRequest["context"]): VectorizeVectorMetadataFilter | undefined {
   if (!ctx) return undefined;
-  const f: Record<string, unknown> = {};
+  const f: Record<string, VectorizeVectorMetadataFilterValue> = {};
   if (ctx.category)    f.category    = ctx.category;
   if (ctx.region)      f.region      = ctx.region;
   if (ctx.subcategory) f.subcategory = ctx.subcategory;
