@@ -11,7 +11,7 @@ import { getArticlesByIds } from "../db";
  */
 function buildFilter(ctx: ChatRequest["context"]): VectorizeVectorMetadataFilter | undefined {
   if (!ctx) return undefined;
-  const f: Record<string, VectorizeVectorMetadataFilterValue> = {};
+  const f: Record<string, VectorizeVectorMetadataFilter> = {};
   if (ctx.category)    f.category    = ctx.category;
   if (ctx.region)      f.region      = ctx.region;
   if (ctx.subcategory) f.subcategory = ctx.subcategory;
