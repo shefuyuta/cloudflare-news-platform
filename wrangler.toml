@@ -1,0 +1,8 @@
+name = "news-platform"
+
+compatibility_date = "2026-05-15"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "news-platform"
+database_id = "replace-me"

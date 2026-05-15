@@ -1,0 +1,8 @@
+{
+  "name": "cloudflare-news-platform",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build"
+  }
+}
