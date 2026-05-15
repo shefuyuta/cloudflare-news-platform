@@ -91,8 +91,8 @@ export async function POST(req: Request): Promise<Response> {
         metadata: {
           article_id:  id,
           category:    a.category,
-          region:      a.region      ?? null,
-          subcategory: a.subcategory ?? null,
+          region:      a.region      ?? "",
+          subcategory: a.subcategory ?? "",
           text:        chunks[i].slice(0, 1500),
         },
       })));
