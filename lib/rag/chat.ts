@@ -31,7 +31,7 @@ export async function streamChat(env: Env, req: ChatRequest): Promise<Response> 
     stream: true,
     temperature: cfg.temperature,
     max_tokens: cfg.maxTokens,
-  }) as ReadableStream;
+  } as Record<string, unknown>) as unknown as ReadableStream;
 
   // Prepend the citations as the first SSE event, then forward the AI stream.
   const { readable, writable } = new TransformStream();
