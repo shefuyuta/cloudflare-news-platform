@@ -4,11 +4,13 @@
 
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "npx @cloudflare/next-on-pages",
+    "start": "next start",
+    "preview": "npx wrangler pages dev .vercel/output/static"
   },
 
   "dependencies": {
+    "@cloudflare/next-on-pages": "^1.15.0",
     "next": "^15.3.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -16,10 +18,13 @@
   },
 
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250508.0",
+    "@tailwindcss/postcss": "^4.1.7",
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
+    "tailwindcss": "^4.1.7",
     "typescript": "^5.8.3",
-    "tailwindcss": "^4.1.7"
+    "wrangler": "^4.16.0"
   }
 }
