@@ -1,7 +1,7 @@
 name = "cloudflare-news-platform"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
-main = ".vercel/output/static/_worker.js/index.js"
+main = "./_worker_bundle/index.js"
 find_additional_modules = true
 
 [assets]
@@ -11,7 +11,7 @@ directory = ".vercel/output/static"
 [[d1_databases]]
 binding       = "DB"
 database_name = "newshub"
-database_id   = "a18b94b2-1c96-4d92-bfbd-87581ac2f2c9"
+database_id   = "ここは今の値をそのまま残す"
 
 # ----- Vectorize -----------------------------------------------------
 [[vectorize]]
