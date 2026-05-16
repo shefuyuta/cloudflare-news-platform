@@ -2,6 +2,7 @@ name = "cloudflare-news-platform"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 main = ".vercel/output/static/_worker.js/index.js"
+find_additional_modules = true
 
 [assets]
 directory = ".vercel/output/static"
