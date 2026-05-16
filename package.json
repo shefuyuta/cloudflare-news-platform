@@ -1,28 +1,22 @@
 {
   "name": "cloudflare-news-platform",
   "private": true,
-
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "preview": "npx wrangler pages dev .vercel/output/static"
+    "start": "next start"
   },
-
   "dependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
-    "next": "^15.3.2",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "lucide-react": "^0.511.0"
-  },
-
-  "devDependencies": {
     "@cloudflare/workers-types": "^4.20250508.0",
     "@tailwindcss/postcss": "^4.1.7",
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
+    "lucide-react": "^0.511.0",
+    "next": "^15.3.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "tailwindcss": "^4.1.7",
     "typescript": "^5.8.3",
     "wrangler": "^4.16.0"
