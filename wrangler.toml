@@ -1,10 +1,10 @@
-# wrangler.toml.example
-# Copy to wrangler.toml and fill the IDs from `wrangler d1 create newshub`
-# and `wrangler vectorize create newshub-index --dimensions=768 --metric=cosine`.
-
 name = "cloudflare-news-platform"
 compatibility_date = "2025-09-01"
-pages_build_output_dir = ".vercel/output/static"
+compatibility_flags = ["nodejs_compat"]
+main = ".vercel/output/static/_worker.js/index.js"
+
+[assets]
+directory = ".vercel/output/static"
 
 # ----- D1 ------------------------------------------------------------
 [[d1_databases]]
@@ -12,14 +12,11 @@ binding       = "DB"
 database_name = "newshub"
 database_id   = "<your-d1-id>"
 
-# ----- Vectorize ----------------------------------------------------
-# IMPORTANT: dimensions MUST match the embedding model in lib/rag/config.ts
-#   @cf/baai/bge-base-en-v1.5  → 768
-#   @cf/baai/bge-large-en-v1.5 → 1024
+# ----- Vectorize -----------------------------------------------------
 [[vectorize]]
 binding    = "VECTORIZE"
 index_name = "newshub-index"
 
-# ----- Workers AI ---------------------------------------------------
+# ----- Workers AI ----------------------------------------------------
 [ai]
 binding = "AI"
