@@ -11,7 +11,7 @@ directory = ".vercel/output/static"
 [[d1_databases]]
 binding       = "DB"
 database_name = "newshub"
-database_id   = "ここは今の値をそのまま残す"
+database_id   = "a18b94b2-1c96-4d92-bfbd-87581ac2f2c9"
 
 # ----- Vectorize -----------------------------------------------------
 [[vectorize]]
