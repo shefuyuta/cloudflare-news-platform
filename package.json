@@ -7,7 +7,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@cloudflare/next-on-pages": "^1.13.16",
+    "@opennextjs/cloudflare": "^1.3.2",
     "@cloudflare/workers-types": "^4.20250508.0",
     "@tailwindcss/postcss": "^4.1.7",
     "@types/node": "^22.15.21",
