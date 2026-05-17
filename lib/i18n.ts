@@ -13,7 +13,7 @@ const T = {
   brand:            { en: "shefutech News Hub", ja: "shefutech News Hub" },
   editionDate:      { en: "Edition", ja: "Edition" },
   poweredBy:        { en: "AI-augmented news desk\npowered by Cloudflare", ja: "AI連携ニュースデスク\npowered by Cloudflare" },
-  crossCuts:        { en: "Cross-cuts", ja: "クロスカット" },
+  crossCuts:        { en: "Overall", ja: "全体" },
 
   // ---- Nav ----------------------------------------------------------
   navLatest:        { en: "Latest",        ja: "最新" },
