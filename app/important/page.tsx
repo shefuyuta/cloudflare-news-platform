@@ -1,17 +1,17 @@
 // app/important/page.tsx
-import { getRequestContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import { IMPORTANT_THRESHOLD } from "@/lib/categories";
 import type { Env } from "@/lib/types";
 
-export const runtime = "edge";
+
 
 export default async function ImportantPage({ searchParams }: {
   searchParams: Promise<{ q?: string; tag?: string | string[] }>;
 }) {
   const sp   = await searchParams;
-  const env  = getRequestContext().env as unknown as Env;
+  const env  = (await getCloudflareContext()).env as unknown as Env;
   const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
 
   const items = await listArticles(env, { important: true, q: sp.q, tags, limit: 80 });

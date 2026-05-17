@@ -1,12 +1,12 @@
 // app/api/chat/route.ts
-import { getRequestContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { streamChat } from "@/lib/rag/chat";
 import type { Env, ChatRequest } from "@/lib/types";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request): Promise<Response> {
-  const env = getRequestContext().env as unknown as Env;
+  const env = (await getCloudflareContext()).env as unknown as Env;
   let body: ChatRequest;
   try {
     body = await req.json();

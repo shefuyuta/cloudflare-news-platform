@@ -11,14 +11,14 @@
 //      retriever can filter by view.
 
 import { NextResponse } from "next/server";
-import { getRequestContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { loadRuntimeConfig } from "@/lib/rag/config";
 import { embedBatch, chunk } from "@/lib/rag/embeddings";
 import { upsertTags, setArticleTags } from "@/lib/db";
 import type { Env } from "@/lib/types";
 import type { Category } from "@/lib/categories";
 
-export const runtime = "edge";
+
 
 interface IngestArticle {
   id?: string;
@@ -36,7 +36,7 @@ interface IngestArticle {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const env = getRequestContext().env as unknown as Env;
+  const env = (await getCloudflareContext()).env as unknown as Env;
   const cfg = await loadRuntimeConfig(env);
 
   let payload: { articles: IngestArticle[] };

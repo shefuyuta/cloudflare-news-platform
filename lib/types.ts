@@ -17,7 +17,7 @@ export type NewsArticle = {
   importanceScore?: number;       // 0–10
 };
 
-/** Cloudflare bindings exposed to Next.js routes via getRequestContext().env */
+/** Cloudflare bindings exposed to Next.js routes via (await getCloudflareContext()).env */
 export interface Env {
   DB: D1Database;
   VECTORIZE: VectorizeIndex;

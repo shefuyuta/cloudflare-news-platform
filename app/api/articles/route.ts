@@ -1,14 +1,14 @@
 // app/api/articles/route.ts
 import { NextResponse } from "next/server";
-import { getRequestContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import type { Env, ArticleQuery } from "@/lib/types";
 import type { Category } from "@/lib/categories";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request): Promise<Response> {
-  const env = getRequestContext().env as unknown as Env;
+  const env = (await getCloudflareContext()).env as unknown as Env;
   const { searchParams } = new URL(req.url);
 
   const q: ArticleQuery = {

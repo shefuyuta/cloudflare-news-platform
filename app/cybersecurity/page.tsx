@@ -1,18 +1,18 @@
 // app/cybersecurity/page.tsx
-import { getRequestContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles, listAllTags } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import { FilterTabs } from "@/components/news/FilterTabs";
 import { subcategoryLabel } from "@/lib/categories";
 import type { Env } from "@/lib/types";
 
-export const runtime = "edge";
+
 
 export default async function CyberPage({ searchParams }: {
   searchParams: Promise<{ subcategory?: string; q?: string; tag?: string | string[] }>;
 }) {
   const sp   = await searchParams;
-  const env  = getRequestContext().env as unknown as Env;
+  const env  = (await getCloudflareContext()).env as unknown as Env;
   const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
 
   const [items, available] = await Promise.all([
