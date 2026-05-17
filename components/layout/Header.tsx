@@ -43,7 +43,11 @@ export function Header() {
 
     try {
       const res = await fetch("/api/fetch-news", { method: "POST" });
-      const data = await res.json();
+      const data = await res.json() as {
+        ingested: number;
+        elapsed: string;
+      };
+      
       const msg = lang === "ja"
         ? `${data.ingested}件取得 (${data.elapsed})`
         : `${data.ingested} articles (${data.elapsed})`;
