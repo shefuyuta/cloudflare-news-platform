@@ -1,5 +1,5 @@
 // app/api/chat/route.ts
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getRequestContext } from "@opennextjs/cloudflare";
 import { streamChat } from "@/lib/rag/chat";
 import type { Env, ChatRequest } from "@/lib/types";
 

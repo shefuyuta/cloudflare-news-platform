@@ -11,7 +11,7 @@
 //      retriever can filter by view.
 
 import { NextResponse } from "next/server";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getRequestContext } from "@opennextjs/cloudflare";
 import { loadRuntimeConfig } from "@/lib/rag/config";
 import { embedBatch, chunk } from "@/lib/rag/embeddings";
 import { upsertTags, setArticleTags } from "@/lib/db";

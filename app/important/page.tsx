@@ -1,5 +1,5 @@
 // app/important/page.tsx
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getRequestContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import { IMPORTANT_THRESHOLD } from "@/lib/categories";

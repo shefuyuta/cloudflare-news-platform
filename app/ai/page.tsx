@@ -1,5 +1,5 @@
 // app/ai/page.tsx
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getRequestContext } from "@opennextjs/cloudflare";
 import { listArticles, listAllTags } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import { FilterTabs } from "@/components/news/FilterTabs";

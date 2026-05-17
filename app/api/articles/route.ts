@@ -1,6 +1,6 @@
 // app/api/articles/route.ts
 import { NextResponse } from "next/server";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getRequestContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import type { Env, ArticleQuery } from "@/lib/types";
 import type { Category } from "@/lib/categories";
