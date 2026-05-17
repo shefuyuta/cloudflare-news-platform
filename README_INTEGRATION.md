@@ -92,7 +92,7 @@ cp wrangler.toml.example wrangler.toml
 
 ```bash
 npm install
-npx @cloudflare/next-on-pages
+npx @opennextjs/cloudflare
 npx wrangler pages dev .vercel/output/static
 ```
 
