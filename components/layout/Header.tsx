@@ -18,6 +18,8 @@ export function Header() {
   const params   = useSearchParams();
   const { lang, toggle, t } = useLang();
   const [val, setVal] = useState(params.get("q") ?? "");
+  const [fetching, setFetching] = useState(false);
+  const [fetchResult, setFetchResult] = useState<string | null>(null);
 
   const currentHours = parseInt(params.get("hours") ?? "24", 10);
 
@@ -32,6 +34,29 @@ export function Header() {
     const sp = new URLSearchParams(params);
     if (hours === 24) sp.delete("hours"); else sp.set("hours", String(hours));
     router.push(`${pathname}?${sp.toString()}`);
+  }
+
+  async function fetchNews() {
+    if (fetching) return;
+    setFetching(true);
+    setFetchResult(null);
+
+    try {
+      const res = await fetch("/api/fetch-news", { method: "POST" });
+      const data = await res.json();
+      const msg = lang === "ja"
+        ? `${data.ingested}件取得 (${data.elapsed})`
+        : `${data.ingested} articles (${data.elapsed})`;
+      setFetchResult(msg);
+      // Reload the page to show new articles
+      router.refresh();
+    } catch (e) {
+      setFetchResult(lang === "ja" ? "取得エラー" : "Fetch error");
+    } finally {
+      setFetching(false);
+      // Clear result message after 5 seconds
+      setTimeout(() => setFetchResult(null), 5000);
+    }
   }
 
   return (
@@ -65,6 +90,32 @@ export function Header() {
             </button>
           ))}
         </div>
+
+        {/* Refresh button -------------------------------------------- */}
+        <button
+          onClick={fetchNews}
+          disabled={fetching}
+          className={[
+            "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors flex items-center gap-1.5",
+            fetching
+              ? "bg-[var(--line-soft)] text-[var(--ink-4)]"
+              : "ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+          ].join(" ")}
+          title={lang === "ja" ? "ニュースを手動取得" : "Fetch latest news"}
+        >
+          <span className={fetching ? "animate-spin" : ""}>↻</span>
+          {fetching
+            ? (lang === "ja" ? "取得中…" : "Fetching…")
+            : (lang === "ja" ? "更新" : "Refresh")
+          }
+        </button>
+
+        {/* Fetch result toast ---------------------------------------- */}
+        {fetchResult && (
+          <span className="text-[11px] text-emerald-600 font-medium animate-pulse">
+            {fetchResult}
+          </span>
+        )}
 
         {/* Lang toggle ----------------------------------------------- */}
         <button
