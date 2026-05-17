@@ -1,5 +1,5 @@
 // app/page.tsx
-import { getRequestContext } from " @opennextjs/cloudflare";
+import { getRequestContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import type { Env } from "@/lib/types";
