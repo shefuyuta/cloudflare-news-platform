@@ -28,12 +28,12 @@ const T = {
   navImportantSub:  { en: "High priority", ja: "重要記事のみ" },
 
   // ---- Page headings ------------------------------------------------
-  frontPage:        { en: "Front Page",    ja: "フロントページ" },
-  todaysEdition:    { en: "Today's edition", ja: "本日のエディション" },
+  frontPage:        { en: "HOME",    ja: "HOME" },
+  todaysEdition:    { en: "The latest News", ja: "最新のニュース" },
   todaysEditionSub: { en: "Latest from across General, Cybersecurity, and AI desks.",
                       ja: "一般・サイバーセキュリティ・AIの最新記事。" },
-  desk:             { en: "Desk",          ja: "デスク" },
-  crossCut:         { en: "Cross-cut",     ja: "クロスカット" },
+  desk:             { en: "Section",          ja: "セクション" },
+  crossCut:         { en: "Overall",     ja: "全体" },
 
   generalTitle:     { en: "General",       ja: "一般ニュース" },
   generalSub:       { en: "Major events, geopolitics, politics, economy, business.",
@@ -78,7 +78,7 @@ const T = {
                       ja: "タグをクリアするか、タブを切り替えてみてください。" },
 
   // ---- Chat ---------------------------------------------------------
-  askNewsHub:       { en: "Ask NewsHub",   ja: "NewsHubに質問" },
+  askNewsHub:       { en: "Ask NewsHub",   ja: "NewsHub AIに質問" },
   chatTitle:        { en: "NewsHub Assistant", ja: "NewsHubアシスタント" },
   chatScope:        { en: "Scope",         ja: "スコープ" },
   chatAllNews:      { en: "all news",      ja: "全ニュース" },
@@ -87,7 +87,7 @@ const T = {
   chatSend:         { en: "Send",          ja: "送信" },
   chatSources:      { en: "Sources",       ja: "ソース" },
   chatEmpty:        { en: "Ask anything about the articles in your current view. Sources are cited.",
-                      ja: "現在の記事について何でも質問できます。ソース付きで回答します。" },
+                      ja: "現在の記事について何でも質問できます。情報ソース付きで回答します。" },
 } as const;
 
 export type TKey = keyof typeof T;
