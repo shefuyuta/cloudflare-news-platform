@@ -5,7 +5,7 @@ const nextConfig = {};
 // In production, bindings are provided by the Cloudflare Pages runtime.
 if (process.env.NODE_ENV === "development") {
   const { setupDevPlatform } =
-    require("@cloudflare/next-on-pages/next-dev");
+    require("@opennextjs/cloudflare/next-dev");
   setupDevPlatform();
 }
 
