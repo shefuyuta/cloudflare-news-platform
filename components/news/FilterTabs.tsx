@@ -2,24 +2,35 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import {
-  REGIONS, SUBCATEGORIES, REGION_ORDER, SUBCATEGORY_ORDER,
-  type Category, type KnownRegion, type KnownSubcategory,
-} from "@/lib/categories";
+import { type Category } from "@/lib/categories";
 import { TagChip } from "./TagBadge";
+import { useLang } from "@/components/LangProvider";
+import type { TKey } from "@/lib/i18n";
 
 interface Props {
   category: Category;
-  /** Optional pre-computed tag list for chip filtering. */
   availableTags?: string[];
 }
 
-/** Sub-category tabs + active tag filters. URL is the source of truth:
- *  ?region=japan  or  ?subcategory=vulnerability  or  ?tag=foo&tag=bar */
+const REGION_TABS: { key: string; tKey: TKey }[] = [
+  { key: "japan",  tKey: "regionJapan" },
+  { key: "us",     tKey: "regionUS" },
+  { key: "asia",   tKey: "regionAsia" },
+  { key: "europe", tKey: "regionEurope" },
+  { key: "other",  tKey: "regionOther" },
+];
+
+const SUBCATEGORY_TABS: { key: string; tKey: TKey }[] = [
+  { key: "vulnerability", tKey: "subVulnerability" },
+  { key: "incident",      tKey: "subIncident" },
+  { key: "other",         tKey: "subOther" },
+];
+
 export function FilterTabs({ category, availableTags = [] }: Props) {
   const router    = useRouter();
   const pathname  = usePathname();
   const params    = useSearchParams();
+  const { t }     = useLang();
 
   const active = {
     region:      params.get("region"),
@@ -43,13 +54,9 @@ export function FilterTabs({ category, availableTags = [] }: Props) {
     router.push(`${pathname}?${sp.toString()}`);
   }
 
-  /* Render sub-category tabs based on category --------------------- */
   const subTabs =
-    category === "general"
-      ? REGION_ORDER.map(r => ({ key: r as string, label: REGIONS[r].label, labelJa: REGIONS[r].labelJa }))
-      : category === "cybersecurity"
-      ? SUBCATEGORY_ORDER.map(s => ({ key: s as string, label: SUBCATEGORIES[s].label, labelJa: SUBCATEGORIES[s].labelJa }))
-      : [];
+    category === "general"       ? REGION_TABS :
+    category === "cybersecurity" ? SUBCATEGORY_TABS : [];
 
   const subKey: "region" | "subcategory" | null =
     category === "general" ? "region" :
@@ -62,18 +69,16 @@ export function FilterTabs({ category, availableTags = [] }: Props) {
       {subKey && (
         <div className="flex items-center gap-1 -mb-px overflow-x-auto">
           <TabBtn
-            label="All"
-            labelJa="すべて"
+            label={t("all")}
             active={!currentSub}
             onClick={() => setParam(subKey, null)}
           />
-          {subTabs.map(t => (
+          {subTabs.map(tab => (
             <TabBtn
-              key={t.key}
-              label={t.label}
-              labelJa={t.labelJa}
-              active={currentSub === t.key}
-              onClick={() => setParam(subKey, t.key)}
+              key={tab.key}
+              label={t(tab.tKey)}
+              active={currentSub === tab.key}
+              onClick={() => setParam(subKey, tab.key)}
             />
           ))}
         </div>
@@ -81,9 +86,9 @@ export function FilterTabs({ category, availableTags = [] }: Props) {
 
       {availableTags.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap mt-4">
-          <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] mr-1">Tags</span>
-          {availableTags.slice(0, 20).map(t => (
-            <TagChip key={t} tag={t} active={active.tags.includes(t)} onClick={() => toggleTag(t)} />
+          <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] mr-1">{t("tags")}</span>
+          {availableTags.slice(0, 20).map(tag => (
+            <TagChip key={tag} tag={tag} active={active.tags.includes(tag)} onClick={() => toggleTag(tag)} />
           ))}
         </div>
       )}
@@ -91,7 +96,7 @@ export function FilterTabs({ category, availableTags = [] }: Props) {
   );
 }
 
-function TabBtn({ label, labelJa, active, onClick }: { label: string; labelJa: string; active: boolean; onClick: () => void }) {
+function TabBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -103,7 +108,6 @@ function TabBtn({ label, labelJa, active, onClick }: { label: string; labelJa: s
       ].join(" ")}
     >
       {label}
-      <span className="ml-1.5 text-[11px] text-[var(--ink-4)] font-normal">{labelJa}</span>
     </button>
   );
 }

@@ -5,8 +5,6 @@ import { listArticles } from "@/lib/db";
 import type { Env, ArticleQuery } from "@/lib/types";
 import type { Category } from "@/lib/categories";
 
-
-
 export async function GET(req: Request): Promise<Response> {
   const env = (await getCloudflareContext()).env as unknown as Env;
   const { searchParams } = new URL(req.url);
@@ -18,6 +16,7 @@ export async function GET(req: Request): Promise<Response> {
     tags:        searchParams.getAll("tag"),
     q:           searchParams.get("q") ?? undefined,
     important:   searchParams.get("important") === "1",
+    hoursAgo:    clampInt(searchParams.get("hours"), 24, 1, 168),
     limit:       clampInt(searchParams.get("limit"),  50,  1, 200),
     offset:      clampInt(searchParams.get("offset"),  0,  0, 10_000),
   };

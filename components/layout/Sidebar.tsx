@@ -3,32 +3,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CATEGORIES } from "@/lib/categories";
-
-const NAV = [
-  { href: "/",              label: "Latest",        sub: "すべての最新" },
-  { href: "/general",       label: CATEGORIES.general.label,       sub: CATEGORIES.general.labelJa },
-  { href: "/cybersecurity", label: CATEGORIES.cybersecurity.label, sub: CATEGORIES.cybersecurity.labelJa },
-  { href: "/ai",            label: CATEGORIES.ai.label,            sub: CATEGORIES.ai.labelJa },
-];
-
-const CROSSCUT = [
-  { href: "/important", label: "Important", sub: "重要記事のみ" },
-];
+import { useLang } from "@/components/LangProvider";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { t } = useLang();
+
+  const NAV = [
+    { href: "/",              label: t("navLatest"),    sub: t("navLatestSub") },
+    { href: "/general",       label: t("navGeneral"),   sub: t("navGeneralSub") },
+    { href: "/cybersecurity", label: t("navCyber"),     sub: t("navCyberSub") },
+    { href: "/ai",            label: t("navAI"),        sub: t("navAISub") },
+  ];
+
+  const CROSSCUT = [
+    { href: "/important", label: t("navImportant"), sub: t("navImportantSub") },
+  ];
 
   return (
     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-60 border-r hairline bg-[var(--surface)]">
       {/* Brand ------------------------------------------------------ */}
       <div className="px-6 pt-8 pb-10">
         <Link href="/" className="block">
-          <h1 className="font-display text-2xl font-semibold tracking-tight">
+          <h1 className="font-display text-xl font-semibold tracking-tight leading-tight">
+            <span className="text-[var(--ink-3)]">shefutech</span>
+            <br />
             News<span className="text-[var(--ink-3)]">Hub</span>
           </h1>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] mt-1">
-            Edition · {new Date().toLocaleDateString("en-CA")}
+          <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] mt-1.5">
+            {t("editionDate")} · {new Date().toLocaleDateString("en-CA")}
           </p>
         </Link>
       </div>
@@ -40,7 +43,7 @@ export function Sidebar() {
         </ul>
 
         <div className="mt-6 mb-2 px-3">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-4)]">Cross-cuts</p>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-4)]">{t("crossCuts")}</p>
         </div>
         <ul className="space-y-0.5">
           {CROSSCUT.map(item => <NavItem key={item.href} item={item} pathname={pathname} />)}
@@ -49,10 +52,8 @@ export function Sidebar() {
 
       {/* Foot -------------------------------------------------------- */}
       <div className="px-6 py-6 border-t hairline">
-        <p className="text-[11px] text-[var(--ink-3)] leading-relaxed">
-          AI-augmented news desk
-          <br />
-          <span className="text-[var(--ink-4)]">powered by Cloudflare</span>
+        <p className="text-[11px] text-[var(--ink-3)] leading-relaxed whitespace-pre-line">
+          {t("poweredBy")}
         </p>
       </div>
     </aside>

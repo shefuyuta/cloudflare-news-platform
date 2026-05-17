@@ -64,6 +64,13 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
   if (q.q)                   { where.push("a.title LIKE ?");    binds.push(`%${q.q}%`); }
   if (q.important)           { where.push("a.importance_score >= ?"); binds.push(IMPORTANT_THRESHOLD); }
 
+  // Time range filter: only articles published within the last N hours
+  if (q.hoursAgo && q.hoursAgo > 0) {
+    const cutoff = new Date(Date.now() - q.hoursAgo * 3600_000).toISOString();
+    where.push("a.published_at >= ?");
+    binds.push(cutoff);
+  }
+
   // tag ANY-of filter via EXISTS subquery — does not affect the SELECT shape
   if (q.tags?.length) {
     const ph = q.tags.map(() => "?").join(",");
@@ -131,7 +138,6 @@ export async function listAllTags(env: Env, category?: string): Promise<string[]
 /** Insert tag names if missing, return their ids in the same order. */
 export async function upsertTags(env: Env, names: string[]): Promise<number[]> {
   if (!names.length) return [];
-  // Insert all (ignore duplicates), then select ids in name order
   const insertSql = "INSERT OR IGNORE INTO tags (name) VALUES " + names.map(() => "(?)").join(",");
   await env.DB.prepare(insertSql).bind(...names).run();
 

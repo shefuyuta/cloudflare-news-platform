@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Citation } from "@/lib/types";
 import type { Category } from "@/lib/categories";
+import { useLang } from "@/components/LangProvider";
 
 interface Msg {
   role: "user" | "assistant";
@@ -12,8 +13,6 @@ interface Msg {
   citations?: Citation[];
 }
 
-/** Derive a category/region/subcategory context from the current URL so the
- *  bot's retrieval is automatically scoped to what the reader is looking at. */
 function useViewContext() {
   const pathname = usePathname();
   const params   = useSearchParams();
@@ -39,6 +38,7 @@ export function AIChatDock() {
   const sessionId             = useRef(crypto.randomUUID());
   const scrollRef             = useRef<HTMLDivElement>(null);
   const ctx                   = useViewContext();
+  const { t }                 = useLang();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -66,7 +66,7 @@ export function AIChatDock() {
       if (!res.body) throw new Error("No body");
       await consumeStream(res.body, setMsgs);
     } catch (e) {
-      setMsgs(m => [...m, { role: "assistant", content: `⚠️ Error: ${(e as Error).message}` }]);
+      setMsgs(m => [...m, { role: "assistant", content: `Error: ${(e as Error).message}` }]);
     } finally {
       setPending(false);
     }
@@ -81,7 +81,7 @@ export function AIChatDock() {
           className="fixed bottom-6 right-6 z-30 h-12 px-5 rounded-full bg-[var(--ink)] text-white text-sm font-medium shadow-lg hover:bg-black transition-colors flex items-center gap-2"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Ask NewsHub
+          {t("askNewsHub")}
         </button>
       )}
 
@@ -104,16 +104,15 @@ export function AIChatDock() {
   );
 }
 
-/* =================================================================== */
-
 function ChatHeader({ ctx, onClose }: { ctx: ReturnType<typeof useViewContext>; onClose: () => void }) {
-  const scope = [ctx.category, ctx.region, ctx.subcategory].filter(Boolean).join(" › ") || "all news";
+  const { t } = useLang();
+  const scope = [ctx.category, ctx.region, ctx.subcategory].filter(Boolean).join(" > ") || t("chatAllNews");
   return (
     <header className="px-4 py-3 border-b hairline flex items-center justify-between">
       <div>
-        <div className="font-display text-sm font-semibold">NewsHub Assistant</div>
+        <div className="font-display text-sm font-semibold">{t("chatTitle")}</div>
         <div className="text-[11px] text-[var(--ink-3)] mt-0.5">
-          Scope: <span className="font-mono">{scope}</span>
+          {t("chatScope")}: <span className="font-mono">{scope}</span>
         </div>
       </div>
       <button onClick={onClose} aria-label="Close" className="text-[var(--ink-3)] hover:text-[var(--ink)] text-xl leading-none px-1">
@@ -124,14 +123,15 @@ function ChatHeader({ ctx, onClose }: { ctx: ReturnType<typeof useViewContext>; 
 }
 
 function EmptyState({ ctx }: { ctx: ReturnType<typeof useViewContext> }) {
+  const { t } = useLang();
   const examples = ctx.category === "cybersecurity"
-    ? ["Top exploited CVEs this week", "Latest ransomware incidents in Japan", "Summarize the most severe vulnerabilities"]
+    ? ["Top exploited CVEs this week", "Latest ransomware incidents", "Summarize the most severe vulnerabilities"]
     : ctx.category === "ai"
     ? ["What model releases happened this week?", "Compare claims across the latest AI safety stories"]
     : ["Brief me on Japan headlines today", "What's the consensus on the latest geopolitical event?"];
   return (
     <div className="text-sm text-[var(--ink-3)] space-y-3 pt-2">
-      <p>Ask anything about the articles in your current view. Sources are cited.</p>
+      <p>{t("chatEmpty")}</p>
       <ul className="space-y-1.5">
         {examples.map(e => <li key={e} className="font-display italic text-[var(--ink-2)]">"{e}"</li>)}
       </ul>
@@ -140,6 +140,7 @@ function EmptyState({ ctx }: { ctx: ReturnType<typeof useViewContext> }) {
 }
 
 function ChatBubble({ msg }: { msg: Msg }) {
+  const { t } = useLang();
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -154,7 +155,7 @@ function ChatBubble({ msg }: { msg: Msg }) {
       {msg.content}
       {msg.citations && msg.citations.length > 0 && (
         <div className="mt-3 space-y-1.5 border-t hairline pt-3">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-3)]">Sources</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-3)]">{t("chatSources")}</div>
           {msg.citations.map((c, i) => (
             <a
               key={c.article_id}
@@ -177,6 +178,7 @@ function ChatBubble({ msg }: { msg: Msg }) {
 function ChatInput({ value, onChange, onSend, disabled }: {
   value: string; onChange: (s: string) => void; onSend: () => void; disabled: boolean;
 }) {
+  const { t } = useLang();
   return (
     <form
       onSubmit={e => { e.preventDefault(); onSend(); }}
@@ -189,7 +191,7 @@ function ChatInput({ value, onChange, onSend, disabled }: {
           if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
         }}
         rows={1}
-        placeholder="Ask about your current view…"
+        placeholder={t("chatPlaceholder")}
         className="flex-1 resize-none text-sm bg-transparent outline-none placeholder:text-[var(--ink-4)] max-h-28"
       />
       <button
@@ -197,15 +199,11 @@ function ChatInput({ value, onChange, onSend, disabled }: {
         disabled={disabled || !value.trim()}
         className="text-sm font-medium px-3 py-1.5 rounded-md bg-[var(--ink)] text-white disabled:opacity-30"
       >
-        Send
+        {t("chatSend")}
       </button>
     </form>
   );
 }
-
-/* ===================================================================
- * SSE consumer — handles `citations` header event + AI text stream
- * =================================================================*/
 
 async function consumeStream(
   body: ReadableStream<Uint8Array>,

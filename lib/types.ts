@@ -17,7 +17,7 @@ export type NewsArticle = {
   importanceScore?: number;       // 0–10
 };
 
-/** Cloudflare bindings exposed to Next.js routes via (await getCloudflareContext()).env */
+/** Cloudflare bindings exposed via getCloudflareContext().env */
 export interface Env {
   DB: D1Database;
   VECTORIZE: VectorizeIndex;
@@ -32,6 +32,7 @@ export interface ArticleQuery {
   tags?: string[];
   q?: string;
   important?: boolean;            // importance_score >= IMPORTANT_THRESHOLD
+  hoursAgo?: number;              // only articles published within last N hours
   limit?: number;
   offset?: number;
 }
