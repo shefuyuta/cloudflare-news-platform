@@ -20,7 +20,7 @@
   --accent-ai:       #5B21B6;
 
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
-  --font-ui:      'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-ui:      'Meiryo', 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono:    'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -79,3 +79,8 @@ html, body {
 .dot { animation: dot-pulse 1.2s infinite both; }
 .dot:nth-child(2) { animation-delay: 0.15s; }
 .dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* Pointer cursor on all clickable elements */
+a, button, [role="button"], [onclick], summary, label[for] {
+  cursor: pointer;
+}
