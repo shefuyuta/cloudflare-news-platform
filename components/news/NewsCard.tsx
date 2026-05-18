@@ -19,8 +19,10 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
 
   const dt = article.publishedAt ? new Date(article.publishedAt) : null;
   const date = dt && !isNaN(dt.getTime())
-    ? dt.toLocaleDateString(lang === "ja" ? "ja-JP" : "en-US", { month: "short", day: "numeric" })
+    ? dt.toLocaleDateString(lang === "ja" ? "ja-JP" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
     : "—";
+
+  const hasSummary = !!article.summary?.trim();
 
   return (
     <article className="border-b hairline py-4 first:pt-0 last:border-b-0">
@@ -47,7 +49,7 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
               subcategory={article.subcategory}
             />
             <ImportanceBadge score={article.importanceScore} />
-            <span className="text-[11px] text-[var(--ink-3)] ml-auto font-mono uppercase tracking-wider flex-shrink-0">
+            <span className="text-[11px] text-[var(--ink-3)] ml-auto font-mono tracking-wider flex-shrink-0">
               {date}
             </span>
           </div>
@@ -66,19 +68,15 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
       {/* Expanded detail panel -------------------------------------------- */}
       {open && (
         <div className="ml-7 mt-3 pl-3 border-l-2 border-[var(--line)] animate-fadeIn">
-          {/* Summary */}
-          {article.summary ? (
-            <p className="text-sm text-[var(--ink-2)] leading-relaxed whitespace-pre-line">
+          {/* Summary (only if available) */}
+          {hasSummary && (
+            <p className="text-sm text-[var(--ink-2)] leading-relaxed mb-3">
               {article.summary}
-            </p>
-          ) : (
-            <p className="text-sm text-[var(--ink-4)] italic">
-              {lang === "ja" ? "概要はありません" : "No summary available"}
             </p>
           )}
 
-          {/* Source + URL + Tags */}
-          <div className="mt-3 flex items-center gap-3 flex-wrap text-[12px]">
+          {/* Source + URL + Open button */}
+          <div className="flex items-center gap-3 flex-wrap text-[12px]">
             <span className="font-mono text-[var(--ink-2)]">{article.source}</span>
             <span className="text-[var(--ink-4)]">·</span>
             <Link
@@ -92,7 +90,6 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
               {prettyUrl(article.url)} ↗
             </Link>
 
-            {/* Open original button */}
             <Link
               href={article.url}
               target="_blank"
