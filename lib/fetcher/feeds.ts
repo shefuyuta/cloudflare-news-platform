@@ -247,7 +247,7 @@ export const FEEDS: FeedSource[] = [
   },
   {
     name: "Nikkei Asia",
-    category: "ai",
+    category: "general",
     regionHint: "asia",
     urls: [
       "https://asia.nikkei.com/rss/feed/nar",
