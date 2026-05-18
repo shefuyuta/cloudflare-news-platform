@@ -1,15 +1,15 @@
 // app/api/fetch-news/route.ts
 // ---------------------------------------------------------------------
 // Browser-triggered RSS fetch. Called from the UI "Refresh" button.
-// Fetches all RSS feeds, parses, classifies, and writes to D1 + Vectorize.
-// Same logic as the standalone fetcher worker, but runs inside the app.
+// Fetches all RSS feeds, parses, classifies BY CONTENT, and writes
+// to D1 + Vectorize.
 // ---------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { FEEDS, type FeedSource } from "@/lib/fetcher/feeds";
 import { parseFeed } from "@/lib/fetcher/parser";
-import { classifyRegion, classifySubcategory, extractTags } from "@/lib/fetcher/classifier";
+import { classifyCategory, classifyRegion, classifySubcategory, extractTags } from "@/lib/fetcher/classifier";
 import { upsertTags, setArticleTags } from "@/lib/db";
 import { loadRuntimeConfig } from "@/lib/rag/config";
 import { embedBatch, chunk } from "@/lib/rag/embeddings";
@@ -115,21 +115,26 @@ async function fetchSource(
         const pubDate = new Date(item.publishedAt);
         if (pubDate < cutoff) continue;
 
-        const region = source.category === "general"
+        // Content-based category classification
+        const category = classifyCategory(source, item.title, item.summary);
+
+        // Region only for general news
+        const region = category === "general"
           ? classifyRegion(source, item.title, item.summary)
           : undefined;
 
-        const subcategory = source.category === "cybersecurity"
+        // Subcategory only for cybersecurity
+        const subcategory = category === "cybersecurity"
           ? classifySubcategory(source, item.title, item.summary)
           : undefined;
 
-        const tags = extractTags(source.category, item.title, item.summary);
+        const tags = extractTags(category, item.title, item.summary);
 
         articles.push({
           title: item.title,
           url: item.url,
           source: source.name,
-          category: source.category,
+          category,
           region,
           subcategory,
           tags,
@@ -145,7 +150,7 @@ async function fetchSource(
 }
 
 // =====================================================================
-// Direct D1 + Vectorize ingest (same logic as /api/ingest)
+// Direct D1 + Vectorize ingest
 // =====================================================================
 
 async function ingestArticle(
@@ -176,7 +181,7 @@ async function ingestArticle(
     await setArticleTags(env, id, tagIds);
   }
 
-  // 3. Embed + Vectorize (skip if already embedded)
+  // 3. Embed + Vectorize
   try {
     const body = a.summary?.trim() || a.title;
     const chunks = chunk(body);
@@ -200,7 +205,6 @@ async function ingestArticle(
       "UPDATE articles SET vector_id = ?, embedded_at = ? WHERE id = ?",
     ).bind(`${id}#0`, new Date().toISOString(), id).run();
   } catch (e) {
-    // Vectorize errors are non-fatal — article is still in D1
     console.warn(`[fetch-news] Vectorize failed for ${id}:`, e);
   }
 }
