@@ -1,9 +1,7 @@
 // app/api/chat/route.ts
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { streamChat } from "@/lib/rag/chat";
+import { runChat } from "@/lib/rag/chat";
 import type { Env, ChatRequest } from "@/lib/types";
-
-
 
 export async function POST(req: Request): Promise<Response> {
   const env = (await getCloudflareContext()).env as unknown as Env;
@@ -21,10 +19,9 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("`session_id` is required", { status: 400 });
   }
 
-  // Hard guard on payload size — keep history short.
   if ((body.history?.length ?? 0) > 20) {
     body.history = body.history!.slice(-20);
   }
 
-  return streamChat(env, body);
+  return runChat(env, body);
 }

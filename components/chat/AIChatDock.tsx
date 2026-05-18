@@ -63,8 +63,18 @@ export function AIChatDock() {
         }),
       });
 
-      if (!res.body) throw new Error("No body");
-      await consumeStream(res.body, setMsgs);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "Unknown error");
+        throw new Error(errText);
+      }
+
+      const data = await res.json() as { answer: string; citations: Citation[] };
+
+      setMsgs(m => [...m, {
+        role: "assistant",
+        content: data.answer,
+        citations: data.citations,
+      }]);
     } catch (e) {
       setMsgs(m => [...m, { role: "assistant", content: `Error: ${(e as Error).message}` }]);
     } finally {
@@ -203,58 +213,4 @@ function ChatInput({ value, onChange, onSend, disabled }: {
       </button>
     </form>
   );
-}
-
-async function consumeStream(
-  body: ReadableStream<Uint8Array>,
-  setMsgs: React.Dispatch<React.SetStateAction<Msg[]>>,
-) {
-  setMsgs(m => [...m, { role: "assistant", content: "" }]);
-
-  const reader = body.getReader();
-  const dec    = new TextDecoder();
-  let buf      = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-
-    const frames = buf.split("\n\n");
-    buf = frames.pop() ?? "";
-
-    for (const frame of frames) {
-      const lines = frame.split("\n");
-      let event = "message";
-      let data  = "";
-      for (const l of lines) {
-        if (l.startsWith("event:")) event = l.slice(6).trim();
-        else if (l.startsWith("data:")) data += l.slice(5).trim();
-      }
-      if (!data || data === "[DONE]") continue;
-
-      if (event === "citations") {
-        try {
-          const cites = JSON.parse(data) as Citation[];
-          setMsgs(m => {
-            const last = m[m.length - 1];
-            if (!last || last.role !== "assistant") return m;
-            return [...m.slice(0, -1), { ...last, citations: cites }];
-          });
-        } catch { /* ignore malformed */ }
-        continue;
-      }
-
-      try {
-        const obj = JSON.parse(data) as { response?: string };
-        if (obj.response) {
-          setMsgs(m => {
-            const last = m[m.length - 1];
-            if (!last || last.role !== "assistant") return m;
-            return [...m.slice(0, -1), { ...last, content: last.content + obj.response }];
-          });
-        }
-      } catch { /* not JSON */ }
-    }
-  }
 }
