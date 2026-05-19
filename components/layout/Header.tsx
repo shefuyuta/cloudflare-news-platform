@@ -53,17 +53,20 @@ export function Header() {
       // Step 2: Embed missing articles (may need multiple runs)
       let totalEmbedded = 0;
       let remaining = 999;
-      let runs = 0;
-      const maxRuns = 5; // Safety limit
 
-      while (remaining > 0 && runs < maxRuns) {
-        runs++;
+      while (remaining > 0) {
         const embedRes = await fetch("/api/embed-missing", { method: "POST" });
         const embedData = await embedRes.json() as { embedded: number; remaining: number };
         totalEmbedded += embedData.embedded;
         remaining = embedData.remaining;
 
-        if (embedData.embedded === 0) break; // No progress, stop
+        // Show progress
+        const progressMsg = lang === "ja"
+          ? `AI処理中… ${totalEmbedded}件完了 / 残り${remaining}件`
+          : `Embedding… ${totalEmbedded} done / ${remaining} left`;
+        setFetchResult(progressMsg);
+
+        if (embedData.embedded === 0) break;
       }
 
       const finalMsg = lang === "ja"
