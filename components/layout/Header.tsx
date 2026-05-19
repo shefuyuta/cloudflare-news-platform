@@ -44,7 +44,7 @@ export function Header() {
     try {
       // Step 1: Fetch RSS → DB
       const fetchRes = await fetch("/api/fetch-news", { method: "POST" });
-      const fetchData = await fetchRes.json();
+      const fetchData = await fetchRes.json() as { ingested: number };
       const fetchMsg = lang === "ja"
         ? `${fetchData.ingested}件取得完了`
         : `${fetchData.ingested} articles fetched`;
@@ -59,7 +59,7 @@ export function Header() {
       while (remaining > 0 && runs < maxRuns) {
         runs++;
         const embedRes = await fetch("/api/embed-missing", { method: "POST" });
-        const embedData = await embedRes.json();
+        const embedData = await embedRes.json() as { embedded: number; remaining: number };
         totalEmbedded += embedData.embedded;
         remaining = embedData.remaining;
 
