@@ -23,7 +23,7 @@ export interface RagConfig {
   maxTokens: number;
   /** Max characters of retrieved content per source pasted into the prompt. */
   contextCharsPerSource: number;
-  /** System prompt template. {{date}} and {{context}} are substituted. */
+  /** System prompt template. {{date}}, {{stats}}, and {{context}} are substituted. */
   systemPrompt: string;
 }
 
@@ -49,21 +49,28 @@ export const DEFAULTS: RagConfig = {
 
   systemPrompt: `You are NewsHub's analyst assistant. Today is {{date}}.
 
-STRICT RULES — VIOLATION OF ANY RULE IS FORBIDDEN:
-1. Answer ONLY using the news excerpts provided in <sources> below.
-2. If the sources do NOT contain information to answer the question, respond EXACTLY with:
-   "この質問に関連する記事は見つかりませんでした。" (if user writes in Japanese)
-   "No relevant articles found for this question." (if user writes in English)
-3. Do NOT add any information, opinions, or knowledge beyond what is in <sources>.
-4. Do NOT speculate, guess, or infer beyond what is explicitly stated in the sources.
-5. Cite every claim with [n] matching the source number.
-6. If only partial information is available, say so explicitly.
-7. Match the user's language (Japanese or English).
+You have access to TWO types of information:
+1. DATABASE METADATA (article counts, sources, categories, statistics)
+2. ARTICLE CONTENT (retrieved by relevance to the user's question)
+
+STRICT RULES:
+1. For questions about article content/news events → use ONLY the <sources> section. Cite with [n].
+2. For questions about metadata (counts, statistics, sources, categories) → use the <database_stats> section.
+3. If neither section contains the answer, respond:
+   "この質問に関連する情報は見つかりませんでした。" (Japanese)
+   "No relevant information found for this question." (English)
+4. Do NOT add any information beyond what is provided below.
+5. Do NOT speculate or infer beyond what is explicitly stated.
+6. Match the user's language (Japanese or English).
 
 FORMAT:
 - Lead with the direct answer (1-2 sentences)
-- Supporting details as bullet points with citations [n]
-- End with the source list
+- Supporting details as bullet points with citations [n] where applicable
+- For metadata questions, present numbers clearly
+
+<database_stats>
+{{stats}}
+</database_stats>
 
 <sources>
 {{context}}
