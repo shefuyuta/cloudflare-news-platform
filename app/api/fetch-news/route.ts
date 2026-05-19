@@ -1,8 +1,7 @@
 // app/api/fetch-news/route.ts
 // ---------------------------------------------------------------------
-// Browser-triggered RSS fetch. Called from the UI "Refresh" button.
-// Fetches all RSS feeds, parses, classifies BY CONTENT, and writes
-// to D1 + Vectorize.
+// Browser-triggered RSS fetch. Saves to D1 only (fast).
+// Embedding is handled separately by /api/embed-missing.
 // ---------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
@@ -11,8 +10,6 @@ import { FEEDS, type FeedSource } from "@/lib/fetcher/feeds";
 import { parseFeed } from "@/lib/fetcher/parser";
 import { classifyCategory, classifyRegion, classifySubcategory, extractTags } from "@/lib/fetcher/classifier";
 import { upsertTags, setArticleTags } from "@/lib/db";
-import { loadRuntimeConfig } from "@/lib/rag/config";
-import { embedBatch, chunk } from "@/lib/rag/embeddings";
 import type { Env } from "@/lib/types";
 
 const FETCH_HEADERS = {
@@ -21,12 +18,10 @@ const FETCH_HEADERS = {
 };
 
 const MAX_AGE_HOURS = 72;
-const BATCH_TIMEOUT_MS = 25_000; // Stay under Workers 30s limit
 
 export async function POST(): Promise<Response> {
   const startTime = Date.now();
   const env = (await getCloudflareContext()).env as unknown as Env;
-  const cfg = await loadRuntimeConfig(env);
   const cutoff = new Date(Date.now() - MAX_AGE_HOURS * 3600_000);
   const seenUrls = new Set<string>();
 
@@ -52,15 +47,10 @@ export async function POST(): Promise<Response> {
   // Sort newest first
   allArticles.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
-  // Ingest into D1 + Vectorize (with timeout guard)
+  // Insert into D1 only (no embedding — that's done by /api/embed-missing)
   for (const a of allArticles) {
-    if (Date.now() - startTime > BATCH_TIMEOUT_MS) {
-      console.log("[fetch-news] Approaching timeout, stopping early.");
-      break;
-    }
-
     try {
-      await ingestArticle(env, cfg, a);
+      await ingestArticle(env, a);
       ingested++;
     } catch (e) {
       console.warn(`[fetch-news] Failed to ingest: ${a.url}`, e);
@@ -115,15 +105,12 @@ async function fetchSource(
         const pubDate = new Date(item.publishedAt);
         if (pubDate < cutoff) continue;
 
-        // Content-based category classification
         const category = classifyCategory(source, item.title, item.summary);
 
-        // Region only for general news
         const region = category === "general"
           ? classifyRegion(source, item.title, item.summary)
           : undefined;
 
-        // Subcategory only for cybersecurity
         const subcategory = category === "cybersecurity"
           ? classifySubcategory(source, item.title, item.summary)
           : undefined;
@@ -150,17 +137,12 @@ async function fetchSource(
 }
 
 // =====================================================================
-// Direct D1 + Vectorize ingest
+// D1 insert only (no Vectorize)
 // =====================================================================
 
-async function ingestArticle(
-  env: Env,
-  cfg: Awaited<ReturnType<typeof loadRuntimeConfig>>,
-  a: IngestArticle,
-): Promise<void> {
+async function ingestArticle(env: Env, a: IngestArticle): Promise<void> {
   const id = hashUrl(a.url);
 
-  // 1. Upsert article row
   await env.DB.prepare(`
     INSERT INTO articles (id, title, summary, category, subcategory, region,
                           source, url, published_at)
@@ -175,37 +157,9 @@ async function ingestArticle(
     a.source, a.url, a.publishedAt,
   ).run();
 
-  // 2. Tags
   if (a.tags.length) {
     const tagIds = await upsertTags(env, a.tags);
     await setArticleTags(env, id, tagIds);
-  }
-
-  // 3. Embed + Vectorize
-  try {
-    const body = a.summary?.trim() || a.title;
-    const chunks = chunk(body);
-    const vectors = await embedBatch(env, chunks, cfg);
-
-    if (vectors.length) {
-      await env.VECTORIZE.upsert(vectors.map((values, i) => ({
-        id: `${id}#${i}`,
-        values,
-        metadata: {
-          article_id: id,
-          category: a.category,
-          region: a.region ?? "",
-          subcategory: a.subcategory ?? "",
-          text: chunks[i].slice(0, 1500),
-        },
-      })));
-    }
-
-    await env.DB.prepare(
-      "UPDATE articles SET vector_id = ?, embedded_at = ? WHERE id = ?",
-    ).bind(`${id}#0`, new Date().toISOString(), id).run();
-  } catch (e) {
-    console.warn(`[fetch-news] Vectorize failed for ${id}:`, e);
   }
 }
 

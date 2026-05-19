@@ -39,34 +39,51 @@ export function Header() {
   async function fetchNews() {
     if (fetching) return;
     setFetching(true);
-    setFetchResult(null);
+    setFetchResult(lang === "ja" ? "記事を取得中…" : "Fetching articles…");
 
     try {
-      const res = await fetch("/api/fetch-news", { method: "POST" });
-      const data = await res.json() as {
-        ingested: number;
-        elapsed: string;
-      };
-      
-      const msg = lang === "ja"
-        ? `${data.ingested}件取得 (${data.elapsed})`
-        : `${data.ingested} articles (${data.elapsed})`;
-      setFetchResult(msg);
-      // Reload the page to show new articles
+      // Step 1: Fetch RSS → DB
+      const fetchRes = await fetch("/api/fetch-news", { method: "POST" });
+      const fetchData = await fetchRes.json();
+      const fetchMsg = lang === "ja"
+        ? `${fetchData.ingested}件取得完了`
+        : `${fetchData.ingested} articles fetched`;
+      setFetchResult(fetchMsg + (lang === "ja" ? "。AI埋め込み中…" : ". Embedding…"));
+
+      // Step 2: Embed missing articles (may need multiple runs)
+      let totalEmbedded = 0;
+      let remaining = 999;
+      let runs = 0;
+      const maxRuns = 5; // Safety limit
+
+      while (remaining > 0 && runs < maxRuns) {
+        runs++;
+        const embedRes = await fetch("/api/embed-missing", { method: "POST" });
+        const embedData = await embedRes.json();
+        totalEmbedded += embedData.embedded;
+        remaining = embedData.remaining;
+
+        if (embedData.embedded === 0) break; // No progress, stop
+      }
+
+      const finalMsg = lang === "ja"
+        ? `${fetchData.ingested}件取得, ${totalEmbedded}件AI処理完了`
+        : `${fetchData.ingested} fetched, ${totalEmbedded} embedded`;
+      setFetchResult(finalMsg);
+
       router.refresh();
     } catch (e) {
       setFetchResult(lang === "ja" ? "取得エラー" : "Fetch error");
     } finally {
       setFetching(false);
-      // Clear result message after 5 seconds
-      setTimeout(() => setFetchResult(null), 5000);
+      setTimeout(() => setFetchResult(null), 8000);
     }
   }
 
   return (
     <header className="sticky top-0 z-20 bg-[var(--bg)]/85 backdrop-blur-md border-b hairline">
       <div className="max-w-6xl mx-auto px-6 md:px-10 h-14 flex items-center gap-4">
-        {/* Search ---------------------------------------------------- */}
+        {/* Search */}
         <form onSubmit={submit} className="flex-1 max-w-md">
           <input
             value={val}
@@ -77,7 +94,7 @@ export function Header() {
           />
         </form>
 
-        {/* Time range ------------------------------------------------ */}
+        {/* Time range */}
         <div className="hidden sm:flex items-center gap-0.5">
           {TIME_RANGES.map(tr => (
             <button
@@ -95,7 +112,7 @@ export function Header() {
           ))}
         </div>
 
-        {/* Refresh button -------------------------------------------- */}
+        {/* Refresh button */}
         <button
           onClick={fetchNews}
           disabled={fetching}
@@ -109,19 +126,19 @@ export function Header() {
         >
           <span className={fetching ? "animate-spin" : ""}>↻</span>
           {fetching
-            ? (lang === "ja" ? "取得中…" : "Fetching…")
+            ? (lang === "ja" ? "処理中…" : "Working…")
             : (lang === "ja" ? "更新" : "Refresh")
           }
         </button>
 
-        {/* Fetch result toast ---------------------------------------- */}
+        {/* Fetch result toast */}
         {fetchResult && (
-          <span className="text-[11px] text-emerald-600 font-medium animate-pulse">
+          <span className="text-[11px] text-emerald-600 font-medium">
             {fetchResult}
           </span>
         )}
 
-        {/* Lang toggle ----------------------------------------------- */}
+        {/* Lang toggle */}
         <button
           onClick={toggle}
           className="px-2.5 py-1 text-[11px] font-mono font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
@@ -130,7 +147,7 @@ export function Header() {
           {lang === "ja" ? "EN" : "JA"}
         </button>
 
-        {/* Date ------------------------------------------------------ */}
+        {/* Date */}
         <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] hidden lg:block">
           {new Date().toLocaleDateString(lang === "ja" ? "ja-JP" : "en-US", {
             weekday: "short", month: "short", day: "numeric",
