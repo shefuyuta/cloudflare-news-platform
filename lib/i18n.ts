@@ -1,9 +1,4 @@
 // lib/i18n.ts
-// ---------------------------------------------------------------------
-// Minimal i18n: all UI strings in one file. Language is stored in a
-// cookie ("lang") and read by both server and client components.
-// ---------------------------------------------------------------------
-
 export type Lang = "ja" | "en";
 export const DEFAULT_LANG: Lang = "ja";
 export const LANG_COOKIE = "newshub-lang";
@@ -18,6 +13,8 @@ const T = {
   // ---- Nav ----------------------------------------------------------
   navLatest:        { en: "Latest",        ja: "最新" },
   navLatestSub:     { en: "All latest",    ja: "すべての最新" },
+  navDashboard:     { en: "Dashboard",     ja: "ダッシュボード" },
+  navDashboardSub:  { en: "Overview",      ja: "統計・俯瞰" },
   navGeneral:       { en: "General",       ja: "一般ニュース" },
   navGeneralSub:    { en: "General News",  ja: "政治・経済・災害" },
   navCyber:         { en: "Cybersecurity", ja: "サイバーセキュリティ" },
@@ -28,12 +25,14 @@ const T = {
   navImportantSub:  { en: "High priority", ja: "重要記事のみ" },
 
   // ---- Page headings ------------------------------------------------
-  frontPage:        { en: "HOME",    ja: "HOME" },
+  frontPage:        { en: "HOME",          ja: "HOME" },
   todaysEdition:    { en: "The latest News", ja: "最新のニュース" },
   todaysEditionSub: { en: "Latest from across General, Cybersecurity, and AI desks.",
                       ja: "一般・サイバーセキュリティ・AIの最新記事。" },
-  desk:             { en: "Section",          ja: "セクション" },
-  crossCut:         { en: "Overall",     ja: "全体" },
+  desk:             { en: "Section",       ja: "セクション" },
+  crossCut:         { en: "Overall",       ja: "全体" },
+  dashboardTitle:   { en: "Dashboard",     ja: "ダッシュボード" },
+  dashboardSub:     { en: "News overview and statistics", ja: "ニュースの俯瞰と統計" },
 
   generalTitle:     { en: "General",       ja: "一般ニュース" },
   generalSub:       { en: "Major events, geopolitics, politics, economy, business.",
@@ -88,16 +87,42 @@ const T = {
   chatSources:      { en: "Sources",       ja: "ソース" },
   chatEmpty:        { en: "Ask anything about the articles in your current view. Sources are cited.",
                       ja: "現在の記事について何でも質問できます。情報ソース付きで回答します。" },
+  chatTemplates:    { en: "Quick questions:", ja: "クイック質問:" },
+
+  // ---- Bookmark -----------------------------------------------------
+  bookmark:         { en: "Bookmark",      ja: "ブックマーク" },
+  bookmarked:       { en: "Bookmarked",    ja: "ブックマーク済み" },
+  markRead:         { en: "Mark read",     ja: "既読にする" },
+  readArticle:      { en: "Read",          ja: "既読" },
+
+  // ---- Export -------------------------------------------------------
+  exportCSV:        { en: "Export CSV",    ja: "CSV出力" },
+
+  // ---- Dashboard ----------------------------------------------------
+  totalArticles:    { en: "Total Articles", ja: "総記事数" },
+  byCategory:       { en: "By Category",   ja: "カテゴリ別" },
+  bySource:         { en: "By Source",      ja: "ソース別" },
+  byRegion:         { en: "By Region",      ja: "地域別" },
+  trendingTags:     { en: "Trending Tags",  ja: "トレンドタグ" },
+  todaysBriefing:   { en: "Today's Briefing", ja: "本日のブリーフィング" },
+  generateBriefing: { en: "Generate",      ja: "生成" },
+
+  // ---- Notifications ------------------------------------------------
+  alertKeywords:    { en: "Alert Keywords", ja: "アラートキーワード" },
+  alertPlaceholder: { en: "Add keyword…",  ja: "キーワード追加…" },
+  alertMatches:     { en: "new matches",   ja: "件の新着一致" },
+
+  // ---- Mobile -------------------------------------------------------
+  menu:             { en: "Menu",          ja: "メニュー" },
+  close:            { en: "Close",         ja: "閉じる" },
 } as const;
 
 export type TKey = keyof typeof T;
 
-/** Get a translated string. */
 export function t(key: TKey, lang: Lang): string {
   return T[key]?.[lang] ?? T[key]?.en ?? key;
 }
 
-/** Read lang from cookie string (server-side). */
 export function langFromCookies(cookieHeader: string | null): Lang {
   if (!cookieHeader) return DEFAULT_LANG;
   const match = cookieHeader.match(new RegExp(`${LANG_COOKIE}=(ja|en)`));

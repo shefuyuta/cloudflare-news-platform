@@ -30,6 +30,61 @@ function useViewContext() {
   };
 }
 
+/** Category-aware quick question templates. */
+function getTemplates(category: Category | undefined, lang: string) {
+  if (lang === "ja") {
+    if (category === "cybersecurity") return [
+      "今週のCVEで最も深刻なものを教えて",
+      "最近のランサムウェアインシデントをまとめて",
+      "パッチを当てるべき脆弱性は？",
+      "最新の脅威アクターの動向は？",
+    ];
+    if (category === "ai") return [
+      "今週リリースされたAIモデルは？",
+      "最新のAI安全性ニュースをまとめて",
+      "各社のAI開発競争の状況は？",
+      "政策・規制の最新動向を教えて",
+    ];
+    if (category === "general") return [
+      "日本の主要ニュースをまとめて",
+      "経済・市場の最新動向は？",
+      "地政学的リスクの高い地域は？",
+      "今日の重要ニュースTOP3を教えて",
+    ];
+    return [
+      "本日のブリーフィングを教えて",
+      "全カテゴリで最も重要なニュースは？",
+      "日本に関連するニュースは？",
+      "AIとサイバーセキュリティの最新情報は？",
+    ];
+  }
+  // English
+  if (category === "cybersecurity") return [
+    "What are the most critical CVEs this week?",
+    "Summarize the latest ransomware incidents",
+    "Which vulnerabilities need immediate patching?",
+    "What are the latest threat actor movements?",
+  ];
+  if (category === "ai") return [
+    "What AI models were released this week?",
+    "Summarize the latest AI safety news",
+    "How is the AI race between companies evolving?",
+    "What are the latest AI policy developments?",
+  ];
+  if (category === "general") return [
+    "Brief me on Japan headlines today",
+    "What are the latest economic trends?",
+    "Which geopolitical regions are most at risk?",
+    "Give me today's top 3 most important stories",
+  ];
+  return [
+    "Give me today's top briefing",
+    "What is the most important news across all categories?",
+    "What news is relevant to Japan?",
+    "Latest updates in AI and cybersecurity?",
+  ];
+}
+
 export function AIChatDock() {
   const [open, setOpen]       = useState(false);
   const [input, setInput]     = useState("");
@@ -44,11 +99,11 @@ export function AIChatDock() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [msgs, pending]);
 
-  async function send() {
-    const text = input.trim();
-    if (!text || pending) return;
+  async function send(text?: string) {
+    const msg = (text ?? input).trim();
+    if (!msg || pending) return;
     setInput("");
-    setMsgs(m => [...m, { role: "user", content: text }]);
+    setMsgs(m => [...m, { role: "user", content: msg }]);
     setPending(true);
 
     try {
@@ -57,7 +112,7 @@ export function AIChatDock() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: sessionId.current,
-          message: text,
+          message: msg,
           context: ctx,
           history: msgs.slice(-6).map(m => ({ role: m.role, content: m.content })),
         }),
@@ -69,12 +124,7 @@ export function AIChatDock() {
       }
 
       const data = await res.json() as { answer: string; citations: Citation[] };
-
-      setMsgs(m => [...m, {
-        role: "assistant",
-        content: data.answer,
-        citations: data.citations,
-      }]);
+      setMsgs(m => [...m, { role: "assistant", content: data.answer, citations: data.citations }]);
     } catch (e) {
       setMsgs(m => [...m, { role: "assistant", content: `Error: ${(e as Error).message}` }]);
     } finally {
@@ -96,10 +146,12 @@ export function AIChatDock() {
       )}
 
       {open && (
-        <aside className="fixed bottom-6 right-6 z-30 w-[min(420px,calc(100vw-3rem))] h-[min(640px,calc(100vh-4rem))] bg-[var(--surface)] border hairline rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        <aside className="fixed bottom-6 right-6 z-30 w-[min(440px,calc(100vw-1.5rem))] h-[min(640px,calc(100vh-4rem))] bg-[var(--surface)] border hairline rounded-xl shadow-2xl flex flex-col overflow-hidden">
           <ChatHeader ctx={ctx} onClose={() => setOpen(false)} />
           <div ref={scrollRef} className="flex-1 overflow-y-auto dock-scroll px-4 py-4 space-y-4">
-            {msgs.length === 0 && <EmptyState ctx={ctx} />}
+            {msgs.length === 0 && (
+              <EmptyState ctx={ctx} onTemplate={(q) => send(q)} />
+            )}
             {msgs.map((m, i) => <ChatBubble key={i} msg={m} />)}
             {pending && (
               <div className="flex gap-1 text-[var(--ink-3)] text-xs px-1">
@@ -107,7 +159,7 @@ export function AIChatDock() {
               </div>
             )}
           </div>
-          <ChatInput value={input} disabled={pending} onChange={setInput} onSend={send} />
+          <ChatInput value={input} disabled={pending} onChange={setInput} onSend={() => send()} />
         </aside>
       )}
     </>
@@ -125,26 +177,37 @@ function ChatHeader({ ctx, onClose }: { ctx: ReturnType<typeof useViewContext>; 
           {t("chatScope")}: <span className="font-mono">{scope}</span>
         </div>
       </div>
-      <button onClick={onClose} aria-label="Close" className="text-[var(--ink-3)] hover:text-[var(--ink)] text-xl leading-none px-1">
-        ×
-      </button>
+      <button onClick={onClose} aria-label="Close" className="text-[var(--ink-3)] hover:text-[var(--ink)] text-xl leading-none px-1">×</button>
     </header>
   );
 }
 
-function EmptyState({ ctx }: { ctx: ReturnType<typeof useViewContext> }) {
-  const { t } = useLang();
-  const examples = ctx.category === "cybersecurity"
-    ? ["Top exploited CVEs this week", "Latest ransomware incidents", "Summarize the most severe vulnerabilities"]
-    : ctx.category === "ai"
-    ? ["What model releases happened this week?", "Compare claims across the latest AI safety stories"]
-    : ["Brief me on Japan headlines today", "What's the consensus on the latest geopolitical event?"];
+function EmptyState({ ctx, onTemplate }: {
+  ctx: ReturnType<typeof useViewContext>;
+  onTemplate: (q: string) => void;
+}) {
+  const { t, lang } = useLang();
+  const templates = getTemplates(ctx.category, lang);
+
   return (
-    <div className="text-sm text-[var(--ink-3)] space-y-3 pt-2">
+    <div className="text-sm text-[var(--ink-3)] space-y-4 pt-2">
       <p>{t("chatEmpty")}</p>
-      <ul className="space-y-1.5">
-        {examples.map(e => <li key={e} className="font-display italic text-[var(--ink-2)]">"{e}"</li>)}
-      </ul>
+      <div>
+        <p className="text-[10px] uppercase tracking-widest text-[var(--ink-4)] mb-2">
+          {t("chatTemplates")}
+        </p>
+        <div className="space-y-1.5">
+          {templates.map((q) => (
+            <button
+              key={q}
+              onClick={() => onTemplate(q)}
+              className="w-full text-left text-[12px] px-3 py-2 rounded-lg border hairline text-[var(--ink-2)] hover:bg-[var(--line-soft)] hover:text-[var(--ink)] transition-colors font-display italic"
+            >
+              "{q}"
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

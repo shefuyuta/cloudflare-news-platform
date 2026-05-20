@@ -5,26 +5,57 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/components/LangProvider";
 
-export function Sidebar() {
-  const pathname = usePathname();
-  const { t } = useLang();
+interface NavEntry {
+  href: string;
+  label: string;
+  sub: string;
+}
 
-  const NAV = [
+function useNavItems() {
+  const { t } = useLang();
+  const NAV: NavEntry[] = [
     { href: "/",              label: t("navLatest"),    sub: t("navLatestSub") },
+    { href: "/dashboard",     label: t("navDashboard"), sub: t("navDashboardSub") },
     { href: "/general",       label: t("navGeneral"),   sub: t("navGeneralSub") },
     { href: "/cybersecurity", label: t("navCyber"),     sub: t("navCyberSub") },
     { href: "/ai",            label: t("navAI"),        sub: t("navAISub") },
   ];
-
-  const CROSSCUT = [
+  const CROSSCUT: NavEntry[] = [
     { href: "/important", label: t("navImportant"), sub: t("navImportantSub") },
   ];
+  return { NAV, CROSSCUT, t };
+}
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const { NAV, CROSSCUT, t } = useNavItems();
 
   return (
-    <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-60 border-r hairline bg-[var(--surface)]">
-      {/* Brand ------------------------------------------------------ */}
+    <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-60 border-r hairline bg-[var(--surface)] z-20">
+      <SidebarContent pathname={pathname} NAV={NAV} CROSSCUT={CROSSCUT} t={t} />
+    </aside>
+  );
+}
+
+/** Extracted so both desktop sidebar and mobile drawer can share the same nav content. */
+export function SidebarContent({
+  pathname,
+  NAV,
+  CROSSCUT,
+  t,
+  onNavClick,
+}: {
+  pathname: string;
+  NAV: NavEntry[];
+  CROSSCUT: NavEntry[];
+  t: (k: string) => string;
+  onNavClick?: () => void;
+}) {
+  return (
+    <>
+      {/* Brand */}
       <div className="px-6 pt-8 pb-10">
-        <Link href="/" className="block">
+        <Link href="/" onClick={onNavClick} className="block">
           <h1 className="font-display text-xl font-semibold tracking-tight leading-tight">
             <span className="text-[var(--ink-3)]">shefutech</span>
             <br />
@@ -36,39 +67,51 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Nav --------------------------------------------------------- */}
+      {/* Nav */}
       <nav className="px-3 flex-1">
         <ul className="space-y-0.5">
-          {NAV.map(item => <NavItem key={item.href} item={item} pathname={pathname} />)}
+          {NAV.map((item) => (
+            <NavItem key={item.href} item={item} pathname={pathname} onClick={onNavClick} />
+          ))}
         </ul>
 
         <div className="mt-6 mb-2 px-3">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-4)]">{t("crossCuts")}</p>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-4)]">
+            {t("crossCuts")}
+          </p>
         </div>
         <ul className="space-y-0.5">
-          {CROSSCUT.map(item => <NavItem key={item.href} item={item} pathname={pathname} />)}
+          {CROSSCUT.map((item) => (
+            <NavItem key={item.href} item={item} pathname={pathname} onClick={onNavClick} />
+          ))}
         </ul>
       </nav>
 
-      {/* Foot -------------------------------------------------------- */}
+      {/* Footer */}
       <div className="px-6 py-6 border-t hairline">
         <p className="text-[11px] text-[var(--ink-3)] leading-relaxed whitespace-pre-line">
           {t("poweredBy")}
         </p>
       </div>
-    </aside>
+    </>
   );
 }
 
-function NavItem({ item, pathname }: {
-  item: { href: string; label: string; sub: string };
+function NavItem({
+  item,
+  pathname,
+  onClick,
+}: {
+  item: NavEntry;
   pathname: string;
+  onClick?: () => void;
 }) {
   const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
   return (
     <li>
       <Link
         href={item.href}
+        onClick={onClick}
         className={[
           "block px-3 py-2.5 rounded-md transition-colors",
           active
@@ -77,10 +120,12 @@ function NavItem({ item, pathname }: {
         ].join(" ")}
       >
         <div className="text-sm font-medium leading-tight">{item.label}</div>
-        <div className={[
-          "text-[11px] mt-0.5",
-          active ? "text-white/60" : "text-[var(--ink-3)]",
-        ].join(" ")}>
+        <div
+          className={[
+            "text-[11px] mt-0.5",
+            active ? "text-white/60" : "text-[var(--ink-3)]",
+          ].join(" ")}
+        >
           {item.sub}
         </div>
       </Link>

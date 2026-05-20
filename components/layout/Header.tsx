@@ -2,8 +2,11 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLang } from "@/components/LangProvider";
+import { MobileDrawer } from "./MobileDrawer";
+import { useKeywordAlerts } from "@/hooks/useKeywordAlerts";
+import type { NewsArticle } from "@/lib/types";
 
 const TIME_RANGES = [
   { hours: 24,  key: "hours24" as const },
@@ -17,11 +20,20 @@ export function Header() {
   const pathname = usePathname();
   const params   = useSearchParams();
   const { lang, toggle, t } = useLang();
-  const [val, setVal] = useState(params.get("q") ?? "");
+  const [val, setVal]           = useState(params.get("q") ?? "");
   const [fetching, setFetching] = useState(false);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen]   = useState(false);
+  const [alertOpen, setAlertOpen]     = useState(false);
+  const [alertInput, setAlertInput]   = useState("");
 
   const currentHours = parseInt(params.get("hours") ?? "24", 10);
+
+  // Keyword alerts hook with empty article list at header level
+  // (alerts are shown based on articles loaded by the page — we pass an empty list here
+  //  and let the KeywordAlertBanner component in each page handle it)
+  const { keywords, newCount, addKeyword, removeKeyword, dismissAlerts, mounted } =
+    useKeywordAlerts([] as NewsArticle[]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,39 +55,45 @@ export function Header() {
 
     try {
       // Step 1: Fetch RSS → DB
-      const fetchRes = await fetch("/api/fetch-news", { method: "POST" });
+      const fetchRes  = await fetch("/api/fetch-news", { method: "POST" });
       const fetchData = await fetchRes.json() as { ingested: number };
-      const fetchMsg = lang === "ja"
+      const fetchMsg  = lang === "ja"
         ? `${fetchData.ingested}件取得完了`
         : `${fetchData.ingested} articles fetched`;
       setFetchResult(fetchMsg + (lang === "ja" ? "。AI埋め込み中…" : ". Embedding…"));
 
-      // Step 2: Embed missing articles (may need multiple runs)
+      // Step 2: Embed missing articles
       let totalEmbedded = 0;
       let remaining = 999;
-
       while (remaining > 0) {
-        const embedRes = await fetch("/api/embed-missing", { method: "POST" });
+        const embedRes  = await fetch("/api/embed-missing", { method: "POST" });
         const embedData = await embedRes.json() as { embedded: number; remaining: number };
         totalEmbedded += embedData.embedded;
         remaining = embedData.remaining;
-
-        // Show progress
-        const progressMsg = lang === "ja"
-          ? `AI処理中… ${totalEmbedded}件完了 / 残り${remaining}件`
-          : `Embedding… ${totalEmbedded} done / ${remaining} left`;
-        setFetchResult(progressMsg);
-
+        setFetchResult(
+          lang === "ja"
+            ? `AI処理中… ${totalEmbedded}件完了 / 残り${remaining}件`
+            : `Embedding… ${totalEmbedded} done / ${remaining} left`
+        );
         if (embedData.embedded === 0) break;
       }
 
-      const finalMsg = lang === "ja"
-        ? `${fetchData.ingested}件取得, ${totalEmbedded}件AI処理完了`
-        : `${fetchData.ingested} fetched, ${totalEmbedded} embedded`;
-      setFetchResult(finalMsg);
+      // Step 3: Score unscored articles
+      setFetchResult(lang === "ja" ? "重要度スコアリング中…" : "Scoring importance…");
+      let scoringDone = false;
+      while (!scoringDone) {
+        const scoreRes  = await fetch("/api/score-articles", { method: "POST" });
+        const scoreData = await scoreRes.json() as { scored: number; remaining: number };
+        if (scoreData.scored === 0 || scoreData.remaining === 0) scoringDone = true;
+      }
 
+      setFetchResult(
+        lang === "ja"
+          ? `${fetchData.ingested}件取得, ${totalEmbedded}件AI処理完了`
+          : `${fetchData.ingested} fetched, ${totalEmbedded} embedded`
+      );
       router.refresh();
-    } catch (e) {
+    } catch {
       setFetchResult(lang === "ja" ? "取得エラー" : "Fetch error");
     } finally {
       setFetching(false);
@@ -84,79 +102,175 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-20 bg-[var(--bg)]/85 backdrop-blur-md border-b hairline">
-      <div className="max-w-6xl mx-auto px-6 md:px-10 h-14 flex items-center gap-4">
-        {/* Search */}
-        <form onSubmit={submit} className="flex-1 max-w-md">
-          <input
-            value={val}
-            onChange={e => setVal(e.target.value)}
-            type="search"
-            placeholder={t("searchPlaceholder")}
-            className="w-full bg-transparent text-sm py-2 border-b hairline focus:border-[var(--ink)] outline-none placeholder:text-[var(--ink-4)]"
-          />
-        </form>
+    <>
+      <header className="sticky top-0 z-20 bg-[var(--bg)]/85 backdrop-blur-md border-b hairline">
+        <div className="max-w-6xl mx-auto px-4 md:px-10 h-14 flex items-center gap-3">
 
-        {/* Time range */}
-        <div className="hidden sm:flex items-center gap-0.5">
-          {TIME_RANGES.map(tr => (
-            <button
-              key={tr.hours}
-              onClick={() => setTimeRange(tr.hours)}
-              className={[
-                "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
-                currentHours === tr.hours
-                  ? "bg-[var(--ink)] text-white"
-                  : "text-[var(--ink-3)] hover:text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
-              ].join(" ")}
-            >
-              {t(tr.key)}
-            </button>
-          ))}
-        </div>
+          {/* ── Hamburger (mobile only) ─────────────────────────────── */}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="md:hidden p-1.5 rounded-md text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors flex-shrink-0"
+            aria-label={t("menu")}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <line x1="2" y1="5"  x2="16" y2="5" />
+              <line x1="2" y1="9"  x2="16" y2="9" />
+              <line x1="2" y1="13" x2="16" y2="13" />
+            </svg>
+          </button>
 
-        {/* Refresh button */}
-        <button
-          onClick={fetchNews}
-          disabled={fetching}
-          className={[
-            "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors flex items-center gap-1.5",
-            fetching
-              ? "bg-[var(--line-soft)] text-[var(--ink-4)]"
-              : "ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
-          ].join(" ")}
-          title={lang === "ja" ? "ニュースを手動取得" : "Fetch latest news"}
-        >
-          <span className={fetching ? "animate-spin" : ""}>↻</span>
-          {fetching
-            ? (lang === "ja" ? "処理中…" : "Working…")
-            : (lang === "ja" ? "更新" : "Refresh")
-          }
-        </button>
+          {/* ── Search ──────────────────────────────────────────────── */}
+          <form onSubmit={submit} className="flex-1 max-w-md">
+            <input
+              value={val}
+              onChange={e => setVal(e.target.value)}
+              type="search"
+              placeholder={t("searchPlaceholder")}
+              className="w-full bg-transparent text-sm py-2 border-b hairline focus:border-[var(--ink)] outline-none placeholder:text-[var(--ink-4)]"
+            />
+          </form>
 
-        {/* Fetch result toast */}
-        {fetchResult && (
-          <span className="text-[11px] text-emerald-600 font-medium">
-            {fetchResult}
+          {/* ── Time range ──────────────────────────────────────────── */}
+          <div className="hidden sm:flex items-center gap-0.5">
+            {TIME_RANGES.map(tr => (
+              <button
+                key={tr.hours}
+                onClick={() => setTimeRange(tr.hours)}
+                className={[
+                  "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
+                  currentHours === tr.hours
+                    ? "bg-[var(--ink)] text-white"
+                    : "text-[var(--ink-3)] hover:text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+                ].join(" ")}
+              >
+                {t(tr.key)}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Keyword alert bell ──────────────────────────────────── */}
+          {mounted && (
+            <div className="relative">
+              <button
+                onClick={() => setAlertOpen(o => !o)}
+                className="p-1.5 rounded-md text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors relative"
+                title={t("alertKeywords")}
+              >
+                <span className="text-base">🔔</span>
+                {newCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {newCount}
+                  </span>
+                )}
+              </button>
+
+              {alertOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-[var(--surface)] border hairline rounded-xl shadow-xl z-40 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">{t("alertKeywords")}</span>
+                    {newCount > 0 && (
+                      <button onClick={dismissAlerts} className="text-[10px] text-[var(--ink-3)] hover:text-[var(--ink)] underline">
+                        {lang === "ja" ? "既読にする" : "Dismiss"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Keyword chips */}
+                  {keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {keywords.map(kw => (
+                        <span key={kw} className="flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--line-soft)] rounded-full border hairline">
+                          {kw}
+                          <button
+                            onClick={() => removeKeyword(kw)}
+                            className="text-[var(--ink-3)] hover:text-[var(--ink)] leading-none"
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add keyword */}
+                  <form
+                    onSubmit={e => {
+                      e.preventDefault();
+                      addKeyword(alertInput);
+                      setAlertInput("");
+                    }}
+                    className="flex gap-2"
+                  >
+                    <input
+                      value={alertInput}
+                      onChange={e => setAlertInput(e.target.value)}
+                      placeholder={t("alertPlaceholder")}
+                      className="flex-1 text-sm bg-[var(--line-soft)] px-3 py-1.5 rounded-md outline-none focus:ring-1 ring-[var(--ink)]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!alertInput.trim()}
+                      className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-white disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                  </form>
+
+                  {newCount > 0 && (
+                    <p className="text-[11px] text-red-600 font-medium">
+                      {newCount} {t("alertMatches")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Refresh button ──────────────────────────────────────── */}
+          <button
+            onClick={fetchNews}
+            disabled={fetching}
+            className={[
+              "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors flex items-center gap-1.5",
+              fetching
+                ? "bg-[var(--line-soft)] text-[var(--ink-4)]"
+                : "ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+            ].join(" ")}
+            title={lang === "ja" ? "ニュースを手動取得" : "Fetch latest news"}
+          >
+            <span className={fetching ? "animate-spin" : ""}>↻</span>
+            <span className="hidden sm:inline">
+              {fetching
+                ? (lang === "ja" ? "処理中…" : "Working…")
+                : (lang === "ja" ? "更新" : "Refresh")}
+            </span>
+          </button>
+
+          {/* ── Toast ───────────────────────────────────────────────── */}
+          {fetchResult && (
+            <span className="text-[11px] text-emerald-600 font-medium hidden md:inline truncate max-w-[160px]">
+              {fetchResult}
+            </span>
+          )}
+
+          {/* ── Lang toggle ─────────────────────────────────────────── */}
+          <button
+            onClick={toggle}
+            className="px-2.5 py-1 text-[11px] font-mono font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
+            title={lang === "ja" ? "Switch to English" : "日本語に切替"}
+          >
+            {lang === "ja" ? "EN" : "JA"}
+          </button>
+
+          {/* ── Date (desktop only) ─────────────────────────────────── */}
+          <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] hidden lg:block flex-shrink-0">
+            {new Date().toLocaleDateString(lang === "ja" ? "ja-JP" : "en-US", {
+              weekday: "short", month: "short", day: "numeric",
+            })}
           </span>
-        )}
+        </div>
+      </header>
 
-        {/* Lang toggle */}
-        <button
-          onClick={toggle}
-          className="px-2.5 py-1 text-[11px] font-mono font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
-          title={lang === "ja" ? "Switch to English" : "日本語に切替"}
-        >
-          {lang === "ja" ? "EN" : "JA"}
-        </button>
-
-        {/* Date */}
-        <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] hidden lg:block">
-          {new Date().toLocaleDateString(lang === "ja" ? "ja-JP" : "en-US", {
-            weekday: "short", month: "short", day: "numeric",
-          })}
-        </span>
-      </div>
-    </header>
+      {/* Mobile drawer */}
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+    </>
   );
 }

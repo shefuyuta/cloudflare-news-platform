@@ -101,6 +101,26 @@ async function runFetcher(env: Env): Promise<void> {
   }
 
   console.log(`[fetcher] Done. Ingested ${ingested}/${allArticles.length} articles.`);
+
+  // Trigger importance scoring for newly ingested articles
+  if (ingested > 0) {
+    try {
+      const baseUrl = env.INGEST_URL.replace(/\/$/, "");
+      let remaining = ingested;
+      let rounds = 0;
+      while (remaining > 0 && rounds < 5) {
+        const scoreResp = await fetch(`${baseUrl}/api/score-articles`, { method: "POST" });
+        if (!scoreResp.ok) break;
+        const scoreData = await scoreResp.json() as { scored: number; remaining: number };
+        remaining = scoreData.remaining;
+        if (scoreData.scored === 0) break;
+        rounds++;
+      }
+      console.log(`[fetcher] Scoring complete after ${rounds} rounds.`);
+    } catch (e) {
+      console.warn("[fetcher] Scoring failed (non-critical):", e);
+    }
+  }
 }
 
 // =====================================================================

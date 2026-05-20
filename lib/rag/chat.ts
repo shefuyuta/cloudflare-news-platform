@@ -8,7 +8,7 @@ import { fetchNewsStats } from "./stats";
 /**
  * Run one chat turn:
  *   1. Load runtime config
- *   2. Fetch DB metadata stats (article counts, sources, etc.)
+ *   2. Fetch DB metadata stats + dynamic keyword counts from user's question
  *   3. Retrieve relevant articles from Vectorize
  *   4. Fetch live content from article URLs (on-demand scraping)
  *   5. Build a context-rich prompt
@@ -18,9 +18,9 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
   try {
     const cfg = await loadRuntimeConfig(env);
 
-    // 1. Fetch stats and retrieve articles in parallel
+    // 1. Fetch stats (with keyword search) and retrieve articles in parallel
     const [stats, hits] = await Promise.all([
-      fetchNewsStats(env),
+      fetchNewsStats(env, req.message),
       retrieve(env, req.message, req.context, cfg),
     ]);
 

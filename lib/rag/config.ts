@@ -1,35 +1,17 @@
 // lib/rag/config.ts
-// ---------------------------------------------------------------------
-// SINGLE SOURCE OF TRUTH for AI bot / RAG behavior.
-//
-// Code-side defaults below. Anything in the D1 `rag_config` table will
-// OVERRIDE these at runtime (see loadRuntimeConfig() in chat.ts), so
-// you can A/B test models or tune top_k without redeploying.
-// ---------------------------------------------------------------------
-
 import type { Env } from "../types";
 
 export interface RagConfig {
-  /** Embedding model — must match the dimension of your Vectorize index. */
   embeddingModel: keyof AiModels;
-  /** Chat model. */
   llmModel: keyof AiModels;
-  /** How many vectors to retrieve before re-ranking / filtering. */
   topK: number;
-  /** Drop retrieved chunks below this cosine score. */
   minScore: number;
-  /** LLM sampling. */
   temperature: number;
   maxTokens: number;
-  /** Max characters of retrieved content per source pasted into the prompt. */
   contextCharsPerSource: number;
-  /** System prompt template. {{date}}, {{stats}}, and {{context}} are substituted. */
   systemPrompt: string;
 }
 
-/** Workers AI model strings — tweak freely. The two embedding options here
- *  have known dimensions: bge-base-en-v1.5 → 768, bge-large-en-v1.5 → 1024.
- *  Make sure your Vectorize index dimensions match. */
 type AiModels = {
   "@cf/baai/bge-base-en-v1.5": unknown;
   "@cf/baai/bge-large-en-v1.5": unknown;
@@ -49,24 +31,37 @@ export const DEFAULTS: RagConfig = {
 
   systemPrompt: `You are NewsHub's analyst assistant. Today is {{date}}.
 
-You have access to TWO types of information:
-1. DATABASE METADATA (article counts, sources, categories, statistics)
-2. ARTICLE CONTENT (retrieved by relevance to the user's question)
+You have access to THREE types of information:
+
+1. DATABASE METADATA — fixed aggregate statistics (total counts, breakdowns by category/source/region)
+2. DYNAMIC KEYWORD SEARCH — actual SQL search results for keywords extracted from the user's question, including exact match counts and sample matching articles
+3. ARTICLE CONTENT — full or partial text of articles retrieved by semantic relevance
 
 STRICT RULES:
-1. For questions about article content/news events → use ONLY the <sources> section. Cite with [n].
-2. For questions about metadata (counts, statistics, sources, categories) → use the <database_stats> section.
-3. If neither section contains the answer, respond:
-   "この質問に関連する情報は見つかりませんでした。" (Japanese)
-   "No relevant information found for this question." (English)
-4. Do NOT add any information beyond what is provided below.
-5. Do NOT speculate or infer beyond what is explicitly stated.
-6. Match the user's language (Japanese or English).
+1. For "how many articles contain X?" / "○○を含む記事は何件?" questions:
+   → Use the EXACT numbers from "Dynamic keyword search results" in <database_stats>.
+   → Report the "In title OR summary" count as the answer.
+   → List sample matches if available.
+   → Do NOT guess or estimate. Use only the numbers provided.
+
+2. For questions about aggregate stats (total articles, by category, by source):
+   → Use the fixed statistics at the top of <database_stats>.
+
+3. For questions about news content/events:
+   → Use ONLY the <sources> section. Cite with [n].
+
+4. If the information is not available in any section:
+   → "この質問に関連する情報は見つかりませんでした。" (Japanese)
+   → "No relevant information found for this question." (English)
+
+5. Do NOT add information beyond what is provided below.
+6. Do NOT speculate or infer beyond what is explicitly stated.
+7. Match the user's language (Japanese or English).
 
 FORMAT:
-- Lead with the direct answer (1-2 sentences)
+- Lead with the direct answer
 - Supporting details as bullet points with citations [n] where applicable
-- For metadata questions, present numbers clearly
+- For count questions, always state the exact number first
 
 <database_stats>
 {{stats}}
@@ -77,7 +72,6 @@ FORMAT:
 </sources>`,
 };
 
-/** Merge D1 overrides on top of DEFAULTS. Safe if the table is missing. */
 export async function loadRuntimeConfig(env: Env): Promise<RagConfig> {
   try {
     const res = await env.DB.prepare("SELECT key, value FROM rag_config").all();
