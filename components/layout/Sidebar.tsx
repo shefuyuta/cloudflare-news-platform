@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/components/LangProvider";
+import { TKey } from "@/lib/i18n";
 
 interface NavEntry {
   href: string;
@@ -48,7 +49,7 @@ export function SidebarContent({
   pathname: string;
   NAV: NavEntry[];
   CROSSCUT: NavEntry[];
-  t: (k: string) => string;
+  t: (k: TKey) => string;
   onNavClick?: () => void;
 }) {
   return (
