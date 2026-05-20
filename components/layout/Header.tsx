@@ -5,8 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useLang } from "@/components/LangProvider";
 import { MobileDrawer } from "./MobileDrawer";
-import { useKeywordAlerts } from "@/hooks/useKeywordAlerts";
-import type { NewsArticle } from "@/lib/types";
+import { useAlertKeywords } from "@/hooks/useAlertKeywords";
 
 const TIME_RANGES = [
   { hours: 24,  key: "hours24" as const },
@@ -29,11 +28,8 @@ export function Header() {
 
   const currentHours = parseInt(params.get("hours") ?? "24", 10);
 
-  // Keyword alerts hook with empty article list at header level
-  // (alerts are shown based on articles loaded by the page — we pass an empty list here
-  //  and let the KeywordAlertBanner component in each page handle it)
-  const { keywords, newCount, addKeyword, removeKeyword, dismissAlerts, mounted } =
-    useKeywordAlerts([] as NewsArticle[]);
+  // Lightweight hook: keyword CRUD only, no article matching (avoids re-render loop)
+  const { keywords, addKeyword, removeKeyword, mounted } = useAlertKeywords();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -157,9 +153,9 @@ export function Header() {
                 title={t("alertKeywords")}
               >
                 <span className="text-base">🔔</span>
-                {newCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {newCount}
+                {keywords.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-[var(--ink)] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {keywords.length}
                   </span>
                 )}
               </button>
@@ -168,11 +164,6 @@ export function Header() {
                 <div className="absolute right-0 top-full mt-2 w-72 bg-[var(--surface)] border hairline rounded-xl shadow-xl z-40 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">{t("alertKeywords")}</span>
-                    {newCount > 0 && (
-                      <button onClick={dismissAlerts} className="text-[10px] text-[var(--ink-3)] hover:text-[var(--ink)] underline">
-                        {lang === "ja" ? "既読にする" : "Dismiss"}
-                      </button>
-                    )}
                   </div>
 
                   {/* Keyword chips */}
@@ -214,11 +205,11 @@ export function Header() {
                     </button>
                   </form>
 
-                  {newCount > 0 && (
-                    <p className="text-[11px] text-red-600 font-medium">
-                      {newCount} {t("alertMatches")}
-                    </p>
-                  )}
+                  <p className="text-[10px] text-[var(--ink-4)]">
+                    {lang === "ja"
+                      ? "マッチした記事はニュース一覧のバナーに表示されます。"
+                      : "Matched articles appear as a banner in the news feed."}
+                  </p>
                 </div>
               )}
             </div>
