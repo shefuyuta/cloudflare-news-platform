@@ -27,6 +27,7 @@ function useViewContext() {
     region:      params.get("region")      ?? undefined,
     subcategory: params.get("subcategory") ?? undefined,
     tags:        params.getAll("tag"),
+    hoursAgo:    parseInt(params.get("hours") ?? "24", 10),
   };
 }
 

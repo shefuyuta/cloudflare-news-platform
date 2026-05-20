@@ -21,3 +21,12 @@ index_name = "newshub-index"
 # ----- Workers AI ----------------------------------------------------
 [ai]
 binding = "AI"
+
+# ----- Email via Resend -----------------------------------------------
+# Sign up at https://resend.com, verify your domain, then:
+#   1. Set RESEND_API_KEY to your API key (re_xxxxxxxx)
+#   2. Set BRIEFING_FROM to a verified sender address
+# For secrets (prod), use: wrangler secret put RESEND_API_KEY
+[vars]
+BRIEFING_FROM = "briefing@yourdomain.com"
+# RESEND_API_KEY is a secret — add via: wrangler secret put RESEND_API_KEY

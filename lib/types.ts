@@ -56,6 +56,7 @@ export interface ChatRequest {
     region?: string;
     subcategory?: string;
     tags?: string[];
+    hoursAgo?: number;   // ← match the news display window
   };
   history?: { role: "user" | "assistant"; content: string }[];
 }

@@ -2,10 +2,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLang } from "@/components/LangProvider";
 
 interface DashStats {
+  hours: number;
   total: number;
+  dbTotal: number;
   byCategory: { category: string; cnt: number }[];
   bySource: { source: string; category: string; cnt: number }[];
   trendingTags: { name: string; cnt: number }[];
@@ -27,20 +30,23 @@ const CATEGORY_BG: Record<string, string> = {
 
 export function DashboardClient() {
   const { lang, t } = useLang();
+  const searchParams = useSearchParams();
+  const hours = parseInt(searchParams.get("hours") ?? "24", 10);
+
   const [stats, setStats] = useState<DashStats | null>(null);
   const [briefing, setBriefing] = useState<string>("");
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/dashboard")
+    fetch(`/api/dashboard?hours=${hours}`)
       .then((r) => r.json())
       .then((d) => {
         setStats(d as DashStats);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [hours]);
 
   async function generateBriefing() {
     if (briefingLoading) return;
@@ -99,9 +105,10 @@ export function DashboardClient() {
       {/* ── KPI Row ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard
-          label={t("totalArticles")}
+          label={lang === "ja" ? `過去${stats.hours}h の記事数` : `Articles (last ${stats.hours}h)`}
           value={stats.total.toLocaleString()}
           icon="📰"
+          sub={lang === "ja" ? `DB合計: ${stats.dbTotal}件` : `DB total: ${stats.dbTotal}`}
         />
         {stats.byCategory.map((c) => (
           <StatCard
@@ -146,27 +153,38 @@ export function DashboardClient() {
         <section>
           <SectionHeading>{lang === "ja" ? "過去24時間の記事数（時間帯別）" : "Article volume — last 24h"}</SectionHeading>
           <div className="border hairline rounded-lg p-4">
-            <div className="flex items-end gap-1 h-24">
+            {/* Bar row — items-end aligns all bars to the SAME baseline */}
+            <div className="flex items-end gap-1" style={{ height: "80px" }}>
               {Array.from({ length: 24 }, (_, i) => {
-                const hr = String(i).padStart(2, "0");
+                const hr  = String(i).padStart(2, "0");
                 const rec = stats.hourly.find((h) => h.hour === hr);
                 const cnt = rec?.cnt ?? 0;
+                const barH = Math.max(2, (cnt / maxHourly) * 76);
                 return (
-                  <div key={hr} className="flex-1 flex flex-col items-center gap-1 group relative">
+                  <div key={hr} className="flex-1 group relative flex items-end" style={{ height: "100%" }}>
                     <div
                       className="w-full rounded-sm bg-[var(--ink)] transition-all duration-300"
-                      style={{ height: `${Math.max(2, (cnt / maxHourly) * 80)}px`, opacity: cnt ? 0.8 : 0.1 }}
+                      style={{ height: `${barH}px`, opacity: cnt ? 0.8 : 0.1 }}
                     />
-                    {/* Tooltip */}
+                    {/* Hover tooltip */}
                     <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
                       {hr}:00 · {cnt}
                     </div>
-                    {i % 6 === 0 && (
-                      <span className="text-[9px] text-[var(--ink-4)]">{hr}h</span>
-                    )}
                   </div>
                 );
               })}
+            </div>
+            {/* Label row — completely separate, same flex layout as bar row */}
+            <div className="flex gap-1 mt-1.5">
+              {Array.from({ length: 24 }, (_, i) => (
+                <div key={i} className="flex-1 text-center">
+                  {i % 6 === 0 && (
+                    <span className="text-[9px] text-[var(--ink-4)] leading-none">
+                      {String(i).padStart(2, "0")}h
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -280,8 +298,8 @@ export function DashboardClient() {
 
 // ── Sub-components ────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon, color }: {
-  label: string; value: string; icon: string; color?: string;
+function StatCard({ label, value, icon, color, sub }: {
+  label: string; value: string; icon: string; color?: string; sub?: string;
 }) {
   return (
     <div className="border hairline rounded-lg p-4">
@@ -290,6 +308,7 @@ function StatCard({ label, value, icon, color }: {
         <span className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">{label}</span>
       </div>
       <div className="text-2xl font-semibold" style={color ? { color } : undefined}>{value}</div>
+      {sub && <div className="text-[11px] text-[var(--ink-4)] mt-1">{sub}</div>}
     </div>
   );
 }
@@ -367,14 +386,14 @@ function BriefingDelivery({ lang }: { lang: string }) {
         {/* Email */}
         <div>
           <label className="block text-[11px] font-medium uppercase tracking-wider text-[var(--ink-3)] mb-1.5">
-            {lang === "ja" ? "メールアドレス" : "Email Address"}
+            {lang === "ja" ? "メールアドレス (Resend)" : "Email Address (via Resend)"}
           </label>
           <div className="flex gap-2">
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder={lang === "ja" ? "your@email.com" : "your@email.com"}
+              placeholder="your@email.com"
               className="flex-1 text-sm bg-[var(--line-soft)] px-3 py-2 rounded-md outline-none focus:ring-1 ring-[var(--ink)]"
             />
             <button
@@ -385,6 +404,11 @@ function BriefingDelivery({ lang }: { lang: string }) {
               {lang === "ja" ? "メール送信" : "Send Email"}
             </button>
           </div>
+          <p className="text-[10px] text-[var(--ink-4)] mt-1.5">
+            {lang === "ja"
+              ? "事前に wrangler.toml へ RESEND_API_KEY と BRIEFING_FROM を設定してください。"
+              : "Requires RESEND_API_KEY and BRIEFING_FROM set in wrangler.toml."}
+          </p>
         </div>
 
         {status && (

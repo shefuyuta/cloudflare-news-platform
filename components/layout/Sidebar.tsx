@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/components/LangProvider";
-import { TKey } from "@/lib/i18n";
+import type { TKey } from "@/lib/i18n";
 
 interface NavEntry {
   href: string;

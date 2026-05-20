@@ -102,10 +102,11 @@ async function runFetcher(env: Env): Promise<void> {
 
   console.log(`[fetcher] Done. Ingested ${ingested}/${allArticles.length} articles.`);
 
-  // Trigger importance scoring for newly ingested articles
+  const baseUrl = env.INGEST_URL.replace(/\/$/, "");
+
+  // ── Importance scoring ───────────────────────────────────────────────
   if (ingested > 0) {
     try {
-      const baseUrl = env.INGEST_URL.replace(/\/$/, "");
       let remaining = ingested;
       let rounds = 0;
       while (remaining > 0 && rounds < 5) {
@@ -120,6 +121,19 @@ async function runFetcher(env: Env): Promise<void> {
     } catch (e) {
       console.warn("[fetcher] Scoring failed (non-critical):", e);
     }
+  }
+
+  // ── Cleanup old articles (always run, regardless of ingestion count) ──
+  try {
+    const cleanupResp = await fetch(`${baseUrl}/api/cleanup`, { method: "POST" });
+    if (cleanupResp.ok) {
+      const cleanupData = await cleanupResp.json() as { deleted: number };
+      if (cleanupData.deleted > 0) {
+        console.log(`[fetcher] Cleanup: removed ${cleanupData.deleted} old articles.`);
+      }
+    }
+  } catch (e) {
+    console.warn("[fetcher] Cleanup failed (non-critical):", e);
   }
 }
 
