@@ -12,7 +12,7 @@ interface DashStats {
   byCategory: { category: string; cnt: number }[];
   bySource: { source: string; category: string; cnt: number }[];
   trendingTags: { name: string; cnt: number }[];
-  hourly: { hour: string; cnt: number }[];
+  hourly: { hours_ago: number; jst_hour: number; cnt: number }[];
   importanceDist: { high: number; medium: number; low: number } | null;
 }
 
@@ -83,7 +83,6 @@ export function DashboardClient() {
     );
   }
 
-  const maxHourly = Math.max(...(stats.hourly.map((h) => h.cnt)), 1);
   const maxSource = Math.max(...(stats.bySource.map((s) => s.cnt)), 1);
 
   // Build source heatmap data: sources × categories
@@ -151,41 +150,57 @@ export function DashboardClient() {
       {/* ── Hourly activity spark ───────────────────────────────────── */}
       {stats.hourly.length > 0 && (
         <section>
-          <SectionHeading>{lang === "ja" ? "過去24時間の記事数（時間帯別）" : "Article volume — last 24h"}</SectionHeading>
+          <SectionHeading>
+            {lang === "ja" ? "過去24時間の記事数（JST基準・1時間スロット）" : "Article volume — last 24h (JST, hourly slots)"}
+          </SectionHeading>
           <div className="border hairline rounded-lg p-4">
-            {/* Bar row — items-end aligns all bars to the SAME baseline */}
-            <div className="flex items-end gap-1" style={{ height: "80px" }}>
-              {Array.from({ length: 24 }, (_, i) => {
-                const hr  = String(i).padStart(2, "0");
-                const rec = stats.hourly.find((h) => h.hour === hr);
+            {/* Build 24 slots: slot 0 = current hour, slot 23 = 23h ago */}
+            {(() => {
+              const slots = Array.from({ length: 24 }, (_, i) => {
+                const hoursAgo = 23 - i; // left=oldest, right=newest
+                const rec = stats.hourly.find(h => h.hours_ago === hoursAgo);
                 const cnt = rec?.cnt ?? 0;
-                const barH = Math.max(2, (cnt / maxHourly) * 76);
-                return (
-                  <div key={hr} className="flex-1 group relative flex items-end" style={{ height: "100%" }}>
-                    <div
-                      className="w-full rounded-sm bg-[var(--ink)] transition-all duration-300"
-                      style={{ height: `${barH}px`, opacity: cnt ? 0.8 : 0.1 }}
-                    />
-                    {/* Hover tooltip */}
-                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
-                      {hr}:00 · {cnt}
-                    </div>
+                // JST label: current JST hour minus hoursAgo
+                const nowJst = new Date(Date.now() + 9 * 3_600_000);
+                const slotJst = new Date(nowJst.getTime() - hoursAgo * 3_600_000);
+                const label = String(slotJst.getUTCHours()).padStart(2, "0") + "h";
+                return { hoursAgo, cnt, label };
+              });
+              const maxCnt = Math.max(...slots.map(s => s.cnt), 1);
+
+              return (
+                <>
+                  {/* Bar row */}
+                  <div className="flex items-end gap-1" style={{ height: "80px" }}>
+                    {slots.map(({ hoursAgo, cnt, label }) => (
+                      <div
+                        key={hoursAgo}
+                        className="flex-1 group relative flex items-end"
+                        style={{ height: "100%" }}
+                      >
+                        <div
+                          className="w-full rounded-sm bg-[var(--ink)] transition-all duration-300"
+                          style={{ height: `${Math.max(2, (cnt / maxCnt) * 76)}px`, opacity: cnt ? 0.8 : 0.1 }}
+                        />
+                        <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
+                          {label} · {cnt}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-            {/* Label row — completely separate, same flex layout as bar row */}
-            <div className="flex gap-1 mt-1.5">
-              {Array.from({ length: 24 }, (_, i) => (
-                <div key={i} className="flex-1 text-center">
-                  {i % 6 === 0 && (
-                    <span className="text-[9px] text-[var(--ink-4)] leading-none">
-                      {String(i).padStart(2, "0")}h
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+                  {/* Label row */}
+                  <div className="flex gap-1 mt-1.5">
+                    {slots.map(({ hoursAgo, label }) => (
+                      <div key={hoursAgo} className="flex-1 text-center">
+                        {hoursAgo % 6 === 0 && (
+                          <span className="text-[9px] text-[var(--ink-4)] leading-none">{label}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </section>
       )}

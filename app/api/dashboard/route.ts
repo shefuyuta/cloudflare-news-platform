@@ -50,12 +50,20 @@ export async function GET(req: Request): Promise<Response> {
        ORDER BY cnt DESC LIMIT 20`
     ).bind(cutoff).all(),
 
-    // Hourly volume — always last 24h regardless of window (shows recent rhythm)
+    // Hourly volume — last 24h in 1-hour slots (0 = current hour, 23 = 24h ago)
+    // published_at is stored as UTC; JST = UTC+9
+    // We label each slot by its JST hour-of-day for display.
     env.DB.prepare(
-      `SELECT strftime('%H', published_at) as hour, COUNT(*) as cnt
+      `SELECT
+         -- hours ago from now (0 = this hour, 23 = 23 hours ago)
+         CAST((strftime('%s','now') - strftime('%s', published_at)) / 3600 AS INTEGER) as hours_ago,
+         -- JST hour label (UTC+9)
+         CAST((strftime('%H', published_at, '+9 hours')) AS INTEGER) as jst_hour,
+         COUNT(*) as cnt
        FROM articles
        WHERE published_at >= datetime('now','-24 hours')
-       GROUP BY hour ORDER BY hour`
+       GROUP BY hours_ago
+       ORDER BY hours_ago DESC`
     ).all(),
 
     // Importance distribution within window
@@ -78,7 +86,7 @@ export async function GET(req: Request): Promise<Response> {
     byCategory:      (byCategoryRows.results  ?? []).map(r => r as { category: string; cnt: number }),
     bySource:        (bySourceRows.results    ?? []).map(r => r as { source: string; category: string; cnt: number }),
     trendingTags:    (trendingTagsRows.results ?? []).map(r => r as { name: string; cnt: number }),
-    hourly:          (hourlyRows.results      ?? []).map(r => r as { hour: string; cnt: number }),
+    hourly: (hourlyRows.results ?? []).map(r => r as { hours_ago: number; jst_hour: number; cnt: number }),
     importanceDist:  importanceDistRows as { high: number; medium: number; low: number } | null,
   });
 }
