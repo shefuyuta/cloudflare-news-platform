@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import type { Citation } from "@/lib/types";
 import type { Category } from "@/lib/categories";
 import { useLang } from "@/components/LangProvider";
-import { Sparkles, X, Send } from "@/components/ui/Icon";
+import { Sparkles, X } from "@/components/ui/Icon";
 
 interface Msg {
   role: "user" | "assistant";
