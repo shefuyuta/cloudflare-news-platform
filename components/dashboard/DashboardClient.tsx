@@ -2,7 +2,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
+import { Newspaper, Globe, Shield, Cpu, RefreshCw, Sparkles } from "@/components/ui/Icon";
 import { useLang } from "@/components/LangProvider";
 
 interface DashStats {
@@ -106,7 +108,7 @@ export function DashboardClient() {
         <StatCard
           label={lang === "ja" ? `過去${stats.hours}h の記事数` : `Articles (last ${stats.hours}h)`}
           value={stats.total.toLocaleString()}
-          icon="📰"
+          icon={<Newspaper size={15} strokeWidth={1.5} />}
           sub={lang === "ja" ? `DB合計: ${stats.dbTotal}件` : `DB total: ${stats.dbTotal}`}
         />
         {stats.byCategory.map((c) => (
@@ -114,7 +116,7 @@ export function DashboardClient() {
             key={c.category}
             label={catLabel(c.category, lang)}
             value={c.cnt.toLocaleString()}
-            icon={catIcon(c.category)}
+            icon={catLucideIcon(c.category)}
             color={CATEGORY_COLORS[c.category]}
           />
         ))}
@@ -286,9 +288,9 @@ export function DashboardClient() {
             className="px-3 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-white hover:bg-black disabled:opacity-40 transition-colors flex items-center gap-1.5"
           >
             {briefingLoading ? (
-              <><span className="animate-spin inline-block">↻</span> {lang === "ja" ? "生成中…" : "Generating…"}</>
+              <><RefreshCw size={12} strokeWidth={1.5} className="animate-spin" /> {lang === "ja" ? "生成中…" : "Generating…"}</>
             ) : (
-              <>{t("generateBriefing")}</>
+              <><Sparkles size={12} strokeWidth={1.5} />{t("generateBriefing")}</>
             )}
           </button>
         </div>
@@ -314,12 +316,12 @@ export function DashboardClient() {
 // ── Sub-components ────────────────────────────────────────────────────
 
 function StatCard({ label, value, icon, color, sub }: {
-  label: string; value: string; icon: string; color?: string; sub?: string;
+  label: string; value: string; icon: ReactNode; color?: string; sub?: string;
 }) {
   return (
     <div className="border hairline rounded-lg p-4">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-lg">{icon}</span>
+        <span className="text-[var(--ink-3)]">{icon}</span>
         <span className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">{label}</span>
       </div>
       <div className="text-2xl font-semibold" style={color ? { color } : undefined}>{value}</div>
@@ -436,6 +438,13 @@ function BriefingDelivery({ lang }: { lang: string }) {
   );
 }
 
+function catLucideIcon(cat: string): ReactNode {
+  if (cat === "general")       return <Globe   size={15} strokeWidth={1.5} />;
+  if (cat === "cybersecurity") return <Shield  size={15} strokeWidth={1.5} />;
+  if (cat === "ai")            return <Cpu     size={15} strokeWidth={1.5} />;
+  return <Newspaper size={15} strokeWidth={1.5} />;
+}
+
 function catLabel(cat: string, lang: string): string {
   const labels: Record<string, { ja: string; en: string }> = {
     general: { ja: "一般ニュース", en: "General" },
@@ -445,6 +454,5 @@ function catLabel(cat: string, lang: string): string {
   return labels[cat]?.[lang as "ja" | "en"] ?? cat;
 }
 
-function catIcon(cat: string): string {
-  return { general: "🌐", cybersecurity: "🔐", ai: "🤖" }[cat] ?? "📄";
-}
+
+

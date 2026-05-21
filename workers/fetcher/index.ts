@@ -123,7 +123,20 @@ async function runFetcher(env: Env): Promise<void> {
     }
   }
 
-  // ── Cleanup old articles (always run, regardless of ingestion count) ──
+  // ── Full-text scraping ──────────────────────────────────────────────
+  try {
+    for (let round = 0; round < 3; round++) {
+      const scrapeResp = await fetch(`${baseUrl}/api/scrape-content`, { method: "POST" });
+      if (!scrapeResp.ok) break;
+      const scrapeData = await scrapeResp.json() as { scraped: number; remaining: number };
+      if (scrapeData.remaining === 0 || scrapeData.scraped === 0) break;
+    }
+    console.log("[fetcher] Scraping complete.");
+  } catch (e) {
+    console.warn("[fetcher] Scraping failed (non-critical):", e);
+  }
+
+  // ── Cleanup old articles ─────────────────────────────────────────────
   try {
     const cleanupResp = await fetch(`${baseUrl}/api/cleanup`, { method: "POST" });
     if (cleanupResp.ok) {

@@ -58,3 +58,8 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id, created_at);
+
+-- ---- 5. Article scraping flag (2025-xx) ---------------------------
+-- scraped_at: set when full-text scrape succeeds; NULL = not yet scraped
+ALTER TABLE articles ADD COLUMN scraped_at TEXT;
+CREATE INDEX IF NOT EXISTS idx_articles_scraped ON articles(scraped_at);

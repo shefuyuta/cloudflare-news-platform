@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import type { Citation } from "@/lib/types";
 import type { Category } from "@/lib/categories";
 import { useLang } from "@/components/LangProvider";
+import { Sparkles, X, Send } from "@/components/ui/Icon";
 
 interface Msg {
   role: "user" | "assistant";
@@ -141,7 +142,7 @@ export function AIChatDock() {
           aria-label="Open AI assistant"
           className="fixed bottom-6 right-6 z-30 h-12 px-5 rounded-full bg-[var(--ink)] text-white text-sm font-medium shadow-lg hover:bg-black transition-colors flex items-center gap-2"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <Sparkles size={13} strokeWidth={1.5} className="text-emerald-400" />
           {t("askNewsHub")}
         </button>
       )}
@@ -178,7 +179,7 @@ function ChatHeader({ ctx, onClose }: { ctx: ReturnType<typeof useViewContext>; 
           {t("chatScope")}: <span className="font-mono">{scope}</span>
         </div>
       </div>
-      <button onClick={onClose} aria-label="Close" className="text-[var(--ink-3)] hover:text-[var(--ink)] text-xl leading-none px-1">×</button>
+      <button onClick={onClose} aria-label="Close" className="text-[var(--ink-3)] hover:text-[var(--ink)] p-1"><X size={16} strokeWidth={1.5} /></button>
     </header>
   );
 }

@@ -1,0 +1,26 @@
+// components/ui/Icon.tsx
+// Re-exports lucide-react icons used across the app.
+// All icons inherit currentColor — place color on the parent element.
+export {
+  Bell,
+  Bookmark,
+  BookmarkCheck,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  FileText,
+  Globe,
+  LayoutDashboard,
+  Loader2,
+  RefreshCw,
+  Shield,
+  Sparkles,
+  Star,
+  Table2,
+  Check,
+  AlertCircle,
+  Menu,
+  X,
+  Cpu,
+  Newspaper,
+} from "lucide-react";

@@ -7,6 +7,7 @@ import type { NewsArticle } from "@/lib/types";
 import { CategoryBadge, SubBadge, ImportanceBadge, TagChip } from "./TagBadge";
 import { useLang } from "@/components/LangProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Check } from "@/components/ui/Icon";
 
 interface Props {
   article: NewsArticle;
@@ -26,127 +27,110 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
       })
     : "—";
 
-  const hasSummary = !!article.summary?.trim();
   const bookmarked = mounted && isBookmarked(article.id);
   const read       = mounted && isRead(article.id);
 
   return (
-    <article className={[
-      "border-b hairline py-4 first:pt-0 last:border-b-0 transition-opacity",
-      read ? "opacity-60" : "",
-    ].join(" ")}>
+    <article className={["border-b hairline py-4 first:pt-0 last:border-b-0 transition-opacity", read ? "opacity-60" : ""].join(" ")}>
 
-      {/* Compact row */}
       <div
         className="flex items-start gap-3 cursor-pointer group"
-        onClick={() => {
-          setOpen(o => !o);
-          if (!read) markRead(article.id);
-        }}
+        onClick={() => { setOpen(o => !o); if (!read) markRead(article.id); }}
       >
-        {/* Expand indicator */}
+        {/* Expand chevron */}
         <span className={[
-          "mt-1.5 text-[11px] text-[var(--ink-4)] transition-transform duration-200 select-none flex-shrink-0",
+          "mt-1.5 text-[var(--ink-4)] transition-transform duration-200 flex-shrink-0",
           open ? "rotate-90" : "",
-        ].join(" ")}>▶</span>
+        ].join(" ")}>
+          <ChevronRight size={14} strokeWidth={1.5} />
+        </span>
 
-        {/* Title + badges */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <CategoryBadge category={article.category} />
-            <SubBadge
-              category={article.category}
-              region={article.region}
-              subcategory={article.subcategory}
-            />
+            <SubBadge category={article.category} region={article.region} subcategory={article.subcategory} />
             <ImportanceBadge score={article.importanceScore} />
             {read && mounted && (
-              <span className="text-[10px] text-[var(--ink-4)] font-mono">{t("readArticle")}</span>
+              <span className="text-[10px] text-[var(--ink-4)] font-mono flex items-center gap-0.5">
+                <Check size={10} strokeWidth={2} />{t("readArticle")}
+              </span>
             )}
-            <span className="text-[11px] text-[var(--ink-3)] ml-auto font-mono tracking-wider flex-shrink-0">
-              {date}
-            </span>
+            <span className="text-[11px] text-[var(--ink-3)] ml-auto font-mono tracking-wider flex-shrink-0">{date}</span>
           </div>
 
           <h2 className="font-display text-lg md:text-xl font-medium leading-snug text-[var(--ink)] group-hover:text-[var(--ink-2)] transition-colors">
             {article.title}
           </h2>
-
-          <span className="text-[11px] text-[var(--ink-3)] font-mono mt-0.5 inline-block">
-            {article.source}
-          </span>
+          <span className="text-[11px] text-[var(--ink-3)] font-mono mt-0.5 inline-block">{article.source}</span>
         </div>
 
-        {/* Bookmark button */}
+        {/* Bookmark */}
         {mounted && (
           <button
             onClick={e => { e.stopPropagation(); toggleBookmark(article.id); }}
             title={bookmarked ? t("bookmarked") : t("bookmark")}
             className={[
-              "flex-shrink-0 mt-1 p-1 rounded transition-colors text-sm",
-              bookmarked
-                ? "text-[var(--ink)]"
-                : "text-[var(--ink-4)] hover:text-[var(--ink-2)]",
+              "flex-shrink-0 mt-1 p-1 rounded transition-colors",
+              bookmarked ? "text-[var(--ink)]" : "text-[var(--ink-4)] hover:text-[var(--ink-2)]",
             ].join(" ")}
-            aria-label={bookmarked ? t("bookmarked") : t("bookmark")}
           >
-            {bookmarked ? "★" : "☆"}
+            {bookmarked
+              ? <BookmarkCheck size={15} strokeWidth={1.5} />
+              : <Bookmark size={15} strokeWidth={1.5} />}
           </button>
         )}
       </div>
 
-      {/* Expanded detail panel */}
+      {/* Expanded panel */}
       {open && (
         <div className="ml-7 mt-3 pl-3 border-l-2 border-[var(--line)] animate-fadeIn">
-          {hasSummary && (
-            <p className="text-sm text-[var(--ink-2)] leading-relaxed mb-3">
-              {article.summary}
+
+          {/* Full-text excerpt — prefer scraped content over RSS summary */}
+          {article.content?.trim() ? (
+            <ContentExcerpt content={article.content} lang={lang} />
+          ) : article.summary?.trim() ? (
+            <p className="text-sm text-[var(--ink-2)] leading-relaxed mb-3">{article.summary}</p>
+          ) : (
+            <p className="text-sm text-[var(--ink-4)] italic mb-3">
+              {lang === "ja" ? "本文取得中…次回更新時に表示されます。" : "Content will appear after the next refresh."}
             </p>
           )}
 
-          {/* Source + URL row */}
           <div className="flex items-center gap-3 flex-wrap text-[12px]">
             <span className="font-mono text-[var(--ink-2)]">{article.source}</span>
             <span className="text-[var(--ink-4)]">·</span>
             <Link
-              href={article.url}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={article.url} target="_blank" rel="noopener noreferrer"
               className="text-[var(--ink-3)] hover:text-[var(--ink)] truncate max-w-[20rem] inline-block"
-              title={article.url}
               onClick={e => e.stopPropagation()}
             >
-              {prettyUrl(article.url)} ↗
+              {prettyUrl(article.url)}
             </Link>
 
-            {/* Mark read button */}
             {mounted && !read && (
               <button
                 onClick={e => { e.stopPropagation(); markRead(article.id); }}
-                className="text-[var(--ink-4)] hover:text-[var(--ink-2)] transition-colors text-[11px] font-medium"
+                className="text-[var(--ink-4)] hover:text-[var(--ink-2)] transition-colors text-[11px] font-medium flex items-center gap-1"
               >
-                ✓ {t("markRead")}
+                <Check size={11} strokeWidth={2} /> {t("markRead")}
               </button>
             )}
 
             <Link
-              href={article.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-auto px-3 py-1 rounded-md text-[11px] font-medium ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
+              href={article.url} target="_blank" rel="noopener noreferrer"
+              className="ml-auto px-3 py-1 rounded-md text-[11px] font-medium ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors flex items-center gap-1.5"
               onClick={e => e.stopPropagation()}
             >
-              {lang === "ja" ? "原文を読む ↗" : "Read original ↗"}
+              {lang === "ja" ? "原文を読む" : "Read original"}
+              <ExternalLink size={11} strokeWidth={1.5} />
             </Link>
           </div>
 
-          {/* Tags */}
           {article.tags.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap mt-3">
               {article.tags.slice(0, 6).map(tag => (
                 <TagChip
-                  key={tag}
-                  tag={tag}
+                  key={tag} tag={tag}
                   onClick={onTagClick ? () => onTagClick(tag) : undefined}
                   active={activeTags.includes(tag)}
                 />
@@ -164,4 +148,28 @@ function prettyUrl(url: string): string {
     const u = new URL(url);
     return u.hostname.replace(/^www\./, "") + u.pathname.replace(/\/$/, "");
   } catch { return url; }
+}
+
+/** Displays a collapsible excerpt of the scraped article body. */
+function ContentExcerpt({ content, lang }: { content: string; lang: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const PREVIEW_CHARS = 400;
+  const isLong = content.length > PREVIEW_CHARS;
+  const displayed = expanded || !isLong ? content : content.slice(0, PREVIEW_CHARS) + "…";
+
+  return (
+    <div className="mb-3">
+      <p className="text-sm text-[var(--ink-2)] leading-relaxed whitespace-pre-line">{displayed}</p>
+      {isLong && (
+        <button
+          onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
+          className="mt-1.5 text-[11px] text-[var(--ink-3)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors"
+        >
+          {expanded
+            ? (lang === "ja" ? "折りたたむ" : "Show less")
+            : (lang === "ja" ? `全文を表示（${content.length}文字）` : `Show full excerpt (${content.length} chars)`)}
+        </button>
+      )}
+    </div>
+  );
 }

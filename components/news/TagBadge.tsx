@@ -3,8 +3,8 @@ import {
   CATEGORIES, regionLabel, subcategoryLabel, IMPORTANT_THRESHOLD,
   type Category,
 } from "@/lib/categories";
+import { Star } from "@/components/ui/Icon";
 
-/** Small category badge — one of the only colored elements on a card. */
 export function CategoryBadge({ category }: { category: Category }) {
   const c = CATEGORIES[category];
   return (
@@ -14,12 +14,11 @@ export function CategoryBadge({ category }: { category: Category }) {
   );
 }
 
-/** Region/subcategory badge — monochrome (only the category gets color). */
 export function SubBadge({
   category, region, subcategory,
 }: { category: Category; region?: string | null; subcategory?: string | null }) {
   let label: string | null = null;
-  if (category === "general" && region)              label = regionLabel(region);
+  if (category === "general" && region)               label = regionLabel(region);
   else if (category === "cybersecurity" && subcategory) label = subcategoryLabel(subcategory);
   if (!label) return null;
   return (
@@ -29,17 +28,16 @@ export function SubBadge({
   );
 }
 
-/** Importance badge — only shown when score crosses the threshold. */
 export function ImportanceBadge({ score }: { score?: number }) {
   if (!score || score < IMPORTANT_THRESHOLD) return null;
   return (
-    <span className="badge bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200 font-mono">
-      ★ {score}/10
+    <span className="badge bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200 font-mono flex items-center gap-1">
+      <Star size={10} strokeWidth={1.5} className="fill-amber-400 text-amber-400" />
+      {score}/10
     </span>
   );
 }
 
-/** Free-form tag — outlined, monochrome. Clickable to filter. */
 export function TagChip({ tag, onClick, active }: { tag: string; onClick?: () => void; active?: boolean }) {
   return (
     <button
