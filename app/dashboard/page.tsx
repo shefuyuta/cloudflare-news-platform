@@ -11,10 +11,7 @@ export default async function DashboardPage() {
   return (
     <>
       <header className="mb-8">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)]">
-          {t("navDashboardSub", lang)}
-        </p>
-        <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight mt-1">
+        <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight">
           {t("dashboardTitle", lang)}
         </h1>
         <p className="text-sm text-[var(--ink-3)] mt-2">{t("dashboardSub", lang)}</p>

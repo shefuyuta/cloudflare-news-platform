@@ -8,14 +8,13 @@ import { t, type Lang, DEFAULT_LANG, LANG_COOKIE } from "@/lib/i18n";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage({ searchParams }: {
-  searchParams: Promise<{ q?: string; tag?: string | string[]; page?: string; pageSize?: string }>;
+  searchParams: Promise<{ q?: string; tag?: string | string[] }>;
 }) {
   const sp   = await searchParams;
   const env  = (await getCloudflareContext()).env as unknown as Env;
   const cookieStore = await cookies();
   const lang = (cookieStore.get(LANG_COOKIE)?.value as Lang) ?? DEFAULT_LANG;
   const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
-  // Latest tab: always last 2 hours, ignore ?hours param
   const items = await listArticles(env, { q: sp.q, tags, hoursAgo: 2, limit: 200 });
 
   return (

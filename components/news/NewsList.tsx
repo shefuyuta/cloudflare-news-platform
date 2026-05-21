@@ -1,7 +1,7 @@
 // components/news/NewsList.tsx
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { NewsArticle } from "@/lib/types";
 import { NewsCard } from "./NewsCard";
 import { ExportButton } from "./ExportButton";
@@ -19,6 +19,9 @@ export function NewsList({ articles, activeTags = [] }: {
 }) {
   const { t, lang } = useLang();
   const { markRead } = useBookmarks();
+  const markReadRef  = useRef(markRead);
+  markReadRef.current = markRead;
+
   const { keywords, matches, newCount, dismissAlerts, mounted } = useKeywordAlerts(articles);
   const [alertDismissed, setAlertDismissed] = useState(false);
 
@@ -26,7 +29,7 @@ export function NewsList({ articles, activeTags = [] }: {
   const [page, setPage]           = useState(1);
   const [pageSize, setPageSize]   = useState<PageSize>(20);
 
-  // Accordion: track which article is open (null = none)
+  // Accordion: one open at a time. Closing → mark read.
   const [openId, setOpenId] = useState<string | null>(null);
 
   const showAlert = mounted && newCount > 0 && !alertDismissed;
@@ -35,15 +38,13 @@ export function NewsList({ articles, activeTags = [] }: {
   const handleToggle = useCallback((id: string) => {
     setOpenId(prev => {
       if (prev === id) {
-        // Closing current → mark read
-        markRead(id);
+        markReadRef.current(id);
         return null;
       }
-      // Closing previous → mark it read
-      if (prev !== null) markRead(prev);
+      if (prev !== null) markReadRef.current(prev);
       return id;
     });
-  }, [markRead]);
+  }, []);
 
   // Reset to page 1 when pageSize changes
   function handlePageSizeChange(size: PageSize) {
