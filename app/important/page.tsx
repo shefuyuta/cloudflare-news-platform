@@ -18,7 +18,7 @@ export default async function ImportantPage({ searchParams }: {
   const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
   const hoursAgo = parseInt(sp.hours ?? "24", 10);
 
-  const items = await listArticles(env, { important: true, q: sp.q, tags, hoursAgo, limit: 500 });
+  const items = await listArticles(env, { important: true, q: sp.q, tags, hoursAgo, limit: 200 });
 
   return (
     <>

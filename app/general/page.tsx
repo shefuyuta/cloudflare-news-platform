@@ -19,7 +19,7 @@ export default async function GeneralPage({ searchParams }: {
   const hoursAgo = parseInt(sp.hours ?? "24", 10);
 
   const [items, available] = await Promise.all([
-    listArticles(env, { category: "general", region: sp.region, q: sp.q, tags, hoursAgo, limit: 500 }),
+    listArticles(env, { category: "general", region: sp.region, q: sp.q, tags, hoursAgo, limit: 200 }),
     listAllTags(env, "general"),
   ]);
 

@@ -16,7 +16,7 @@ export default async function HomePage({ searchParams }: {
   const lang = (cookieStore.get(LANG_COOKIE)?.value as Lang) ?? DEFAULT_LANG;
   const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
   // Latest tab: always last 2 hours, ignore ?hours param
-  const items = await listArticles(env, { q: sp.q, tags, hoursAgo: 2, limit: 500 });
+  const items = await listArticles(env, { q: sp.q, tags, hoursAgo: 2, limit: 200 });
 
   return (
     <>

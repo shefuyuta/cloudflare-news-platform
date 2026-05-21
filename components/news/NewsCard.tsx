@@ -34,10 +34,9 @@ export function NewsCard({ article, onTagClick, activeTags = [], isOpen, onToggl
 
   function handleHeaderClick() {
     if (onToggle) {
+      // NewsList.handleToggle marks read when closing
       onToggle(article.id);
     }
-    // Mark read on first open
-    if (!isOpen && !read) markRead(article.id);
   }
 
   return (

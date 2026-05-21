@@ -1,9 +1,9 @@
 // app/search/page.tsx
-// Full-database search — no time-window restriction.
-// Accepts: q, tag, source, category, region, subcategory, important
+// Full-database search with server-side and client-side filters.
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
+import { SearchFilters } from "@/components/search/SearchFilters";
 import type { Env } from "@/lib/types";
 import type { Category } from "@/lib/categories";
 import { cookies } from "next/headers";
@@ -18,6 +18,7 @@ interface SearchParams {
   region?: string;
   subcategory?: string;
   important?: string;
+  hours?: string;       // "all" or number string
 }
 
 export default async function SearchPage({
@@ -30,7 +31,9 @@ export default async function SearchPage({
   const cookieStore = await cookies();
   const lang = (cookieStore.get(LANG_COOKIE)?.value as Lang) ?? DEFAULT_LANG;
 
-  const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
+  const tags      = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
+  const noTimeLim = !sp.hours || sp.hours === "all";
+  const hoursAgo  = noTimeLim ? 24 : parseInt(sp.hours!, 10);
 
   const items = await listArticles(env, {
     q:           sp.q,
@@ -40,67 +43,38 @@ export default async function SearchPage({
     region:      sp.region,
     subcategory: sp.subcategory,
     important:   sp.important === "1",
-    noTimeLimit: true,   // search entire DB
-    limit:       100,
+    noTimeLimit: noTimeLim,
+    hoursAgo:    noTimeLim ? undefined : hoursAgo,
+    limit:       200,
   });
 
-  // Build human-readable filter description
+  // Build header description
   const filters: string[] = [];
   if (sp.q)           filters.push(`"${sp.q}"`);
   if (sp.source)      filters.push(sp.source);
   if (sp.category)    filters.push(sp.category);
-  if (sp.region)      filters.push(sp.region);
-  if (sp.subcategory) filters.push(sp.subcategory);
-  if (tags.length)    filters.push(tags.map(t => `#${t}`).join(" "));
-  if (sp.important === "1") filters.push(lang === "ja" ? "重要" : "important");
-
-  const hasFilters = filters.length > 0;
+  if (tags.length)    filters.push(tags.map(tg => `#${tg}`).join(" "));
 
   return (
     <>
       <header className="mb-6">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)]">
-          {t("navSearch", lang)}
-        </p>
-        <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight mt-1">
-          {hasFilters
+        <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight">
+          {filters.length > 0
             ? <>{t("searchResultsFor", lang)} <span className="text-[var(--ink-2)]">{filters.join(" · ")}</span></>
             : t("navSearch", lang)
           }
         </h1>
         <p className="text-sm text-[var(--ink-3)] mt-2">
-          {hasFilters
-            ? `${items.length.toLocaleString()} ${lang === "ja" ? "件 — 全期間の記事が対象" : "results — all time"}`
-            : t("searchHint", lang)
-          }
+          {noTimeLim
+            ? (lang === "ja" ? "全期間の記事が対象" : "All time")
+            : (lang === "ja" ? `過去${hoursAgo}時間の記事が対象` : `Last ${hoursAgo}h`)}
+          {" · "}{items.length.toLocaleString()} {lang === "ja" ? "件取得" : "results fetched"}
         </p>
-
-        {/* Active filter chips */}
-        {hasFilters && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {sp.q && <FilterChip label={`"${sp.q}"`} href="/search" lang={lang} />}
-            {sp.source && <FilterChip label={sp.source} href="/search" lang={lang} />}
-            {sp.category && <FilterChip label={sp.category} href="/search" lang={lang} />}
-            {tags.map(tag => (
-              <FilterChip key={tag} label={`#${tag}`} href="/search" lang={lang} />
-            ))}
-          </div>
-        )}
       </header>
 
-      <NewsList articles={items} activeTags={tags} />
+      <SearchFilters articles={items}>
+        {(filtered) => <NewsList articles={filtered} activeTags={tags} />}
+      </SearchFilters>
     </>
-  );
-}
-
-function FilterChip({ label, href, lang }: { label: string; href: string; lang: string }) {
-  return (
-    <a
-      href={href}
-      className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium rounded-full bg-[var(--ink)] text-white hover:bg-black transition-colors"
-    >
-      {label}
-      <span className="opacity-60 text-[10px]">✕ {lang === "ja" ? "解除" : "clear"}</span>
-    </a>
   );
 }

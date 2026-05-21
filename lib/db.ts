@@ -23,24 +23,30 @@ function rowToArticle(row: Record<string, unknown>, tags: string[]): NewsArticle
 
 /* ---------- Tag fetching ----------------------------------------- */
 
-/** Bulk-load tag names for a set of article IDs in ONE query. */
+/** Bulk-load tag names for a set of article IDs in batched queries. */
 async function fetchTagsFor(env: Env, articleIds: string[]): Promise<Map<string, string[]>> {
   if (!articleIds.length) return new Map();
-  const placeholders = articleIds.map(() => "?").join(",");
-  const res = await env.DB.prepare(`
-    SELECT at.article_id AS aid, t.name AS name
-    FROM article_tags at
-    JOIN tags t ON at.tag_id = t.id
-    WHERE at.article_id IN (${placeholders})
-  `).bind(...articleIds).all();
-
   const map = new Map<string, string[]>();
-  for (const r of res.results ?? []) {
-    const aid  = (r as { aid: string }).aid;
-    const name = (r as { name: string }).name;
-    const arr  = map.get(aid) ?? [];
-    arr.push(name);
-    map.set(aid, arr);
+
+  // Batch into chunks of 80 to stay safely under D1's ~999 bind param limit
+  const CHUNK = 80;
+  for (let i = 0; i < articleIds.length; i += CHUNK) {
+    const chunk = articleIds.slice(i, i + CHUNK);
+    const placeholders = chunk.map(() => "?").join(",");
+    const res = await env.DB.prepare(`
+      SELECT at.article_id AS aid, t.name AS name
+      FROM article_tags at
+      JOIN tags t ON at.tag_id = t.id
+      WHERE at.article_id IN (${placeholders})
+    `).bind(...chunk).all();
+
+    for (const r of res.results ?? []) {
+      const aid  = (r as { aid: string }).aid;
+      const name = (r as { name: string }).name;
+      const arr  = map.get(aid) ?? [];
+      arr.push(name);
+      map.set(aid, arr);
+    }
   }
   return map;
 }
