@@ -9,7 +9,7 @@ import { t, type Lang, DEFAULT_LANG, LANG_COOKIE } from "@/lib/i18n";
 export const dynamic = "force-dynamic";
 
 export default async function CyberPage({ searchParams }: {
-  searchParams: Promise<{ subcategory?: string; q?: string; tag?: string | string[]; hours?: string }>;
+  searchParams: Promise<{ subcategory?: string; q?: string; tag?: string | string[]; hours?: string; page?: string; pageSize?: string }>;
 }) {
   const sp   = await searchParams;
   const env  = (await getCloudflareContext()).env as unknown as Env;
@@ -19,15 +19,14 @@ export default async function CyberPage({ searchParams }: {
   const hoursAgo = parseInt(sp.hours ?? "24", 10);
 
   const [items, available] = await Promise.all([
-    listArticles(env, { category: "cybersecurity", subcategory: sp.subcategory, q: sp.q, tags, hoursAgo, limit: 60 }),
+    listArticles(env, { category: "cybersecurity", subcategory: sp.subcategory, q: sp.q, tags, hoursAgo, limit: 500 }),
     listAllTags(env, "cybersecurity"),
   ]);
 
   return (
     <>
       <header className="mb-6">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)]">{t("desk", lang)}</p>
-        <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight mt-1">
+        <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight">
           {t("cyberTitle", lang)}
         </h1>
         <p className="text-sm text-[var(--ink-3)] mt-2">{t("cyberSub", lang)}</p>

@@ -13,10 +13,12 @@ interface Props {
   article: NewsArticle;
   onTagClick?: (tag: string) => void;
   activeTags?: string[];
+  // Controlled accordion props from NewsList
+  isOpen?: boolean;
+  onToggle?: (id: string) => void;
 }
 
-export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
-  const [open, setOpen] = useState(false);
+export function NewsCard({ article, onTagClick, activeTags = [], isOpen, onToggle }: Props) {
   const { lang, t } = useLang();
   const { isBookmarked, isRead, toggleBookmark, markRead, mounted } = useBookmarks();
 
@@ -30,17 +32,24 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
   const bookmarked = mounted && isBookmarked(article.id);
   const read       = mounted && isRead(article.id);
 
-  return (
-    <article className={["border-b hairline py-4 first:pt-0 last:border-b-0 transition-opacity", read ? "opacity-60" : ""].join(" ")}>
+  function handleHeaderClick() {
+    if (onToggle) {
+      onToggle(article.id);
+    }
+    // Mark read on first open
+    if (!isOpen && !read) markRead(article.id);
+  }
 
-      <div
-        className="flex items-start gap-3 cursor-pointer group"
-        onClick={() => { setOpen(o => !o); if (!read) markRead(article.id); }}
-      >
-        {/* Expand chevron */}
+  return (
+    <article className={[
+      "border-b hairline py-4 first:pt-0 last:border-b-0 transition-opacity",
+      read ? "opacity-60" : "",
+    ].join(" ")}>
+
+      <div className="flex items-start gap-3 cursor-pointer group" onClick={handleHeaderClick}>
         <span className={[
           "mt-1.5 text-[var(--ink-4)] transition-transform duration-200 flex-shrink-0",
-          open ? "rotate-90" : "",
+          isOpen ? "rotate-90" : "",
         ].join(" ")}>
           <ChevronRight size={14} strokeWidth={1.5} />
         </span>
@@ -57,14 +66,12 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
             )}
             <span className="text-[11px] text-[var(--ink-3)] ml-auto font-mono tracking-wider flex-shrink-0">{date}</span>
           </div>
-
           <h2 className="font-display text-lg md:text-xl font-medium leading-snug text-[var(--ink)] group-hover:text-[var(--ink-2)] transition-colors">
             {article.title}
           </h2>
           <span className="text-[11px] text-[var(--ink-3)] font-mono mt-0.5 inline-block">{article.source}</span>
         </div>
 
-        {/* Bookmark */}
         {mounted && (
           <button
             onClick={e => { e.stopPropagation(); toggleBookmark(article.id); }}
@@ -82,10 +89,8 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
       </div>
 
       {/* Expanded panel */}
-      {open && (
+      {isOpen && (
         <div className="ml-7 mt-3 pl-3 border-l-2 border-[var(--line)] animate-fadeIn">
-
-          {/* Full-text excerpt — prefer scraped content over RSS summary */}
           {article.content?.trim() ? (
             <ContentExcerpt content={article.content} lang={lang} />
           ) : article.summary?.trim() ? (
@@ -106,15 +111,6 @@ export function NewsCard({ article, onTagClick, activeTags = [] }: Props) {
             >
               {prettyUrl(article.url)}
             </Link>
-
-            {mounted && !read && (
-              <button
-                onClick={e => { e.stopPropagation(); markRead(article.id); }}
-                className="text-[var(--ink-4)] hover:text-[var(--ink-2)] transition-colors text-[11px] font-medium flex items-center gap-1"
-              >
-                <Check size={11} strokeWidth={2} /> {t("markRead")}
-              </button>
-            )}
 
             <Link
               href={article.url} target="_blank" rel="noopener noreferrer"
@@ -150,20 +146,19 @@ function prettyUrl(url: string): string {
   } catch { return url; }
 }
 
-/** Displays a collapsible excerpt of the scraped article body. */
 function ContentExcerpt({ content, lang }: { content: string; lang: string }) {
   const [expanded, setExpanded] = useState(false);
-  const PREVIEW_CHARS = 400;
-  const isLong = content.length > PREVIEW_CHARS;
-  const displayed = expanded || !isLong ? content : content.slice(0, PREVIEW_CHARS) + "…";
+  const PREVIEW = 400;
+  const isLong  = content.length > PREVIEW;
+  const shown   = expanded || !isLong ? content : content.slice(0, PREVIEW) + "…";
 
   return (
     <div className="mb-3">
-      <p className="text-sm text-[var(--ink-2)] leading-relaxed whitespace-pre-line">{displayed}</p>
+      <p className="text-sm text-[var(--ink-2)] leading-relaxed whitespace-pre-line">{shown}</p>
       {isLong && (
         <button
           onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
-          className="mt-1.5 text-[11px] text-[var(--ink-3)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors"
+          className="mt-1.5 text-[11px] text-[var(--ink-3)] hover:text-[var(--ink)] underline underline-offset-2"
         >
           {expanded
             ? (lang === "ja" ? "折りたたむ" : "Show less")

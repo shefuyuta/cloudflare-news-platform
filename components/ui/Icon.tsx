@@ -5,6 +5,7 @@ export {
   Bell,
   Bookmark,
   BookmarkCheck,
+  ChevronLeft,
   ChevronRight,
   Download,
   ExternalLink,
