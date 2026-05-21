@@ -1,7 +1,6 @@
 // app/api/cleanup/route.ts
 // Deletes articles older than KEEP_HOURS from D1 and their vectors from Vectorize.
-// Called by the workers fetcher Cron after each fetch cycle.
-// Safe to call multiple times; idempotent.
+// Called by workers fetcher Cron, and also manually from the Dashboard.
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { Env } from "@/lib/types";
@@ -13,32 +12,41 @@ export async function POST(): Promise<Response> {
   const env    = (await getCloudflareContext()).env as unknown as Env;
   const cutoff = new Date(Date.now() - KEEP_HOURS * 3_600_000).toISOString();
 
-  // 1. Collect IDs to delete (need them for Vectorize too)
-  const toDelete = await env.DB.prepare(
-    "SELECT id FROM articles WHERE published_at < ? LIMIT 200"
-  ).bind(cutoff).all();
+  let totalDeleted = 0;
 
-  const ids = (toDelete.results ?? []).map(r => (r as { id: string }).id);
+  // Loop in batches until nothing left to delete (handles large backlogs)
+  for (let round = 0; round < 20; round++) {
+    const toDelete = await env.DB.prepare(
+      "SELECT id FROM articles WHERE published_at < ? LIMIT 200"
+    ).bind(cutoff).all();
 
-  if (!ids.length) {
-    return NextResponse.json({ deleted: 0, message: "Nothing to clean up." });
+    const ids = (toDelete.results ?? []).map(r => (r as { id: string }).id);
+    if (!ids.length) break;
+
+    // Delete from Vectorize
+    try { await env.VECTORIZE.deleteByIds(ids); } catch {}
+
+    const ph = ids.map(() => "?").join(",");
+
+    // Delete orphaned article_tags first (no FK cascade in schema)
+    await env.DB.prepare(
+      `DELETE FROM article_tags WHERE article_id IN (${ph})`
+    ).bind(...ids).run();
+
+    // Delete articles
+    const r = await env.DB.prepare(
+      `DELETE FROM articles WHERE id IN (${ph})`
+    ).bind(...ids).run();
+
+    totalDeleted += r.meta?.changes ?? ids.length;
   }
 
-  // 2. Delete from Vectorize (best-effort; don't fail if some IDs are missing)
-  try {
-    await env.VECTORIZE.deleteByIds(ids);
-  } catch (e) {
-    console.warn("[cleanup] Vectorize delete partial failure (non-fatal):", e);
-  }
+  // Report remaining count
+  const remaining = (await env.DB.prepare(
+    "SELECT COUNT(*) as cnt FROM articles"
+  ).first() as { cnt: number } | null)?.cnt ?? 0;
 
-  // 3. Delete from D1 — cascades to article_tags via FK
-  const ph = ids.map(() => "?").join(",");
-  const r  = await env.DB.prepare(
-    `DELETE FROM articles WHERE id IN (${ph})`
-  ).bind(...ids).run();
+  console.log(`[cleanup] Deleted ${totalDeleted} articles (cutoff: ${cutoff}), ${remaining} remaining`);
 
-  const deleted = r.meta?.changes ?? ids.length;
-  console.log(`[cleanup] Deleted ${deleted} articles older than ${KEEP_HOURS}h (cutoff: ${cutoff})`);
-
-  return NextResponse.json({ deleted, cutoff, keepHours: KEEP_HOURS });
+  return NextResponse.json({ deleted: totalDeleted, cutoff, keepHours: KEEP_HOURS, remaining });
 }

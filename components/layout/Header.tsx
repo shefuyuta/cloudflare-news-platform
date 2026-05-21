@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useLang } from "@/components/LangProvider";
 import { MobileDrawer } from "./MobileDrawer";
 import { useAlertKeywords } from "@/hooks/useAlertKeywords";
-import { Bell, RefreshCw, Menu } from "@/components/ui/Icon";
+import { Bell, RefreshCw, Menu, X } from "@/components/ui/Icon";
 
 const TIME_RANGES = [
   { hours: 24,  key: "hours24" as const },

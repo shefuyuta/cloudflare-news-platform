@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { Newspaper, Globe, Shield, Cpu, RefreshCw, Sparkles } from "@/components/ui/Icon";
+import { Newspaper, Globe, Shield, Cpu, RefreshCw, Sparkles, Trash2 } from "@/components/ui/Icon";
 import { useLang } from "@/components/LangProvider";
 
 interface DashStats {
@@ -111,6 +111,12 @@ export function DashboardClient() {
           icon={<Newspaper size={15} strokeWidth={1.5} />}
           sub={lang === "ja" ? `DB合計: ${stats.dbTotal}件` : `DB total: ${stats.dbTotal}`}
         />
+        <CleanupCard lang={lang} onDone={() => {
+          // Re-fetch stats after cleanup
+          fetch(`/api/dashboard?hours=${hours}`)
+            .then(r => r.json())
+            .then(d => setStats(d as DashStats));
+        }} />
         {stats.byCategory.map((c) => (
           <a key={c.category} href={`/search?category=${c.category}`} className="block hover:opacity-80 transition-opacity">
             <StatCard
@@ -439,6 +445,54 @@ function BriefingDelivery({ lang }: { lang: string }) {
         )}
       </div>
     </section>
+  );
+}
+
+function CleanupCard({ lang, onDone }: { lang: string; onDone: () => void }) {
+  const [running, setRunning] = useState(false);
+  const [result, setResult]   = useState<string | null>(null);
+
+  async function runCleanup() {
+    setRunning(true);
+    setResult(null);
+    try {
+      const res  = await fetch("/api/cleanup", { method: "POST" });
+      const data = await res.json() as { deleted: number; remaining: number };
+      setResult(
+        lang === "ja"
+          ? `${data.deleted}件削除 / 残り${data.remaining}件`
+          : `${data.deleted} deleted / ${data.remaining} remaining`
+      );
+      onDone();
+    } catch {
+      setResult(lang === "ja" ? "エラーが発生しました" : "Error occurred");
+    } finally {
+      setRunning(false);
+      setTimeout(() => setResult(null), 8000);
+    }
+  }
+
+  return (
+    <div className="border hairline rounded-lg p-4 flex flex-col justify-between">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[var(--ink-3)]"><Trash2 size={15} strokeWidth={1.5} /></span>
+        <span className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">
+          {lang === "ja" ? "DB クリーンアップ" : "DB Cleanup"}
+        </span>
+      </div>
+      <p className="text-[11px] text-[var(--ink-3)] mb-3">
+        {lang === "ja" ? "8日超の記事を削除" : "Delete articles older than 8 days"}
+      </p>
+      {result && <p className="text-[11px] text-emerald-600 font-medium mb-2">{result}</p>}
+      <button
+        onClick={runCleanup}
+        disabled={running}
+        className="px-3 py-1.5 text-[11px] font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] disabled:opacity-40 transition-colors flex items-center gap-1.5"
+      >
+        <RefreshCw size={11} strokeWidth={1.5} className={running ? "animate-spin" : ""} />
+        {running ? (lang === "ja" ? "実行中…" : "Running…") : (lang === "ja" ? "今すぐ実行" : "Run now")}
+      </button>
+    </div>
   );
 }
 

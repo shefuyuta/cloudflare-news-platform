@@ -23,4 +23,5 @@ export {
   X,
   Cpu,
   Newspaper,
+  Trash2,
 } from "lucide-react";
