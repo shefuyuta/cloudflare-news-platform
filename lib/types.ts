@@ -35,6 +35,8 @@ export interface ArticleQuery {
   important?: boolean;
   hoursAgo?: number;
   noTimeLimit?: boolean;    // bypass hoursAgo — used by /search
+  minScore?: number;          // importance_score >= minScore
+  maxScore?: number;          // importance_score <= maxScore
   limit?: number;
   offset?: number;
 }
