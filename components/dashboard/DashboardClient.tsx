@@ -134,7 +134,7 @@ export function DashboardClient() {
               { label: lang === "ja" ? "中 (4-6)" : "Medium (4-6)", val: imp.medium, color: "#1e3a8a", href: `/search?minScore=4&maxScore=6&hours=${stats.hours}` },
               { label: lang === "ja" ? "低 (0-3)" : "Low (0-3)", val: imp.low, color: "#71717a", href: `/search?maxScore=3&hours=${stats.hours}` },
             ].map((b) => (
-              <div key={b.label} className="flex-1 min-w-[120px] border hairline rounded-lg p-4">
+              <a key={b.label} href={b.href} className="flex-1 min-w-[120px] border hairline rounded-lg p-4 hover:opacity-80 transition-opacity block">
                 <div className="text-[11px] font-medium uppercase tracking-widest mb-2" style={{ color: b.color }}>
                   {b.label}
                 </div>
