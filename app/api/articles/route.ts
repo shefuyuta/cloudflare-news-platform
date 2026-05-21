@@ -10,15 +10,17 @@ export async function GET(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url);
 
   const q: ArticleQuery = {
-    category:    (searchParams.get("category") as Category) ?? undefined,
-    region:      searchParams.get("region")      ?? undefined,
-    subcategory: searchParams.get("subcategory") ?? undefined,
-    tags:        searchParams.getAll("tag"),
-    q:           searchParams.get("q") ?? undefined,
-    important:   searchParams.get("important") === "1",
-    hoursAgo:    clampInt(searchParams.get("hours"), 24, 1, 168),
-    limit:       clampInt(searchParams.get("limit"),  50,  1, 200),
-    offset:      clampInt(searchParams.get("offset"),  0,  0, 10_000),
+    category:     (searchParams.get("category") as Category) ?? undefined,
+    region:       searchParams.get("region")      ?? undefined,
+    subcategory:  searchParams.get("subcategory") ?? undefined,
+    tags:         searchParams.getAll("tag"),
+    source:       searchParams.get("source")      ?? undefined,
+    q:            searchParams.get("q")           ?? undefined,
+    important:    searchParams.get("important") === "1",
+    hoursAgo:     clampInt(searchParams.get("hours"), 24, 1, 168),
+    noTimeLimit:  searchParams.get("all") === "1",
+    limit:        clampInt(searchParams.get("limit"),  50,  1, 200),
+    offset:       clampInt(searchParams.get("offset"),  0,  0, 10_000),
   };
 
   const items = await listArticles(env, q);

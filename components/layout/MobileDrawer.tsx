@@ -13,6 +13,7 @@ function useNavItems() {
   const NAV: NavEntry[] = [
     { href: "/",              label: t("navLatest"),    sub: t("navLatestSub") },
     { href: "/dashboard",     label: t("navDashboard"), sub: t("navDashboardSub") },
+    { href: "/search",        label: t("navSearch"),    sub: t("navSearchSub") },
     { href: "/general",       label: t("navGeneral"),   sub: t("navGeneralSub") },
     { href: "/cybersecurity", label: t("navCyber"),     sub: t("navCyberSub") },
     { href: "/ai",            label: t("navAI"),        sub: t("navAISub") },

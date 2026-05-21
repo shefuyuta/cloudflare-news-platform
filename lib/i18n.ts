@@ -12,6 +12,8 @@ const T = {
 
   // ---- Nav ----------------------------------------------------------
   navLatest:        { en: "Latest",        ja: "最新" },
+  navSearch:        { en: "Search",        ja: "検索" },
+  navSearchSub:     { en: "Full-text search", ja: "全文検索" },
   navLatestSub:     { en: "All latest",    ja: "すべての最新" },
   navDashboard:     { en: "Dashboard",     ja: "ダッシュボード" },
   navDashboardSub:  { en: "Overview",      ja: "統計・俯瞰" },
@@ -97,6 +99,12 @@ const T = {
 
   // ---- Export -------------------------------------------------------
   exportCSV:        { en: "Export CSV",    ja: "CSV出力" },
+  searchResultsFor: { en: "Search results for", ja: "検索結果：" },
+  searchAll:        { en: "All time",      ja: "全期間" },
+  searchHint:       { en: "Search across all articles — title, body, tags, source, category",
+                      ja: "全記事を対象に検索 — タイトル・本文・タグ・ソース・カテゴリ" },
+  searchEmpty:      { en: "No results. Try different keywords.", ja: "該当なし。別のキーワードをお試しください。" },
+  filterBy:         { en: "Filter by",    ja: "絞り込み" },
 
   // ---- Dashboard ----------------------------------------------------
   totalArticles:    { en: "Total Articles", ja: "総記事数" },

@@ -61,11 +61,12 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
   if (q.category)            { where.push("a.category    = ?"); binds.push(q.category); }
   if (q.region)              { where.push("a.region      = ?"); binds.push(q.region); }
   if (q.subcategory)         { where.push("a.subcategory = ?"); binds.push(q.subcategory); }
+  if (q.source)              { where.push("a.source      = ?"); binds.push(q.source); }
   if (q.q)                   { where.push("(a.title LIKE ? OR a.summary LIKE ? OR a.content LIKE ?)"); binds.push(`%${q.q}%`, `%${q.q}%`, `%${q.q}%`); }
   if (q.important)           { where.push("a.importance_score >= ?"); binds.push(IMPORTANT_THRESHOLD); }
 
-  // Time range filter: only articles published within the last N hours
-  if (q.hoursAgo && q.hoursAgo > 0) {
+  // Time range — skipped when noTimeLimit is set (used by /search)
+  if (!q.noTimeLimit && q.hoursAgo && q.hoursAgo > 0) {
     const cutoff = new Date(Date.now() - q.hoursAgo * 3600_000).toISOString();
     where.push("a.published_at >= ?");
     binds.push(cutoff);

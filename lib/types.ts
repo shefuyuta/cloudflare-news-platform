@@ -30,9 +30,11 @@ export interface ArticleQuery {
   region?: string;
   subcategory?: string;
   tags?: string[];
+  source?: string;          // filter by exact source name
   q?: string;
-  important?: boolean;            // importance_score >= IMPORTANT_THRESHOLD
-  hoursAgo?: number;              // only articles published within last N hours
+  important?: boolean;
+  hoursAgo?: number;
+  noTimeLimit?: boolean;    // bypass hoursAgo — used by /search
   limit?: number;
   offset?: number;
 }

@@ -112,13 +112,15 @@ export function DashboardClient() {
           sub={lang === "ja" ? `DB合計: ${stats.dbTotal}件` : `DB total: ${stats.dbTotal}`}
         />
         {stats.byCategory.map((c) => (
-          <StatCard
-            key={c.category}
-            label={catLabel(c.category, lang)}
-            value={c.cnt.toLocaleString()}
-            icon={catLucideIcon(c.category)}
-            color={CATEGORY_COLORS[c.category]}
-          />
+          <a key={c.category} href={`/search?category=${c.category}`} className="block hover:opacity-80 transition-opacity">
+            <StatCard
+              label={catLabel(c.category, lang)}
+              value={c.cnt.toLocaleString()}
+              icon={catLucideIcon(c.category)}
+              color={CATEGORY_COLORS[c.category]}
+              sub={lang === "ja" ? "クリックで一覧" : "Click to browse"}
+            />
+          </a>
         ))}
       </div>
 
@@ -220,8 +222,9 @@ export function DashboardClient() {
             <span className="w-12 text-right">Total</span>
           </div>
           {topSources.map(({ source, total, cats }) => (
-            <div
+            <a
               key={source}
+              href={`/search?source=${encodeURIComponent(source)}`}
               className="grid grid-cols-[1fr_auto_auto_auto_auto] px-4 py-2.5 border-t hairline hover:bg-[var(--line-soft)] transition-colors items-center"
             >
               <span className="text-sm font-mono text-[var(--ink-2)] truncate pr-2">{source}</span>
@@ -248,7 +251,7 @@ export function DashboardClient() {
                 );
               })}
               <span className="w-12 text-right text-sm font-medium text-[var(--ink)]">{total}</span>
-            </div>
+            </a>
           ))}
         </div>
       </section>
@@ -258,20 +261,21 @@ export function DashboardClient() {
         <section>
           <SectionHeading>{t("trendingTags")}</SectionHeading>
           <div className="flex flex-wrap gap-2">
-            {stats.trendingTags.map((tag, i) => {
+            {stats.trendingTags.map((tag) => {
               const max = stats.trendingTags[0].cnt;
               const pct = tag.cnt / max;
-              const size = 11 + Math.round(pct * 6); // 11–17px
+              const size = 11 + Math.round(pct * 6);
               return (
-                <span
+                <a
                   key={tag.name}
-                  className="px-3 py-1 rounded-full border hairline font-medium transition-colors hover:bg-[var(--line-soft)] cursor-default"
+                  href={`/search?tag=${encodeURIComponent(tag.name)}`}
+                  className="px-3 py-1 rounded-full border hairline font-medium transition-colors hover:bg-[var(--ink)] hover:text-white hover:border-[var(--ink)]"
                   style={{ fontSize: `${size}px`, opacity: 0.5 + pct * 0.5 }}
                   title={`${tag.cnt} ${lang === "ja" ? "件" : "articles"}`}
                 >
                   {tag.name}
-                  <span className="ml-1.5 text-[10px] text-[var(--ink-3)]">{tag.cnt}</span>
-                </span>
+                  <span className="ml-1.5 text-[10px] opacity-60">{tag.cnt}</span>
+                </a>
               );
             })}
           </div>
