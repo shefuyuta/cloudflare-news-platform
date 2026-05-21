@@ -61,7 +61,7 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
   if (q.category)            { where.push("a.category    = ?"); binds.push(q.category); }
   if (q.region)              { where.push("a.region      = ?"); binds.push(q.region); }
   if (q.subcategory)         { where.push("a.subcategory = ?"); binds.push(q.subcategory); }
-  if (q.q)                   { where.push("a.title LIKE ?");    binds.push(`%${q.q}%`); }
+  if (q.q)                   { where.push("(a.title LIKE ? OR a.summary LIKE ? OR a.content LIKE ?)"); binds.push(`%${q.q}%`, `%${q.q}%`, `%${q.q}%`); }
   if (q.important)           { where.push("a.importance_score >= ?"); binds.push(IMPORTANT_THRESHOLD); }
 
   // Time range filter: only articles published within the last N hours

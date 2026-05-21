@@ -19,12 +19,15 @@ export async function POST(): Promise<Response> {
   const env = (await getCloudflareContext()).env as unknown as Env;
   const cfg = await loadRuntimeConfig(env);
 
-  // Find articles without embeddings
+  // Fetch articles without embeddings.
+  // Prefer articles that have scraped content (richer embeddings).
   const rows = await env.DB.prepare(`
-    SELECT id, title, summary, category, region, subcategory
+    SELECT id, title, summary, content, category, region, subcategory
     FROM articles
-    WHERE vector_id IS NULL AND (summary IS NOT NULL OR title IS NOT NULL)
-    ORDER BY published_at DESC
+    WHERE vector_id IS NULL AND (content IS NOT NULL OR summary IS NOT NULL OR title IS NOT NULL)
+    ORDER BY
+      CASE WHEN content IS NOT NULL THEN 0 ELSE 1 END,  -- scraped first
+      published_at DESC
     LIMIT ?
   `).bind(MAX_PER_RUN).all();
 
@@ -37,7 +40,8 @@ export async function POST(): Promise<Response> {
 
     const r = row as Record<string, unknown>;
     const id = r.id as string;
-    const text = ((r.summary as string) || (r.title as string) || "").trim();
+    // Priority: scraped full content > RSS summary > title
+    const text = ((r.content as string) || (r.summary as string) || (r.title as string) || "").trim();
     if (!text) continue;
 
     try {

@@ -37,7 +37,8 @@ export async function POST(): Promise<Response> {
 
     if (raw && raw.length >= MIN_CONTENT) {
       await env.DB.prepare(
-        "UPDATE articles SET content = ?, scraped_at = ? WHERE id = ?"
+        // Clear vector_id so embed-missing will re-embed using the richer content
+        "UPDATE articles SET content = ?, scraped_at = ?, vector_id = NULL, embedded_at = NULL WHERE id = ?"
       ).bind(raw.slice(0, MAX_CONTENT), now, a.id).run();
       scraped++;
     } else {
