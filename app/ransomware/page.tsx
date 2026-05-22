@@ -9,7 +9,7 @@ import { type Lang, DEFAULT_LANG, LANG_COOKIE } from "@/lib/i18n";
 export const dynamic = "force-dynamic";
 
 type RawVictim = {
-  id: number;
+  id: string;
   victim: string;
   group_name: string;
   activity: string;
@@ -64,7 +64,7 @@ export default async function RansomwarePage({
     const rawVictims = (victimRows.results ?? []) as RawVictim[];
 
     // ── Find related news (batched, not per-victim) ────────────────────
-    const newsMap = new Map<number, VictimWithNews["relatedNews"]>();
+    const newsMap = new Map<string, VictimWithNews["relatedNews"]>();
 
     if (rawVictims.length > 0) {
       // Collect unique meaningful search terms from victim/group names
@@ -101,7 +101,7 @@ export default async function RansomwarePage({
                     source:      r.source,
                     publishedAt: r.published_at ?? "",
                   });
-                  newsMap.set(v.id, arr);
+                  newsMap.set(String(v.id), arr);
                 }
               }
             }
@@ -113,7 +113,7 @@ export default async function RansomwarePage({
 
       // Build final list
       victims = rawVictims.map(v => ({
-        id:           v.id,
+        uid:          String(v.id),
         victim:       v.victim,
         group:        v.group_name,
         groupDisplay: groupDisplayName(v.group_name),
@@ -123,7 +123,7 @@ export default async function RansomwarePage({
         post_url:     v.post_url,
         discovered:   v.discovered,
         discoveredFmt: fmtDate(v.discovered || v.published || "", lang),
-        relatedNews:  newsMap.get(v.id) ?? [],
+        relatedNews:  newsMap.get(String(v.id)) ?? [],
       }));
 
       const groupSet = new Set(rawVictims.map(v => v.group_name).filter(Boolean));

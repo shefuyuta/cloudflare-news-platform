@@ -43,7 +43,7 @@ export function RansomwareClient({
 
   const [fetching,    setFetching]    = useState(false);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
-  const [openId,      setOpenId]      = useState<number | null>(null);
+  const [openId,      setOpenId]      = useState<string | null>(null);
 
   const ja = lang === "ja";
 
