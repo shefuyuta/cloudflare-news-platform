@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 type RawVictim = {
   id: string;
   victim: string;
+  victim_ja: string | null;
   group_name: string;
   activity: string;
   website: string;
