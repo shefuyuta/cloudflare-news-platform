@@ -106,7 +106,7 @@ export function NewsCard({
             <span className="text-[var(--ink-4)]">·</span>
             <Link
               href={article.url} target="_blank" rel="noopener noreferrer"
-              className="text-[var(--ink-3)] hover:text-[var(--ink)] truncate max-w-[20rem] inline-block"
+              className="font-mono text-[var(--ink-3)] hover:text-[var(--ink)] truncate max-w-[20rem] inline-block"
               onClick={e => e.stopPropagation()}
             >
               {prettyUrl(article.url)}
