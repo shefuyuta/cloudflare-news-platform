@@ -15,7 +15,7 @@ export async function POST(req: Request): Promise<Response> {
   const toFetch: { year: number; month: number }[] = [];
 
   // Always include recent victims endpoint
-  let allVictims = await fetchRecentVictims().catch(() => []);
+  let allVictims: RansomwareVictim[] = await fetchRecentVictims().catch((): RansomwareVictim[] => []);
 
   // Also backfill up to `months` calendar months
   for (let i = 0; i < Math.min(months, 6); i++) {
@@ -24,7 +24,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   for (const { year, month } of toFetch) {
-    const monthly = await fetchVictimsByMonth(year, month).catch(() => []);
+    const monthly: RansomwareVictim[] = await fetchVictimsByMonth(year, month).catch((): RansomwareVictim[] => []);
     allVictims = allVictims.concat(monthly);
   }
 
