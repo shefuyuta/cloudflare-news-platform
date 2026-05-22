@@ -186,19 +186,26 @@ export function DashboardClient() {
                           className="w-full rounded-sm bg-[var(--ink)] transition-all duration-300"
                           style={{ height: `${Math.max(2, (cnt / maxCnt) * 76)}px`, opacity: cnt ? 0.8 : 0.1 }}
                         />
-                        <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
-                          {label} · {cnt}
+                        <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10 leading-tight text-center">
+                          <div className="font-medium">{label} JST</div>
+                          <div className="opacity-70">{cnt}件</div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  {/* Label row */}
-                  <div className="flex gap-1 mt-1.5">
-                    {slots.map(({ hoursAgo, label }) => (
+                  {/* Label row — i%6 gives evenly spaced labels left→right */}
+                  <div className="flex gap-1 mt-1.5 relative">
+                    {slots.map(({ hoursAgo }, i) => (
                       <div key={hoursAgo} className="flex-1 text-center">
-                        {hoursAgo % 6 === 0 && (
-                          <span className="text-[9px] text-[var(--ink-4)] leading-none">{label}</span>
-                        )}
+                        {i === 0 ? (
+                          <span className="text-[9px] text-[var(--ink-4)] leading-none">-23h</span>
+                        ) : i === 23 ? (
+                          <span className="text-[9px] text-[var(--ink-3)] leading-none font-medium">now</span>
+                        ) : i % 6 === 0 ? (
+                          <span className="text-[9px] text-[var(--ink-4)] leading-none">
+                            {slots[i].label}
+                          </span>
+                        ) : null}
                       </div>
                     ))}
                   </div>
