@@ -71,7 +71,7 @@ export function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="px-3 flex-1 overflow-y-auto min-h-0">
+      <nav className="px-3 flex-1 overflow-y-auto min-h-0 pb-6">
         <ul className="space-y-0.5">
           {NAV.map((item) => (
             <NavItem key={item.href} item={item} pathname={pathname} onClick={onNavClick} />
@@ -90,12 +90,6 @@ export function SidebarContent({
         </ul>
       </nav>
 
-      {/* Footer */}
-      <div className="px-6 py-6 border-t hairline">
-        <p className="text-[11px] text-[var(--ink-3)] leading-relaxed whitespace-pre-line">
-          {t("poweredBy")}
-        </p>
-      </div>
     </>
   );
 }
