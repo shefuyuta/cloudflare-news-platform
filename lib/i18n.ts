@@ -29,7 +29,6 @@ const T = {
   navImportantSub:  { en: "High priority", ja: "重要記事のみ" },
 
   // ---- Page headings ------------------------------------------------
-  frontPage:        { en: "HOME",          ja: "HOME" },
   todaysEdition:    { en: "The latest News", ja: "最新のニュース" },
   todaysEditionSub: { en: "Latest from across General, Cybersecurity, and AI desks.",
                       ja: "一般・サイバーセキュリティ・AIの最新記事。" },

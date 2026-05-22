@@ -71,7 +71,7 @@ export function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="px-3 flex-1">
+      <nav className="px-3 flex-1 overflow-y-auto min-h-0">
         <ul className="space-y-0.5">
           {NAV.map((item) => (
             <NavItem key={item.href} item={item} pathname={pathname} onClick={onNavClick} />

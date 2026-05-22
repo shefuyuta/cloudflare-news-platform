@@ -1,7 +1,7 @@
 // components/news/NewsList.tsx
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { NewsArticle } from "@/lib/types";
 import { NewsCard } from "./NewsCard";
 import { ExportButton } from "./ExportButton";
@@ -18,10 +18,7 @@ export function NewsList({ articles, activeTags = [] }: {
   activeTags?: string[];
 }) {
   const { t, lang } = useLang();
-  const { markRead } = useBookmarks();
-  const markReadRef  = useRef(markRead);
-  markReadRef.current = markRead;
-
+  const { markRead, markReadRef } = useBookmarks();
   const { keywords, matches, newCount, dismissAlerts, mounted } = useKeywordAlerts(articles);
   const [alertDismissed, setAlertDismissed] = useState(false);
 

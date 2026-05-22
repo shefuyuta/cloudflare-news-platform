@@ -14,6 +14,26 @@ export interface RansomwareVictim {
   published:   string;       // ISO datetime
 }
 
+export interface VictimWithNews {
+  id:            number;
+  victim:        string;
+  group:         string;
+  groupDisplay:  string;
+  activity:      string;
+  website:       string;
+  description:   string;
+  post_url:      string;
+  discovered:    string;
+  discoveredFmt: string;
+  relatedNews: {
+    id: string;
+    title: string;
+    url: string;
+    source: string;
+    publishedAt: string;
+  }[];
+}
+
 const BASE_URL = "https://api.ransomware.live";
 
 /** Fetch recent victims (last ~100) from ransomware.live */

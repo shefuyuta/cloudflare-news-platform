@@ -23,11 +23,9 @@ export function useBookmarks() {
   const [read, setRead]           = useState<Set<string>>(new Set());
   const [mounted, setMounted]     = useState(false);
 
-  // Use refs so callbacks never become stale
-  const bookmarksRef = useRef(bookmarks);
-  const readRef      = useRef(read);
-  bookmarksRef.current = bookmarks;
-  readRef.current      = read;
+  // Refs so callbacks (markRead, toggleBookmark) never go stale,
+  // but we still keep state so components re-render on change.
+  const markReadRef = useRef<(id: string) => void>(() => {});
 
   useEffect(() => {
     setBookmarks(loadSet(BOOKMARKS_KEY));
@@ -44,10 +42,10 @@ export function useBookmarks() {
     });
   }, []);
 
-  // markRead works even before mounted — safe because localStorage is write-only here
+  // markRead: updates state → triggers re-render → components see new isRead()
   const markRead = useCallback((id: string) => {
     setRead(prev => {
-      if (prev.has(id)) return prev;          // bail out — no re-render needed
+      if (prev.has(id)) return prev;       // bail out — already read
       const next = new Set(prev);
       next.add(id);
       saveSet(READ_KEY, next);
@@ -55,8 +53,12 @@ export function useBookmarks() {
     });
   }, []);
 
-  const isBookmarked = useCallback((id: string) => bookmarksRef.current.has(id), []);
-  const isRead       = useCallback((id: string) => readRef.current.has(id),      []);
+  // Keep ref current so NewsList.handleToggle always calls latest markRead
+  markReadRef.current = markRead;
 
-  return { isBookmarked, isRead, toggleBookmark, markRead, mounted };
+  // isRead and isBookmarked read from state — guarantees re-render on change
+  const isBookmarked = useCallback((id: string) => bookmarks.has(id), [bookmarks]);
+  const isRead       = useCallback((id: string) => read.has(id),      [read]);
+
+  return { isBookmarked, isRead, toggleBookmark, markRead, markReadRef, mounted };
 }

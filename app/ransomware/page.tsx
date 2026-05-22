@@ -2,32 +2,13 @@
 // Japan ransomware victim tracker — data from ransomware.live + related news from D1.
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
-import { groupDisplayName, fmtDate } from "@/lib/ransomware";
+import { groupDisplayName, fmtDate, type VictimWithNews } from "@/lib/ransomware";
 import { RansomwareClient } from "@/components/ransomware/RansomwareClient";
 import type { Env } from "@/lib/types";
 import { cookies } from "next/headers";
 import { type Lang, DEFAULT_LANG, LANG_COOKIE } from "@/lib/i18n";
 export const dynamic = "force-dynamic";
 
-export interface VictimWithNews {
-  id:          number;
-  victim:      string;
-  group:       string;
-  groupDisplay: string;
-  activity:    string;
-  website:     string;
-  description: string;
-  post_url:    string;
-  discovered:  string;
-  discoveredFmt: string;
-  relatedNews: {
-    id: string;
-    title: string;
-    url: string;
-    source: string;
-    publishedAt: string;
-  }[];
-}
 
 export default async function RansomwarePage({ searchParams }: {
   searchParams: Promise<{ group?: string; months?: string }>;

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ExternalLink, RefreshCw, Shield, ChevronRight } from "@/components/ui/Icon";
-import type { VictimWithNews } from "@/app/ransomware/page";
+import type { VictimWithNews } from "@/lib/ransomware";
 
 const GROUP_COLORS: Record<string, string> = {
   lockbit3:   "#dc2626", lockbit: "#dc2626",
