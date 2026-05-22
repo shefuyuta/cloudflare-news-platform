@@ -20,8 +20,6 @@ const BASE_URL = "https://api.ransomware.live";
 export async function fetchRecentVictims(): Promise<RansomwareVictim[]> {
   const res = await fetch(`${BASE_URL}/recentvictims`, {
     headers: { "User-Agent": "shefutech-newshub/1.0" },
-    // @ts-expect-error Cloudflare Workers fetch option
-    cf: { cacheTtl: 3600, cacheEverything: true },
   });
   if (!res.ok) throw new Error(`ransomware.live ${res.status}`);
   return res.json() as Promise<RansomwareVictim[]>;
@@ -32,8 +30,6 @@ export async function fetchVictimsByMonth(year: number, month: number): Promise<
   const m = String(month).padStart(2, "0");
   const res = await fetch(`${BASE_URL}/victims/${year}/${m}`, {
     headers: { "User-Agent": "shefutech-newshub/1.0" },
-    // @ts-expect-error Cloudflare Workers fetch option
-    cf: { cacheTtl: 3600, cacheEverything: true },
   });
   if (!res.ok) throw new Error(`ransomware.live ${res.status}`);
   return res.json() as Promise<RansomwareVictim[]>;
