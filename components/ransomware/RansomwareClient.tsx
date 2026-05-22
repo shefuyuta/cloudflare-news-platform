@@ -185,6 +185,7 @@ export function RansomwareClient({
             {victims.map(v => (
               <VictimRow
                 key={v.uid}
+                victim={v}
                 isOpen={openId === v.uid}
                 onToggle={() => setOpenId(prev => prev === v.uid ? null : v.uid)}
                 lang={lang}
