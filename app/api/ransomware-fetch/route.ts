@@ -44,7 +44,7 @@ ${names.map((n, i) => `${i + 1}. ${n}`).join("\n")}`;
 
 export async function POST(req: Request): Promise<Response> {
   const env     = (await getCloudflareContext()).env as unknown as Env;
-  const { months = 3 } = await req.json().catch(() => ({})) as { months?: number };
+  const { months = 6 } = await req.json().catch(() => ({})) as { months?: number };
   const now     = new Date();
   const errors: string[] = [];
 

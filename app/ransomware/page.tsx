@@ -69,28 +69,36 @@ export default async function RansomwarePage({
 
     if (rawVictims.length > 0) {
       // Collect unique meaningful search terms from victim/group names
-      // Include Japanese names for better matching with Japanese news articles
-      const terms = [
-        ...new Set(
-          rawVictims
-            .slice(0, 40)
-            .flatMap(v => [
-              v.victim_ja,           // Japanese name first (better match for JP news)
-              v.victim,              // English/romaji name
-              v.group_name,          // threat actor group
-            ])
-            .filter((s): s is string => !!s && s.length >= 2)
-        ),
-      ].slice(0, 12); // max 12 DB queries (more terms for better coverage)
+      // Build search terms: Japanese name → individual English words → group name
+      // Word-splitting handles "Nara Medical University Hospital" → ["Nara", "Medical"] etc.
+      const rawTerms: string[] = [];
+      for (const v of rawVictims.slice(0, 40)) {
+        // Japanese name (best match for JP news)
+        if (v.victim_ja && v.victim_ja !== v.victim) rawTerms.push(v.victim_ja);
+        // English: whole name for short ones, individual words for long ones
+        if (v.victim) {
+          if (v.victim.split(" ").length <= 3) {
+            rawTerms.push(v.victim); // short name → search whole
+          } else {
+            // Long name → search meaningful words (skip generic words)
+            const stopWords = new Set(["the","a","an","of","in","at","for","and","or","co","ltd","inc","corp","group","hospital","clinic","center","school","university"]);
+            const words = v.victim.split(/\s+/)
+              .filter(w => w.length >= 4 && !stopWords.has(w.toLowerCase()));
+            rawTerms.push(...words.slice(0, 3));
+          }
+        }
+        if (v.group_name) rawTerms.push(v.group_name);
+      }
+      const terms = [...new Set(rawTerms)].slice(0, 15); // max 15 queries
 
       for (const term of terms) {
         try {
           const newsRows = await env.DB.prepare(
             `SELECT id, title, url, source, published_at
              FROM articles
-             WHERE title LIKE ?
+             WHERE (title LIKE ? OR summary LIKE ? OR content LIKE ?)
              ORDER BY published_at DESC LIMIT 3`
-          ).bind(`%${term}%`).all();
+          ).bind(`%${term}%`, `%${term}%`, `%${term}%`).all();
 
           for (const row of newsRows.results ?? []) {
             const r = row as RawNews;
