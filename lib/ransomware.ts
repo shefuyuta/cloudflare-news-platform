@@ -19,7 +19,8 @@ export interface RansomwareVictim {
 
 export interface VictimWithNews {
   uid:          string;   // UUID extracted from post_url
-  victim:       string;   // = post_title
+  victim:       string;   // = post_title (English)
+  victimJa:     string;   // Japanese name (AI-translated, may equal victim if unknown)
   group:        string;   // = group_name
   groupDisplay: string;
   activity:     string;

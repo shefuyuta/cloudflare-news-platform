@@ -68,14 +68,19 @@ export default async function RansomwarePage({
 
     if (rawVictims.length > 0) {
       // Collect unique meaningful search terms from victim/group names
+      // Include Japanese names for better matching with Japanese news articles
       const terms = [
         ...new Set(
           rawVictims
             .slice(0, 40)
-            .flatMap(v => [v.victim, v.group_name])
-            .filter(s => s && s.length >= 3)
+            .flatMap(v => [
+              v.victim_ja,           // Japanese name first (better match for JP news)
+              v.victim,              // English/romaji name
+              v.group_name,          // threat actor group
+            ])
+            .filter((s): s is string => !!s && s.length >= 2)
         ),
-      ].slice(0, 8); // max 8 DB queries
+      ].slice(0, 12); // max 12 DB queries (more terms for better coverage)
 
       for (const term of terms) {
         try {
@@ -90,7 +95,7 @@ export default async function RansomwarePage({
             const r = row as RawNews;
             // Associate with victims whose name/group contains this term
             for (const v of rawVictims.slice(0, 40)) {
-              const haystack = `${v.victim} ${v.group_name}`.toLowerCase();
+              const haystack = `${v.victim} ${v.victim_ja ?? ""} ${v.group_name}`.toLowerCase();
               if (haystack.includes(term.toLowerCase())) {
                 const arr = newsMap.get(v.id) ?? [];
                 if (!arr.find(n => n.id === r.id) && arr.length < 3) {
@@ -115,6 +120,7 @@ export default async function RansomwarePage({
       victims = rawVictims.map(v => ({
         uid:          String(v.id),
         victim:       v.victim,
+        victimJa:     v.victim_ja || v.victim,
         group:        v.group_name,
         groupDisplay: groupDisplayName(v.group_name),
         activity:     v.activity,

@@ -268,10 +268,13 @@ function VictimRow({ victim: v, isOpen, onToggle, lang }: {
 
           {/* Victim name */}
           <h2 className="font-display text-lg font-medium leading-snug text-[var(--ink)] group-hover:text-[var(--ink-2)] transition-colors">
-            {v.victim}
+            {v.victimJa && v.victimJa !== v.victim ? v.victimJa : v.victim}
           </h2>
+          {v.victimJa && v.victimJa !== v.victim && (
+            <span className="text-[11px] text-[var(--ink-4)] font-mono">{v.victim}</span>
+          )}
           {v.website && (
-            <span className="text-[11px] text-[var(--ink-3)] font-mono">{v.website}</span>
+            <span className="text-[11px] text-[var(--ink-3)] font-mono ml-2">{v.website}</span>
           )}
         </div>
       </div>
