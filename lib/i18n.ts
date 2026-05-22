@@ -24,6 +24,8 @@ const T = {
   navAI:            { en: "AI",            ja: "AI" },
   navAISub:         { en: "AI News",       ja: "人工知能ニュース" },
   navImportant:     { en: "Important",     ja: "重要" },
+  navRansomware:    { en: "Ransomware JP",  ja: "ランサムウェア被害" },
+  navRansomwareSub: { en: "Japan victims",  ja: "国内被害情報" },
   navImportantSub:  { en: "High priority", ja: "重要記事のみ" },
 
   // ---- Page headings ------------------------------------------------

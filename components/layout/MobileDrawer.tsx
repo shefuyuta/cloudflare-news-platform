@@ -19,7 +19,8 @@ function useNavItems() {
     { href: "/ai",            label: t("navAI"),        sub: t("navAISub") },
   ];
   const CROSSCUT: NavEntry[] = [
-    { href: "/important", label: t("navImportant"), sub: t("navImportantSub") },
+    { href: "/important",   label: t("navImportant"),   sub: t("navImportantSub") },
+    { href: "/ransomware",  label: t("navRansomware"),  sub: t("navRansomwareSub") },
   ];
   return { NAV, CROSSCUT, t };
 }

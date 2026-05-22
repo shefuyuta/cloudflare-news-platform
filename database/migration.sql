@@ -63,3 +63,20 @@ CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id, created
 -- scraped_at: set when full-text scrape succeeds; NULL = not yet scraped
 ALTER TABLE articles ADD COLUMN scraped_at TEXT;
 CREATE INDEX IF NOT EXISTS idx_articles_scraped ON articles(scraped_at);
+
+-- ---- 6. Ransomware victim cache (2025-xx) --------------------------
+CREATE TABLE IF NOT EXISTS ransomware_victims (
+  id          INTEGER PRIMARY KEY,    -- ransomware.live numeric ID
+  victim      TEXT NOT NULL,
+  group_name  TEXT,
+  country     TEXT,
+  activity    TEXT,
+  website     TEXT,
+  description TEXT,
+  post_url    TEXT,
+  discovered  TEXT,
+  published   TEXT,
+  fetched_at  TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_rw_country   ON ransomware_victims(country);
+CREATE INDEX IF NOT EXISTS idx_rw_published ON ransomware_victims(published);

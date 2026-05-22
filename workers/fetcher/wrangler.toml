@@ -8,6 +8,7 @@
 #
 # Test manually:
 #   curl https://newshub-fetcher.<your-subdomain>.workers.dev/run
+#   curl https://newshub-fetcher.<your-subdomain>.workers.dev/run-ransomware
 # ------------------------------------------------------------------
 
 name = "newshub-fetcher"
@@ -15,17 +16,12 @@ main = "index.ts"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
-# --- Cron schedule ---------------------------------------------------
-# Runs every 2 hours. Adjust as needed.
-# See: https://developers.cloudflare.com/workers/configuration/cron-triggers/
+# --- Cron schedules --------------------------------------------------
+# "0 */2 * * *"   → every 2 hours  (news RSS fetch)
+# "*/30 * * * *"  → every 30 mins  (ransomware.live JP victims sync)
 [triggers]
-crons = ["0 */2 * * *"]
+crons = ["0 */2 * * *", "*/30 * * * *"]
 
 # --- Environment variables ------------------------------------------
 [vars]
 INGEST_URL = "https://cloudflare-news-platform.shefutech.workers.dev"
-
-# --- Optional: shared secret for /api/ingest authentication ----------
-# Uncomment and set a random string if you add auth to the ingest endpoint.
-# [vars]
-# INGEST_SECRET = "your-random-secret-here"

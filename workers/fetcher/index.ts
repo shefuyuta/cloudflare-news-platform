@@ -37,9 +37,18 @@ const BATCH_SIZE = 20;
 // =====================================================================
 
 export default {
-  /** Cron trigger — runs on schedule defined in wrangler.toml */
+  /** Cron trigger — dispatches to the right handler based on schedule.
+   *  "0 */2 * * *"  → full news fetch pipeline
+   *  "*/30 * * * *" → ransomware.live JP victim sync only
+   */
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runFetcher(env));
+    if (event.cron === "*/30 * * * *") {
+      // Lightweight: only sync ransomware victims
+      ctx.waitUntil(runRansomwareSync(env));
+    } else {
+      // Full pipeline: RSS → embed → score → scrape → ransomware → cleanup
+      ctx.waitUntil(runFetcher(env));
+    }
   },
 
   /** HTTP trigger — for manual testing: GET /  */
@@ -49,6 +58,13 @@ export default {
     if (url.pathname === "/run" || url.pathname === "/") {
       ctx.waitUntil(runFetcher(env));
       return new Response(JSON.stringify({ status: "started", feeds: FEEDS.length }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (url.pathname === "/run-ransomware") {
+      ctx.waitUntil(runRansomwareSync(env));
+      return new Response(JSON.stringify({ status: "started", task: "ransomware-sync" }), {
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -134,6 +150,21 @@ async function runFetcher(env: Env): Promise<void> {
     console.log("[fetcher] Scraping complete.");
   } catch (e) {
     console.warn("[fetcher] Scraping failed (non-critical):", e);
+  }
+
+  // ── Ransomware victim sync ──────────────────────────────────────────────
+  try {
+    const rwResp = await fetch(`${baseUrl}/api/ransomware-fetch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ months: 1 }),
+    });
+    if (rwResp.ok) {
+      const rwData = await rwResp.json() as { upserted: number };
+      if (rwData.upserted > 0) console.log(`[fetcher] Ransomware: ${rwData.upserted} JP victims synced.`);
+    }
+  } catch (e) {
+    console.warn("[fetcher] Ransomware sync failed (non-critical):", e);
   }
 
   // ── Cleanup old articles ─────────────────────────────────────────────
@@ -231,6 +262,29 @@ async function fetchSource(
   }
 
   return articles;
+}
+
+// =====================================================================
+// Ransomware victim sync (30-min cron)
+// =====================================================================
+
+async function runRansomwareSync(env: Env): Promise<void> {
+  const baseUrl = env.INGEST_URL.replace(/\/$/, "");
+  try {
+    const resp = await fetch(`${baseUrl}/api/ransomware-fetch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ months: 1 }),
+    });
+    if (resp.ok) {
+      const data = await resp.json() as { upserted: number; scanned: number };
+      console.log(`[ransomware-sync] ${data.upserted} JP victims upserted (scanned ${data.scanned})`);
+    } else {
+      console.warn(`[ransomware-sync] API returned ${resp.status}`);
+    }
+  } catch (e) {
+    console.error("[ransomware-sync] Failed:", e);
+  }
 }
 
 // =====================================================================
