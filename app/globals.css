@@ -1,5 +1,5 @@
 /* app/globals.css */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans+JP:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
 
 @import "tailwindcss";
 
@@ -20,7 +20,7 @@
   --accent-ai:       #5B21B6;
 
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
-  --font-ui:      'Meiryo', 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-ui:      'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', ui-sans-serif, system-ui, sans-serif;
   --font-mono:    'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
