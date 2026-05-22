@@ -18,7 +18,7 @@ export function NewsList({ articles, activeTags = [] }: {
   activeTags?: string[];
 }) {
   const { t, lang } = useLang();
-  const { markRead, markReadRef } = useBookmarks();
+  const { markRead, markReadRef, isRead } = useBookmarks();
   const { keywords, matches, newCount, dismissAlerts, mounted } = useKeywordAlerts(articles);
   const [alertDismissed, setAlertDismissed] = useState(false);
 
@@ -129,6 +129,7 @@ export function NewsList({ articles, activeTags = [] }: {
                 activeTags={activeTags}
                 isOpen={openId === a.id}
                 onToggle={handleToggle}
+                isReadProp={isRead(a.id)}
               />
             ))}
           </div>

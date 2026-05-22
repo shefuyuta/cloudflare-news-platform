@@ -1,5 +1,6 @@
 // app/ransomware/page.tsx
 // Japan ransomware victim tracker — data from ransomware.live + related news from D1.
+import { Suspense } from "react";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import { groupDisplayName, fmtDate, type VictimWithNews } from "@/lib/ransomware";
@@ -80,14 +81,18 @@ export default async function RansomwarePage({ searchParams }: {
   const hasCache     = totalCount > 0;
 
   return (
-    <RansomwareClient
-      victims={victims}
-      groups={groups}
-      totalCount={totalCount}
-      latestDate={latestDate}
-      hasCache={hasCache}
-      lang={lang}
-      selectedGroup={sp.group ?? ""}
-    />
+    <Suspense fallback={
+      <div className="py-20 text-center text-sm text-[var(--ink-3)]">読み込み中… / Loading…</div>
+    }>
+      <RansomwareClient
+        victims={victims}
+        groups={groups}
+        totalCount={totalCount}
+        latestDate={latestDate}
+        hasCache={hasCache}
+        lang={lang}
+        selectedGroup={sp.group ?? ""}
+      />
+    </Suspense>
   );
 }

@@ -10,17 +10,21 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Check } from "@/components/ui/Icon";
 
 interface Props {
-  article: NewsArticle;
+  article:     NewsArticle;
   onTagClick?: (tag: string) => void;
   activeTags?: string[];
-  // Controlled accordion props from NewsList
-  isOpen?: boolean;
-  onToggle?: (id: string) => void;
+  isOpen?:     boolean;
+  onToggle?:   (id: string) => void;
+  // Passed from NewsList so all cards share the same read state
+  isReadProp?: boolean;
 }
 
-export function NewsCard({ article, onTagClick, activeTags = [], isOpen, onToggle }: Props) {
+export function NewsCard({
+  article, onTagClick, activeTags = [], isOpen, onToggle, isReadProp,
+}: Props) {
   const { lang, t } = useLang();
-  const { isBookmarked, isRead, toggleBookmark, markRead, mounted } = useBookmarks();
+  // useBookmarks only for bookmark state — isRead comes from parent (NewsList)
+  const { isBookmarked, toggleBookmark, mounted } = useBookmarks();
 
   const dt   = article.publishedAt ? new Date(article.publishedAt) : null;
   const date = dt && !isNaN(dt.getTime())
@@ -30,18 +34,16 @@ export function NewsCard({ article, onTagClick, activeTags = [], isOpen, onToggl
     : "—";
 
   const bookmarked = mounted && isBookmarked(article.id);
-  const read       = mounted && isRead(article.id);
+  // Use prop if provided (from NewsList), fallback to false
+  const read = isReadProp ?? false;
 
   function handleHeaderClick() {
-    if (onToggle) {
-      // NewsList.handleToggle marks read when closing
-      onToggle(article.id);
-    }
+    if (onToggle) onToggle(article.id);
   }
 
   return (
     <article className={[
-      "border-b hairline py-4 first:pt-0 last:border-b-0 transition-opacity",
+      "border-b hairline py-4 first:pt-0 last:border-b-0 transition-opacity duration-300",
       read ? "opacity-60" : "",
     ].join(" ")}>
 
@@ -58,7 +60,7 @@ export function NewsCard({ article, onTagClick, activeTags = [], isOpen, onToggl
             <CategoryBadge category={article.category} />
             <SubBadge category={article.category} region={article.region} subcategory={article.subcategory} />
             <ImportanceBadge score={article.importanceScore} />
-            {read && mounted && (
+            {read && (
               <span className="text-[10px] text-[var(--ink-4)] font-mono flex items-center gap-0.5">
                 <Check size={10} strokeWidth={2} />{t("readArticle")}
               </span>
@@ -87,7 +89,6 @@ export function NewsCard({ article, onTagClick, activeTags = [], isOpen, onToggl
         )}
       </div>
 
-      {/* Expanded panel */}
       {isOpen && (
         <div className="ml-7 mt-3 pl-3 border-l-2 border-[var(--line)] animate-fadeIn">
           {article.content?.trim() ? (
@@ -110,7 +111,6 @@ export function NewsCard({ article, onTagClick, activeTags = [], isOpen, onToggl
             >
               {prettyUrl(article.url)}
             </Link>
-
             <Link
               href={article.url} target="_blank" rel="noopener noreferrer"
               className="ml-auto px-3 py-1 rounded-md text-[11px] font-medium ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors flex items-center gap-1.5"
@@ -150,7 +150,6 @@ function ContentExcerpt({ content, lang }: { content: string; lang: string }) {
   const PREVIEW = 400;
   const isLong  = content.length > PREVIEW;
   const shown   = expanded || !isLong ? content : content.slice(0, PREVIEW) + "…";
-
   return (
     <div className="mb-3">
       <p className="text-sm text-[var(--ink-2)] leading-relaxed whitespace-pre-line">{shown}</p>
