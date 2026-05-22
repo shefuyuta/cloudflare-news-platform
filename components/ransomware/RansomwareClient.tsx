@@ -184,10 +184,9 @@ export function RansomwareClient({
           <div className="space-y-0 divide-y divide-[var(--line)]">
             {victims.map(v => (
               <VictimRow
-                key={v.id}
-                victim={v}
-                isOpen={openId === v.id}
-                onToggle={() => setOpenId(prev => prev === v.id ? null : v.id)}
+                key={v.uid}
+                isOpen={openId === v.uid}
+                onToggle={() => setOpenId(prev => prev === v.uid ? null : v.uid)}
                 lang={lang}
               />
             ))}
