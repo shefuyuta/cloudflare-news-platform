@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { fetchRecentVictims, fetchVictimsByMonth, isJapan } from "@/lib/ransomware";
+import type { RansomwareVictim } from "@/lib/ransomware";
 import type { Env } from "@/lib/types";
 
 export async function POST(req: Request): Promise<Response> {
