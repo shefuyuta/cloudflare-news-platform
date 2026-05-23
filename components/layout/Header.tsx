@@ -208,8 +208,6 @@ export function Header() {
               </div>
             </div>
           )}
-            </div>
-          )}
 
           {/* Refresh */}
           <button
