@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLang } from "@/components/LangProvider";
 import { MobileDrawer } from "./MobileDrawer";
 import { useAlertKeywords } from "@/hooks/useAlertKeywords";
@@ -25,6 +25,20 @@ export function Header() {
   const [fetchResult, setFetchResult] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [alertOpen, setAlertOpen]     = useState(false);
+  const alertRef                       = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!alertOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (alertRef.current && !alertRef.current.contains(e.target as Node)) {
+        setAlertOpen(false);
+      }
+    }
+    // Delay so the opening click doesn't immediately close it
+    const id = setTimeout(() => document.addEventListener("mousedown", handleClick), 10);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", handleClick); };
+  }, [alertOpen]);
   const [alertInput, setAlertInput]   = useState("");
 
   const currentHours = parseInt(params.get("hours") ?? "24", 10);
@@ -131,7 +145,7 @@ export function Header() {
 
           {/* Keyword alert bell */}
           {mounted && (
-            <div className="relative">
+            <div className="relative" ref={alertRef}>
               <button
                 onClick={() => setAlertOpen(o => !o)}
                 className="p-1.5 rounded-md text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors relative"
@@ -145,46 +159,55 @@ export function Header() {
                 )}
               </button>
 
-              {alertOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-[var(--surface)] border hairline rounded-xl shadow-xl z-40 p-4 space-y-3">
-                  <span className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">{t("alertKeywords")}</span>
+              {/* Animated dropdown */}
+              <div
+                className={[
+                  "absolute right-0 top-full mt-2 w-72 bg-[var(--surface)] border hairline rounded-xl shadow-xl z-40 p-4 space-y-3",
+                  "transition-all duration-200 origin-top-right",
+                  alertOpen
+                    ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+                    : "opacity-0 scale-95 -translate-y-1 pointer-events-none",
+                ].join(" ")}
+              >
+                <span className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">{t("alertKeywords")}</span>
 
-                  {keywords.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {keywords.map(kw => (
-                        <span key={kw} className="flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--line-soft)] rounded-full border hairline">
-                          {kw}
-                          <button onClick={() => removeKeyword(kw)} className="text-[var(--ink-3)] hover:text-[var(--ink)] leading-none">
-                            <X size={10} />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                {keywords.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {keywords.map(kw => (
+                      <span key={kw} className="flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--line-soft)] rounded-full border hairline">
+                        {kw}
+                        <button onClick={() => removeKeyword(kw)} className="text-[var(--ink-3)] hover:text-[var(--ink)] leading-none">
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-                  <form
-                    onSubmit={e => { e.preventDefault(); addKeyword(alertInput); setAlertInput(""); }}
-                    className="flex gap-2"
-                  >
-                    <input
-                      value={alertInput}
-                      onChange={e => setAlertInput(e.target.value)}
-                      placeholder={t("alertPlaceholder")}
-                      className="flex-1 text-sm bg-[var(--line-soft)] px-3 py-1.5 rounded-md outline-none focus:ring-1 ring-[var(--ink)]"
-                    />
-                    <button type="submit" disabled={!alertInput.trim()}
-                      className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-white disabled:opacity-40">
-                      +
-                    </button>
-                  </form>
+                <form
+                  onSubmit={e => { e.preventDefault(); addKeyword(alertInput); setAlertInput(""); }}
+                  className="flex gap-2"
+                >
+                  <input
+                    value={alertInput}
+                    onChange={e => setAlertInput(e.target.value)}
+                    placeholder={t("alertPlaceholder")}
+                    className="flex-1 text-sm bg-[var(--line-soft)] px-3 py-1.5 rounded-md outline-none focus:ring-1 ring-[var(--ink)]"
+                  />
+                  <button type="submit" disabled={!alertInput.trim()}
+                    className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-white disabled:opacity-40">
+                    +
+                  </button>
+                </form>
 
-                  <p className="text-[10px] text-[var(--ink-4)]">
-                    {lang === "ja"
-                      ? "マッチした記事はニュース一覧のバナーに表示されます。"
-                      : "Matched articles appear as a banner in the news feed."}
-                  </p>
-                </div>
-              )}
+                <p className="text-[10px] text-[var(--ink-4)]">
+                  {lang === "ja"
+                    ? "マッチした記事はニュース一覧のバナーに表示されます。"
+                    : "Matched articles appear as a banner in the news feed."}
+                </p>
+              </div>
+            </div>
+          )}
             </div>
           )}
 
