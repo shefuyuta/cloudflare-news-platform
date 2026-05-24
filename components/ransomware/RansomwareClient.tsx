@@ -45,6 +45,8 @@ export function RansomwareClient({
   const [fetching,    setFetching]    = useState(false);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
   const [openId,      setOpenId]      = useState<string | null>(null);
+  const [filterGroup, setFilterGroup] = useState<string | null>(null);
+  const [filterAct,   setFilterAct]   = useState<string | null>(null);
 
   const ja = lang === "ja";
 
@@ -78,6 +80,13 @@ export function RansomwareClient({
     if (g) sp.set("group", g); else sp.delete("group");
     router.push(`${pathname}?${sp.toString()}`);
   }
+
+  // Apply stat-chart filters on top of URL-level group filter
+  const displayVictims = victims.filter(v => {
+    if (filterGroup && v.groupDisplay !== filterGroup && v.group !== filterGroup) return false;
+    if (filterAct && (v.activity || (ja ? "不明" : "Unknown")) !== filterAct) return false;
+    return true;
+  });
 
   return (
     <div>
@@ -148,7 +157,14 @@ export function RansomwareClient({
       {hasCache && (
         <>
           {/* ── Statistics ─────────────────────────────────────────────── */}
-          <RansomwareStats victims={victims} lang={lang} />
+          <RansomwareStats
+            victims={victims}
+            lang={lang}
+            onFilterGroup={setFilterGroup}
+            onFilterAct={setFilterAct}
+            activeGroup={filterGroup}
+            activeAct={filterAct}
+          />
 
           {/* ── Group filter ──────────────────────────────────────────── */}
           {groups.length > 0 && (
@@ -185,8 +201,16 @@ export function RansomwareClient({
           )}
 
           {/* ── Victim list ───────────────────────────────────────────── */}
+          {(filterGroup || filterAct) && (
+            <p className="text-[11px] text-[var(--ink-3)] mb-3">
+              {displayVictims.length}{ja ? "件を表示中" : " results"} —{" "}
+              {filterGroup && <span className="font-medium">{filterGroup}</span>}
+              {filterGroup && filterAct && " · "}
+              {filterAct && <span className="font-medium">{filterAct}</span>}
+            </p>
+          )}
           <div className="space-y-0 divide-y divide-[var(--line)]">
-            {victims.map(v => (
+            {displayVictims.map(v => (
               <VictimRow
                 key={v.uid}
                 victim={v}
