@@ -120,7 +120,7 @@ function NavItem({
         <div
           className={[
             "text-[11px] mt-0.5",
-            active ? "text-white/60" : "text-[var(--ink-3)]",
+            active ? "text-ink-contrast opacity-60" : "text-[var(--ink-3)]",
           ].join(" ")}
         >
           {item.sub}
