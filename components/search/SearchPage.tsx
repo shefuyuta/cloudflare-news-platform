@@ -1,47 +1,59 @@
-// components/search/SearchPage.tsx  ("use client")
-// Renders search results with interactive filters.
-// Receives pre-fetched articles as a plain serializable prop (no render-prop children).
+// components/search/SearchPage.tsx
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLang } from "@/components/LangProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { NewsList } from "@/components/news/NewsList";
 import type { NewsArticle } from "@/lib/types";
-import { X } from "@/components/ui/Icon";
+import { X, ArrowUpDown } from "@/components/ui/Icon";
 
 const TIME_OPTIONS = [
-  { label: "2h",  value: "2"   },
-  { label: "24h", value: "24"  },
-  { label: "48h", value: "48"  },
-  { label: "72h", value: "72"  },
+  { label: "2h",  value: "2" },
+  { label: "24h", value: "24" },
+  { label: "48h", value: "48" },
+  { label: "72h", value: "72" },
   { label: "1w",  value: "168" },
   { label: "全",  value: "all" },
 ] as const;
 
 const CATEGORIES = [
-  { value: "general",       ja: "一般",             en: "General"       },
+  { value: "general",       ja: "一般",             en: "General" },
   { value: "cybersecurity", ja: "サイバーセキュリティ", en: "Cybersecurity" },
-  { value: "ai",            ja: "AI",               en: "AI"            },
+  { value: "ai",            ja: "AI",               en: "AI" },
+] as const;
+
+const SORT_OPTIONS = [
+  { value: "date",       ja: "日付順",   en: "Latest first" },
+  { value: "importance", ja: "重要度順", en: "Most important" },
+  { value: "relevance",  ja: "関連度順", en: "Most relevant" },
 ] as const;
 
 interface Props {
-  articles: NewsArticle[];
+  articles:   NewsArticle[];
   activeTags: string[];
-  title: string;
-  subtitle: string;
-  lang: string;
+  title:      string;
+  subtitle:   string;
+  lang:       string;
+  allTags:    string[];   // for autocomplete
 }
 
-export function SearchPage({ articles, activeTags, title, subtitle, lang }: Props) {
-  const router  = useRouter();
+export function SearchPage({ articles, activeTags, title, subtitle, lang, allTags }: Props) {
+  const router   = useRouter();
   const pathname = usePathname();
-  const params  = useSearchParams();
+  const params   = useSearchParams();
   const { isRead, mounted } = useBookmarks();
 
-  const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all");
-  const [sourceInput, setSourceInput] = useState(params.get("source") ?? "");
+  const [readFilter,   setReadFilter]   = useState<"all" | "unread" | "read">("all");
+  const [sourceInput,  setSourceInput]  = useState(params.get("source") ?? "");
+  const [tagInput,     setTagInput]     = useState("");
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const tagRef = useRef<HTMLDivElement>(null);
+
+  const currentHours = params.get("hours") ?? "all";
+  const currentCat   = params.get("category") ?? "";
+  const currentSort  = params.get("sort") ?? "date";
 
   function set(key: string, val: string | null) {
     const sp = new URLSearchParams(params);
@@ -50,8 +62,31 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang }: Prop
     router.push(`${pathname}?${sp.toString()}`);
   }
 
-  const currentHours = params.get("hours") ?? "all";
-  const currentCat   = params.get("category") ?? "";
+  // Tag autocomplete
+  useEffect(() => {
+    if (!tagInput.trim()) { setTagSuggestions([]); return; }
+    const q = tagInput.toLowerCase();
+    const matches = allTags
+      .filter(t => t.toLowerCase().includes(q) && !activeTags.includes(t))
+      .slice(0, 8);
+    setTagSuggestions(matches);
+  }, [tagInput, allTags, activeTags]);
+
+  function addTag(tag: string) {
+    const sp = new URLSearchParams(params);
+    sp.append("tag", tag);
+    router.push(`${pathname}?${sp.toString()}`);
+    setTagInput("");
+    setTagSuggestions([]);
+  }
+
+  function removeTag(tag: string) {
+    const sp = new URLSearchParams(params);
+    const tags = sp.getAll("tag").filter(t => t !== tag);
+    sp.delete("tag");
+    tags.forEach(t => sp.append("tag", t));
+    router.push(`${pathname}?${sp.toString()}`);
+  }
 
   // Client-side read filter
   const filtered = mounted && readFilter !== "all"
@@ -67,6 +102,20 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang }: Prop
 
       {/* ── Filter bar ─────────────────────────────────────────────── */}
       <div className="mb-6 space-y-3 p-4 border hairline rounded-lg bg-[var(--line-soft)]/40">
+
+        {/* Sort */}
+        <FilterRow label={lang === "ja" ? "並び順" : "Sort"}>
+          {SORT_OPTIONS.map(opt => (
+            <Chip2
+              key={opt.value}
+              active={currentSort === opt.value}
+              onClick={() => set("sort", opt.value === "date" ? null : opt.value)}
+            >
+              <ArrowUpDown size={10} strokeWidth={1.5} className="inline mr-1" />
+              {lang === "ja" ? opt.ja : opt.en}
+            </Chip2>
+          ))}
+        </FilterRow>
 
         {/* Time */}
         <FilterRow label={lang === "ja" ? "期間" : "Period"}>
@@ -87,32 +136,59 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang }: Prop
             {lang === "ja" ? "すべて" : "All"}
           </Chip2>
           {CATEGORIES.map(c => (
-            <Chip2
-              key={c.value}
-              active={currentCat === c.value}
-              onClick={() => set("category", currentCat === c.value ? null : c.value)}
-            >
+            <Chip2 key={c.value} active={currentCat === c.value}
+              onClick={() => set("category", currentCat === c.value ? null : c.value)}>
               {lang === "ja" ? c.ja : c.en}
             </Chip2>
           ))}
         </FilterRow>
 
+        {/* Tag autocomplete */}
+        <FilterRow label={lang === "ja" ? "タグ" : "Tags"}>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {activeTags.map(tag => (
+              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-white">
+                #{tag}
+                <button onClick={() => removeTag(tag)} className="opacity-60 hover:opacity-100"><X size={9} /></button>
+              </span>
+            ))}
+            <div className="relative" ref={tagRef}>
+              <input
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && tagSuggestions.length > 0) { e.preventDefault(); addTag(tagSuggestions[0]); }
+                  if (e.key === "Escape") setTagSuggestions([]);
+                }}
+                placeholder={lang === "ja" ? "タグを検索…" : "Search tags…"}
+                className="text-[11px] bg-[var(--surface)] border hairline px-2.5 py-1.5 rounded-md outline-none focus:ring-1 ring-[var(--ink)] w-32"
+              />
+              {tagSuggestions.length > 0 && (
+                <div className="absolute left-0 top-full mt-1 bg-[var(--surface)] border hairline rounded-lg shadow-lg z-20 py-1 min-w-[160px]">
+                  {tagSuggestions.map(tag => (
+                    <button
+                      key={tag}
+                      onMouseDown={e => { e.preventDefault(); addTag(tag); }}
+                      className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--line-soft)] text-[var(--ink-2)]"
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </FilterRow>
+
         {/* Source */}
         <FilterRow label={lang === "ja" ? "ソース" : "Source"}>
-          <form
-            onSubmit={e => { e.preventDefault(); set("source", sourceInput.trim() || null); }}
-            className="flex gap-1.5 items-center"
-          >
+          <form onSubmit={e => { e.preventDefault(); set("source", sourceInput.trim() || null); }} className="flex gap-1.5">
             <div className="relative">
-              <input
-                value={sourceInput}
-                onChange={e => setSourceInput(e.target.value)}
+              <input value={sourceInput} onChange={e => setSourceInput(e.target.value)}
                 placeholder={lang === "ja" ? "例: Reuters" : "e.g. Reuters"}
-                className="text-[11px] bg-[var(--surface)] px-3 py-1.5 rounded-md outline-none focus:ring-1 ring-[var(--ink)] pr-6 w-36 border hairline"
-              />
+                className="text-[11px] bg-[var(--surface)] border hairline px-3 py-1.5 rounded-md outline-none focus:ring-1 ring-[var(--ink)] pr-6 w-36" />
               {sourceInput && (
-                <button type="button"
-                  onClick={() => { setSourceInput(""); set("source", null); }}
+                <button type="button" onClick={() => { setSourceInput(""); set("source", null); }}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--ink-4)] hover:text-[var(--ink)]">
                   <X size={10} />
                 </button>
@@ -124,32 +200,32 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang }: Prop
           </form>
         </FilterRow>
 
-        {/* Read filter (client-side) */}
+        {/* Read filter */}
         {mounted && (
           <FilterRow label={lang === "ja" ? "既読" : "Read"}>
             {(["all", "unread", "read"] as const).map(v => (
               <Chip2 key={v} active={readFilter === v} onClick={() => setReadFilter(v)}>
-                {v === "all"    ? (lang === "ja" ? "すべて" : "All")
-                : v === "unread" ? (lang === "ja" ? "未読"   : "Unread")
-                :                  (lang === "ja" ? "既読"   : "Read")}
+                {v === "all" ? (lang === "ja" ? "すべて" : "All")
+                 : v === "unread" ? (lang === "ja" ? "未読" : "Unread")
+                 : (lang === "ja" ? "既読" : "Read")}
               </Chip2>
             ))}
           </FilterRow>
         )}
 
         {/* Active filter chips */}
-        {(params.get("q") || params.get("category") || params.get("source") || params.get("hours") || params.get("minScore") || params.get("maxScore")) && (
+        {(params.get("q") || params.get("category") || params.get("source") || params.get("hours") || params.get("minScore") || params.get("maxScore") || params.get("sort")) && (
           <div className="flex flex-wrap gap-1.5 pt-1 border-t hairline">
             {[
               { key: "q",        label: params.get("q") ? `"${params.get("q")}"` : null },
               { key: "category", label: params.get("category") },
               { key: "source",   label: params.get("source") },
               { key: "hours",    label: params.get("hours") ? `${params.get("hours")}h` : null },
+              { key: "sort",     label: params.get("sort") },
               { key: "minScore", label: params.get("minScore") ? `score≥${params.get("minScore")}` : null },
               { key: "maxScore", label: params.get("maxScore") ? `score≤${params.get("maxScore")}` : null },
             ].filter(c => c.label).map(c => (
-              <span key={c.key}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-white">
+              <span key={c.key} className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-white">
                 {c.label}
                 <button onClick={() => { if (c.key === "source") setSourceInput(""); set(c.key, null); }}
                   className="opacity-60 hover:opacity-100"><X size={9} /></button>
@@ -163,13 +239,9 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang }: Prop
         )}
       </div>
 
-      {/* Result count after client-side filter */}
       {readFilter !== "all" && mounted && (
         <p className="text-[11px] text-[var(--ink-3)] mb-3">
           {filtered.length} / {articles.length} {lang === "ja" ? "件" : "results"}
-          {" "}({lang === "ja"
-            ? readFilter === "unread" ? "未読のみ" : "既読のみ"
-            : readFilter === "unread" ? "unread only" : "read only"})
         </p>
       )}
 
@@ -182,20 +254,16 @@ function FilterRow({ label, children }: { label: string; children: React.ReactNo
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-[10px] uppercase tracking-widest text-[var(--ink-4)] w-14 flex-shrink-0">{label}</span>
-      <div className="flex gap-1 flex-wrap">{children}</div>
+      <div className="flex gap-1 flex-wrap items-center">{children}</div>
     </div>
   );
 }
 
-function Chip2({ active, onClick, children }: {
-  active: boolean; onClick: () => void; children: React.ReactNode;
-}) {
+function Chip2({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick} className={[
       "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
-      active
-        ? "bg-[var(--ink)] text-white"
-        : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)] bg-[var(--surface)]",
+      active ? "bg-[var(--ink)] text-white" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)] bg-[var(--surface)]",
     ].join(" ")}>
       {children}
     </button>

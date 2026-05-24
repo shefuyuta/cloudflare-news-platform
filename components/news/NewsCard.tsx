@@ -7,7 +7,7 @@ import type { NewsArticle } from "@/lib/types";
 import { CategoryBadge, SubBadge, ImportanceBadge, TagChip } from "./TagBadge";
 import { useLang } from "@/components/LangProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Check } from "@/components/ui/Icon";
+import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Check, MessageCircle } from "@/components/ui/Icon";
 
 interface Props {
   article:     NewsArticle;
@@ -17,10 +17,11 @@ interface Props {
   onToggle?:   (id: string) => void;
   // Passed from NewsList so all cards share the same read state
   isReadProp?: boolean;
+  onAskChat?: (msg: string) => void;
 }
 
 export function NewsCard({
-  article, onTagClick, activeTags = [], isOpen, onToggle, isReadProp,
+  article, onTagClick, activeTags = [], isOpen, onToggle, isReadProp, onAskChat,
 }: Props) {
   const { lang, t } = useLang();
   // useBookmarks only for bookmark state — isRead comes from parent (NewsList)
@@ -119,6 +120,18 @@ export function NewsCard({
               {lang === "ja" ? "原文を読む" : "Read original"}
               <ExternalLink size={11} strokeWidth={1.5} />
             </Link>
+            {onAskChat && (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  onAskChat(`「${article.title}」について教えてください。ソース: ${article.source}`);
+                }}
+                className="px-3 py-1 rounded-md text-[11px] font-medium ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors flex items-center gap-1.5"
+              >
+                <MessageCircle size={11} strokeWidth={1.5} />
+                {lang === "ja" ? "AIに聞く" : "Ask AI"}
+              </button>
+            )}
           </div>
 
           {article.tags.length > 0 && (

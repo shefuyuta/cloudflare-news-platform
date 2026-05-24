@@ -21,6 +21,7 @@ export async function GET(req: Request): Promise<Response> {
     noTimeLimit:  searchParams.get("all") === "1",
     minScore:     searchParams.get("minScore") ? parseInt(searchParams.get("minScore")!, 10) : undefined,
     maxScore:     searchParams.get("maxScore") ? parseInt(searchParams.get("maxScore")!, 10) : undefined,
+    sortBy:       (searchParams.get("sort") as "date" | "importance" | "relevance" | null) ?? undefined,
     limit:        clampInt(searchParams.get("limit"),  50,  1, 200),
     offset:       clampInt(searchParams.get("offset"),  0,  0, 10_000),
   };

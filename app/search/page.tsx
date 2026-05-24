@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import { SearchPage as SearchPageClient } from "@/components/search/SearchPage";
+import { listAllTags } from "@/lib/db";
 import type { Env } from "@/lib/types";
 import type { Category } from "@/lib/categories";
 import { cookies } from "next/headers";
@@ -32,7 +33,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const noTimeLim = !sp.hours || sp.hours === "all";
   const hoursAgo  = noTimeLim ? undefined : parseInt(sp.hours!, 10);
 
-  const items = await listArticles(env, {
+  const [items, allTags] = await Promise.all([
+    listArticles(env, {
     q:           sp.q,
     tags,
     source:      sp.source,
@@ -45,7 +47,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     minScore:    sp.minScore ? parseInt(sp.minScore, 10) : undefined,
     maxScore:    sp.maxScore ? parseInt(sp.maxScore, 10) : undefined,
     limit:       200,
-  });
+  }),
+  listAllTags(env),
+]);
 
   const filters: string[] = [];
   if (sp.q)           filters.push(`"${sp.q}"`);
@@ -77,6 +81,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         title={title}
         subtitle={subtitle}
         lang={lang}
+        allTags={allTags}
       />
     </Suspense>
   );

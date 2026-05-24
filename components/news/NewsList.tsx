@@ -130,6 +130,7 @@ export function NewsList({ articles, activeTags = [] }: {
                 isOpen={openId === a.id}
                 onToggle={handleToggle}
                 isReadProp={isRead(a.id)}
+                onAskChat={msg => window.dispatchEvent(new CustomEvent("ask-article", { detail: msg }))}
               />
             ))}
           </div>

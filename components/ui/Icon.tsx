@@ -25,4 +25,6 @@ export {
   Cpu,
   Newspaper,
   Trash2,
+  ArrowUpDown,
+  MessageCircle,
 } from "lucide-react";

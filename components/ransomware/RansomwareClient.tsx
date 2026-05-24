@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ExternalLink, RefreshCw, Shield, ChevronRight } from "@/components/ui/Icon";
 import type { VictimWithNews } from "@/lib/ransomware";
+import { RansomwareStats } from "./RansomwareStats";
 
 const GROUP_COLORS: Record<string, string> = {
   lockbit3:   "#dc2626", lockbit: "#dc2626",
@@ -146,6 +147,9 @@ export function RansomwareClient({
 
       {hasCache && (
         <>
+          {/* ── Statistics ─────────────────────────────────────────────── */}
+          <RansomwareStats victims={victims} lang={lang} />
+
           {/* ── Group filter ──────────────────────────────────────────── */}
           {groups.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-6">

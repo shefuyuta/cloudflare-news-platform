@@ -93,6 +93,18 @@ export function AIChatDock() {
   const [msgs, setMsgs]       = useState<Msg[]>([]);
   const [pending, setPending] = useState(false);
   const sessionId             = useRef(crypto.randomUUID());
+
+  // Listen for "ask-article" events dispatched by NewsCard
+  useEffect(() => {
+    function handler(e: Event) {
+      const msg = (e as CustomEvent<string>).detail;
+      if (!msg) return;
+      setOpen(true);
+      setInput(msg);
+    }
+    window.addEventListener("ask-article", handler);
+    return () => window.removeEventListener("ask-article", handler);
+  }, []);
   const scrollRef             = useRef<HTMLDivElement>(null);
   const ctx                   = useViewContext();
   const { t }                 = useLang();

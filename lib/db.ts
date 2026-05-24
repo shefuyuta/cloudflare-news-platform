@@ -97,7 +97,12 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
            a.source, a.url, a.importance_score, a.published_at
     FROM articles a
     ${where.length ? "WHERE " + where.join(" AND ") : ""}
-    ORDER BY a.published_at DESC
+    ORDER BY
+      ${q.sortBy === "importance"
+        ? "COALESCE(a.importance_score, 0) DESC, a.published_at DESC"
+        : q.sortBy === "relevance" && q.q
+          ? `CASE WHEN a.title LIKE '%${(q.q ?? "").replace(/'/g, "''")}%' THEN 0 ELSE 1 END, a.published_at DESC`
+          : "a.published_at DESC"}
     LIMIT ? OFFSET ?
   `;
   binds.push(q.limit ?? 50, q.offset ?? 0);
