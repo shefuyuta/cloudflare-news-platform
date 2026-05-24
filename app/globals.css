@@ -85,6 +85,47 @@ a, button, [role="button"], [onclick], summary, label[for] {
   cursor: pointer;
 }
 
+
+/* ── Dark mode ──────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #0C0C0C;
+    --surface:   #141414;
+    --ink:       #F4F4F5;
+    --ink-2:     #A1A1AA;
+    --ink-3:     #71717A;
+    --ink-4:     #52525B;
+    --line:      rgba(255,255,255,0.12);
+    --line-soft: rgba(255,255,255,0.06);
+    --accent-general:     #60A5FA;
+    --accent-cyber:       #F87171;
+    --accent-ai:          #A78BFA;
+  }
+}
+
+/* Manual dark mode toggle via [data-theme="dark"] on <html> */
+[data-theme="dark"] {
+  --bg:        #0C0C0C;
+  --surface:   #141414;
+  --ink:       #F4F4F5;
+  --ink-2:     #A1A1AA;
+  --ink-3:     #71717A;
+  --ink-4:     #52525B;
+  --line:      rgba(255,255,255,0.12);
+  --line-soft: rgba(255,255,255,0.06);
+  --accent-general:     #60A5FA;
+  --accent-cyber:       #F87171;
+  --accent-ai:          #A78BFA;
+}
+
+[data-theme="light"] {
+  --bg:        #FAFAF9;
+  --surface:   #FFFFFF;
+  --ink:       #0A0A0A;
+  --ink-2:     #3F3F46;
+  --ink-3:     #71717A;
+  --ink-4:     #A1A1AA;
+}
 /* ── Animations ─────────────────────────────────────────────────── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-4px); }

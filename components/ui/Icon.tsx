@@ -27,4 +27,7 @@ export {
   Trash2,
   ArrowUpDown,
   MessageCircle,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";

@@ -1,5 +1,5 @@
 name = "cloudflare-news-platform"
-compatibility_date = "2025-09-01"
+compatibility_date = "2025-05-01"
 compatibility_flags = ["nodejs_compat"]
 main = ".open-next/worker.js"
 

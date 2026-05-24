@@ -6,7 +6,8 @@ import { useState, useRef, useEffect } from "react";
 import { useLang } from "@/components/LangProvider";
 import { MobileDrawer } from "./MobileDrawer";
 import { useAlertKeywords } from "@/hooks/useAlertKeywords";
-import { Bell, RefreshCw, Menu, X } from "@/components/ui/Icon";
+import { Bell, RefreshCw, Menu, X, Sun, Moon, Monitor } from "@/components/ui/Icon";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 const TIME_RANGES = [
   { hours: 24,  key: "hours24" as const },
@@ -20,6 +21,7 @@ export function Header() {
   const pathname = usePathname();
   const params   = useSearchParams();
   const { lang, toggle, t } = useLang();
+  const { theme, toggle: toggleTheme, mounted: themeMounted } = useDarkMode();
   const [val, setVal]           = useState(params.get("q") ?? "");
   const [fetching, setFetching] = useState(false);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
@@ -230,6 +232,19 @@ export function Header() {
             <span className="text-[11px] text-emerald-600 font-medium hidden md:inline truncate max-w-[160px]">
               {fetchResult}
             </span>
+          )}
+
+          {/* Theme toggle */}
+          {themeMounted && (
+            <button
+              onClick={toggleTheme}
+              title={theme === "dark" ? "ダークモード" : theme === "light" ? "ライトモード" : "システム設定"}
+              className="p-1.5 rounded-md text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
+            >
+              {theme === "dark"  ? <Moon size={14} strokeWidth={1.5} /> :
+               theme === "light" ? <Sun  size={14} strokeWidth={1.5} /> :
+                                   <Monitor size={14} strokeWidth={1.5} />}
+            </button>
           )}
 
           {/* Lang toggle */}

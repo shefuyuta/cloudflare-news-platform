@@ -167,6 +167,21 @@ async function runFetcher(env: Env): Promise<void> {
     console.warn("[fetcher] Ransomware sync failed (non-critical):", e);
   }
 
+  // ── AI Summary generation ────────────────────────────────────────────
+  try {
+    let summaryRounds = 0;
+    while (summaryRounds < 3) {
+      const sumResp = await fetch(`${baseUrl}/api/generate-summaries`, { method: "POST" });
+      if (!sumResp.ok) break;
+      const sumData = await sumResp.json() as { generated: number; remaining: number };
+      if (sumData.generated === 0 || sumData.remaining === 0) break;
+      summaryRounds++;
+    }
+    console.log("[fetcher] Summary generation complete.");
+  } catch (e) {
+    console.warn("[fetcher] Summary generation failed (non-critical):", e);
+  }
+
   // ── Cleanup old articles ─────────────────────────────────────────────
   try {
     const cleanupResp = await fetch(`${baseUrl}/api/cleanup`, { method: "POST" });
