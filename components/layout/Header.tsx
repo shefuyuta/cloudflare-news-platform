@@ -136,7 +136,7 @@ export function Header() {
                 className={[
                   "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
                   currentHours === tr.hours
-                    ? "bg-[var(--ink)] text-white"
+                    ? "bg-[var(--ink)] text-[var(--ink-contrast)]"
                     : "text-[var(--ink-3)] hover:text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
                 ].join(" ")}
               >
@@ -155,7 +155,7 @@ export function Header() {
               >
                 <Bell size={15} strokeWidth={1.5} />
                 {keywords.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-[var(--ink)] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 bg-[var(--ink)] text-[var(--ink-contrast)] text-[9px] font-bold rounded-full flex items-center justify-center">
                     {keywords.length}
                   </span>
                 )}
@@ -197,7 +197,7 @@ export function Header() {
                     className="flex-1 text-sm bg-[var(--line-soft)] px-3 py-1.5 rounded-md outline-none focus:ring-1 ring-[var(--ink)]"
                   />
                   <button type="submit" disabled={!alertInput.trim()}
-                    className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-white disabled:opacity-40">
+                    className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-[var(--ink-contrast)] disabled:opacity-40">
                     +
                   </button>
                 </form>

@@ -112,7 +112,7 @@ function NavItem({
         className={[
           "block px-3 py-2.5 rounded-md transition-colors",
           active
-            ? "bg-[var(--ink)] text-white"
+            ? "bg-[var(--ink)] text-[var(--ink-contrast)]"
             : "text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
         ].join(" ")}
       >

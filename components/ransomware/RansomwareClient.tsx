@@ -137,7 +137,7 @@ export function RansomwareClient({
           <button
             onClick={refresh}
             disabled={fetching}
-            className="px-4 py-2 text-sm font-medium rounded-md bg-[var(--ink)] text-white hover:bg-black disabled:opacity-40 transition-colors flex items-center gap-2 mx-auto"
+            className="px-4 py-2 text-sm font-medium rounded-md bg-[var(--ink)] text-[var(--ink-contrast)] hover:bg-black disabled:opacity-40 transition-colors flex items-center gap-2 mx-auto"
           >
             <RefreshCw size={14} strokeWidth={1.5} className={fetching ? "animate-spin" : ""} />
             {ja ? "今すぐ取得" : "Fetch now"}
@@ -157,7 +157,7 @@ export function RansomwareClient({
                 onClick={() => setGroup("")}
                 className={[
                   "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
-                  !selectedGroup ? "bg-[var(--ink)] text-white border-[var(--ink)]" : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+                  !selectedGroup ? "bg-[var(--ink)] text-[var(--ink-contrast)] border-[var(--ink)]" : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
                 ].join(" ")}
               >
                 {ja ? "すべて" : "All"} ({totalCount})

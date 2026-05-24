@@ -19,6 +19,9 @@
   --accent-cyber:    #9F1239;
   --accent-ai:       #5B21B6;
 
+  /* --ink-contrast: text color used ON top of --ink fills (inverts with dark mode) */
+  --ink-contrast: #FFFFFF;
+
   --font-display: 'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', ui-sans-serif, system-ui, sans-serif;
   --font-ui:      'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', ui-sans-serif, system-ui, sans-serif;
   --font-mono:    'Geist Mono', ui-monospace, SFMono-Regular, monospace;
@@ -100,6 +103,7 @@ a, button, [role="button"], [onclick], summary, label[for] {
     --accent-general:     #60A5FA;
     --accent-cyber:       #F87171;
     --accent-ai:          #A78BFA;
+    --ink-contrast: #0A0A0A;
   }
 }
 
@@ -125,6 +129,7 @@ a, button, [role="button"], [onclick], summary, label[for] {
   --ink-2:     #3F3F46;
   --ink-3:     #71717A;
   --ink-4:     #A1A1AA;
+  --ink-contrast: #FFFFFF;
 }
 /* ── Animations ─────────────────────────────────────────────────── */
 @keyframes fadeIn {

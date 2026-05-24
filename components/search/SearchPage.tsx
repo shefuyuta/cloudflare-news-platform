@@ -147,7 +147,7 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
         <FilterRow label={lang === "ja" ? "タグ" : "Tags"}>
           <div className="flex flex-wrap gap-1.5 items-center">
             {activeTags.map(tag => (
-              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-white">
+              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-[var(--ink-contrast)]">
                 #{tag}
                 <button onClick={() => removeTag(tag)} className="opacity-60 hover:opacity-100"><X size={9} /></button>
               </span>
@@ -194,7 +194,7 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
                 </button>
               )}
             </div>
-            <button type="submit" className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-white">
+            <button type="submit" className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-[var(--ink-contrast)]">
               {lang === "ja" ? "絞込" : "Filter"}
             </button>
           </form>
@@ -225,7 +225,7 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
               { key: "minScore", label: params.get("minScore") ? `score≥${params.get("minScore")}` : null },
               { key: "maxScore", label: params.get("maxScore") ? `score≤${params.get("maxScore")}` : null },
             ].filter(c => c.label).map(c => (
-              <span key={c.key} className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-white">
+              <span key={c.key} className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-[var(--ink-contrast)]">
                 {c.label}
                 <button onClick={() => { if (c.key === "source") setSourceInput(""); set(c.key, null); }}
                   className="opacity-60 hover:opacity-100"><X size={9} /></button>
@@ -263,7 +263,7 @@ function Chip2({ active, onClick, children }: { active: boolean; onClick: () => 
   return (
     <button onClick={onClick} className={[
       "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
-      active ? "bg-[var(--ink)] text-white" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)] bg-[var(--surface)]",
+      active ? "bg-[var(--ink)] text-[var(--ink-contrast)]" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)] bg-[var(--surface)]",
     ].join(" ")}>
       {children}
     </button>

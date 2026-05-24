@@ -128,7 +128,7 @@ export function RansomwareStats({ victims, lang }: Props) {
                   style={{ height: `${Math.max(4, (cnt / maxM) * 60)}px`, opacity: 0.6 + (cnt / maxM) * 0.4 }}
                 />
                 {/* Tooltip */}
-                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
+                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-[var(--ink-contrast)] text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
                   {month} · {cnt}{ja ? "件" : ""}
                 </div>
               </div>
