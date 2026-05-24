@@ -152,7 +152,7 @@ export function AIChatDock() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open AI assistant"
-          className="fixed bottom-6 right-6 z-30 h-12 px-5 rounded-full bg-[var(--ink)] text-[var(--ink-contrast)] text-sm font-medium shadow-lg hover:bg-black transition-colors flex items-center gap-2"
+          className="fixed bottom-6 right-6 z-30 h-12 px-5 rounded-full bg-[var(--ink)] text-ink-contrast text-sm font-medium shadow-lg hover:bg-black transition-colors flex items-center gap-2"
         >
           <Sparkles size={13} strokeWidth={1.5} className="text-emerald-400" />
           {t("askNewsHub")}
@@ -231,7 +231,7 @@ function ChatBubble({ msg }: { msg: Msg }) {
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="bg-[var(--ink)] text-[var(--ink-contrast)] text-sm px-3 py-2 rounded-lg max-w-[85%] whitespace-pre-wrap">
+        <div className="bg-[var(--ink)] text-ink-contrast text-sm px-3 py-2 rounded-lg max-w-[85%] whitespace-pre-wrap">
           {msg.content}
         </div>
       </div>
@@ -284,7 +284,7 @@ function ChatInput({ value, onChange, onSend, disabled }: {
       <button
         type="submit"
         disabled={disabled || !value.trim()}
-        className="text-sm font-medium px-3 py-1.5 rounded-md bg-[var(--ink)] text-[var(--ink-contrast)] disabled:opacity-30"
+        className="text-sm font-medium px-3 py-1.5 rounded-md bg-[var(--ink)] text-ink-contrast disabled:opacity-30"
       >
         {t("chatSend")}
       </button>

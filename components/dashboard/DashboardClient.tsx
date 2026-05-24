@@ -186,7 +186,7 @@ export function DashboardClient() {
                           className="w-full rounded-sm bg-[var(--ink)] transition-all duration-300"
                           style={{ height: `${Math.max(2, (cnt / maxCnt) * 76)}px`, opacity: cnt ? 0.8 : 0.1 }}
                         />
-                        <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-[var(--ink-contrast)] text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10 leading-tight text-center">
+                        <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-ink-contrast text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10 leading-tight text-center">
                           <div className="font-medium">{label} JST</div>
                           <div className="opacity-70">{cnt}件</div>
                         </div>
@@ -276,7 +276,7 @@ export function DashboardClient() {
                 <a
                   key={tag.name}
                   href={`/search?tag=${encodeURIComponent(tag.name)}`}
-                  className="px-3 py-1 rounded-full border hairline font-medium transition-colors hover:bg-[var(--ink)] hover:text-[var(--ink-contrast)] hover:border-[var(--ink)]"
+                  className="px-3 py-1 rounded-full border hairline font-medium transition-colors hover:bg-[var(--ink)] hover:text-ink-contrast hover:border-[var(--ink)]"
                   style={{ fontSize: `${size}px`, opacity: 0.5 + pct * 0.5 }}
                   title={`${tag.cnt} ${lang === "ja" ? "件" : "articles"}`}
                 >
@@ -296,7 +296,7 @@ export function DashboardClient() {
           <button
             onClick={generateBriefing}
             disabled={briefingLoading}
-            className="px-3 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-[var(--ink-contrast)] hover:bg-black disabled:opacity-40 transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-ink-contrast hover:bg-black disabled:opacity-40 transition-colors flex items-center gap-1.5"
           >
             {briefingLoading ? (
               <><RefreshCw size={12} strokeWidth={1.5} className="animate-spin" /> {lang === "ja" ? "生成中…" : "Generating…"}</>

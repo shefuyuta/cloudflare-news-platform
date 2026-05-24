@@ -79,7 +79,7 @@ export function SearchFilters({ articles, children }: Props) {
                 className={[
                   "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
                   currentHours === opt.value || (opt.value === "all" && !params.get("hours"))
-                    ? "bg-[var(--ink)] text-[var(--ink-contrast)]"
+                    ? "bg-[var(--ink)] text-ink-contrast"
                     : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)]",
                 ].join(" ")}
               >
@@ -100,7 +100,7 @@ export function SearchFilters({ articles, children }: Props) {
               className={[
                 "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
                 !currentCat
-                  ? "bg-[var(--ink)] text-[var(--ink-contrast)]"
+                  ? "bg-[var(--ink)] text-ink-contrast"
                   : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)]",
               ].join(" ")}
             >
@@ -113,7 +113,7 @@ export function SearchFilters({ articles, children }: Props) {
                 className={[
                   "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
                   currentCat === c.value
-                    ? "bg-[var(--ink)] text-[var(--ink-contrast)]"
+                    ? "bg-[var(--ink)] text-ink-contrast"
                     : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)]",
                 ].join(" ")}
               >
@@ -151,7 +151,7 @@ export function SearchFilters({ articles, children }: Props) {
             </div>
             <button
               type="submit"
-              className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-[var(--ink-contrast)]"
+              className="px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-[var(--ink)] text-ink-contrast"
             >
               {lang === "ja" ? "絞込" : "Filter"}
             </button>
@@ -167,7 +167,7 @@ export function SearchFilters({ articles, children }: Props) {
                   className={[
                     "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
                     readFilter === v
-                      ? "bg-[var(--ink)] text-[var(--ink-contrast)]"
+                      ? "bg-[var(--ink)] text-ink-contrast"
                       : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)]",
                   ].join(" ")}
                 >
@@ -222,7 +222,7 @@ export function SearchFilters({ articles, children }: Props) {
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-[var(--ink-contrast)]">
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-ink-contrast">
       {label}
       <button onClick={onRemove} className="opacity-60 hover:opacity-100">
         <X size={9} />

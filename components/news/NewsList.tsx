@@ -78,7 +78,7 @@ export function NewsList({ articles, activeTags = [] }: {
                 className={[
                   "px-2 py-0.5 text-[11px] font-medium rounded transition-colors",
                   pageSize === n
-                    ? "bg-[var(--ink)] text-[var(--ink-contrast)]"
+                    ? "bg-[var(--ink)] text-ink-contrast"
                     : "text-[var(--ink-3)] hover:text-[var(--ink)] hover:bg-[var(--line-soft)]",
                 ].join(" ")}
               >
@@ -164,7 +164,7 @@ export function NewsList({ articles, activeTags = [] }: {
                       className={[
                         "min-w-[32px] h-8 px-2 text-sm rounded-md transition-colors",
                         page === n
-                          ? "bg-[var(--ink)] text-[var(--ink-contrast)] font-medium"
+                          ? "bg-[var(--ink)] text-ink-contrast font-medium"
                           : "text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
                       ].join(" ")}
                     >

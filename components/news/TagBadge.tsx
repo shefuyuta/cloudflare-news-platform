@@ -45,7 +45,7 @@ export function TagChip({ tag, onClick, active }: { tag: string; onClick?: () =>
       className={[
         "badge font-mono",
         active
-          ? "bg-[var(--ink)] text-[var(--ink-contrast)] ring-1 ring-inset ring-[var(--ink)]"
+          ? "bg-[var(--ink)] text-ink-contrast ring-1 ring-inset ring-[var(--ink)]"
           : "bg-transparent text-[var(--ink-2)] ring-1 ring-inset ring-[var(--line)] hover:bg-[var(--line-soft)]",
       ].join(" ")}
     >

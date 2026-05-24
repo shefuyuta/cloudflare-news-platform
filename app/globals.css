@@ -89,6 +89,13 @@ a, button, [role="button"], [onclick], summary, label[for] {
 }
 
 
+
+/* ── ink-contrast utility ───────────────────────────────────────────
+   Used on elements with bg-[var(--ink)] fills (active states, buttons).
+   Automatically inverts: light = white text, dark = dark text.        */
+.text-ink-contrast {
+  color: var(--ink-contrast);
+}
 /* ── Dark mode ──────────────────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
   :root {
