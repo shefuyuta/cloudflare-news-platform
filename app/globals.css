@@ -127,6 +127,7 @@ a, button, [role="button"], [onclick], summary, label[for] {
   --accent-general:     #60A5FA;
   --accent-cyber:       #F87171;
   --accent-ai:          #A78BFA;
+  --ink-contrast: #0A0A0A;
 }
 
 [data-theme="light"] {
