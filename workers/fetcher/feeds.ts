@@ -12,6 +12,11 @@ export interface FeedSource {
   regionHint?: string;
   /** Hint for subcategory (cybersecurity only). */
   subHint?: string;
+  /**
+   * Route through rss2json.com proxy.
+   * Use for sources that block direct requests from Cloudflare Workers IPs.
+   */
+  useProxy?: boolean;
 }
 
 export const FEEDS: FeedSource[] = [
@@ -70,6 +75,7 @@ export const FEEDS: FeedSource[] = [
   },
   {
     name: "JapanTimes",
+    useProxy: true,
     category: "general",
     regionHint: "japan",
     urls: [
@@ -78,6 +84,7 @@ export const FEEDS: FeedSource[] = [
   },
   {
     name: "MainichiJP",
+    useProxy: true,
     category: "general",
     regionHint: "japan",
     urls: [
@@ -86,12 +93,41 @@ export const FEEDS: FeedSource[] = [
     ],
   },
 
+
+  {
+    name: "NHK World",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: [
+      "https://www3.nhk.or.jp/rss/news/cat0.xml",
+    ],
+  },
+  {
+    name: "Asahi Shimbun",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: [
+      "https://www.asahi.com/rss/asahi/newsheadlines.rdf",
+    ],
+  },
+  {
+    name: "Yomiuri",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: [
+      "https://www.yomiuri.co.jp/feed/",
+    ],
+  },
   // =====================================================================
   // CYBERSECURITY
   // =====================================================================
   // --- Japan ---
   {
     name: "SecurityNext",
+    useProxy: true,
     category: "cybersecurity",
     regionHint: "japan",
     urls: [
@@ -100,6 +136,7 @@ export const FEEDS: FeedSource[] = [
   },
   {
     name: "ITmedia Security",
+    useProxy: true,
     category: "cybersecurity",
     regionHint: "japan",
     urls: [
@@ -108,6 +145,7 @@ export const FEEDS: FeedSource[] = [
   },
   {
     name: "JPCERT/CC",
+    useProxy: true,
     category: "cybersecurity",
     regionHint: "japan",
     subHint: "vulnerability",
@@ -118,6 +156,7 @@ export const FEEDS: FeedSource[] = [
   },
   {
     name: "JVN",
+    useProxy: true,
     category: "cybersecurity",
     regionHint: "japan",
     subHint: "vulnerability",
@@ -128,10 +167,51 @@ export const FEEDS: FeedSource[] = [
   },
   {
     name: "Hitachi HIRT",
+    useProxy: true,
     category: "cybersecurity",
     regionHint: "japan",
     urls: [
       "http://www.hitachi.co.jp/hirt/security/index.rdf",
+    ],
+  },
+
+  // --- Additional Japan (via proxy) ---
+  {
+    name: "IPA Security",
+    category: "cybersecurity",
+    regionHint: "japan",
+    subHint: "vulnerability",
+    useProxy: true,
+    urls: [
+      "https://www.ipa.go.jp/security/rss/alert.rdf",
+      "https://www.ipa.go.jp/security/rss/vuln.rdf",
+    ],
+  },
+  {
+    name: "NISC",
+    category: "cybersecurity",
+    regionHint: "japan",
+    useProxy: true,
+    urls: [
+      "https://www.nisc.go.jp/rss/index.rdf",
+    ],
+  },
+  {
+    name: "Nikkei Cyber",
+    category: "cybersecurity",
+    regionHint: "japan",
+    useProxy: true,
+    urls: [
+      "https://www.nikkei.com/rss/news.rdf",
+    ],
+  },
+  {
+    name: "RocketBoysLab",
+    category: "cybersecurity",
+    regionHint: "japan",
+    useProxy: true,
+    urls: [
+      "https://rocket-boys.co.jp/security-measures-lab/feed/",
     ],
   },
   // --- Global ---
