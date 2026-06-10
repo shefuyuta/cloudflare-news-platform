@@ -4,7 +4,7 @@ import type { RagConfig } from "./config";
 
 /** Embed a single string into a vector for the configured model. */
 export async function embed(env: Env, text: string, cfg: RagConfig): Promise<number[]> {
-  const res = await env.AI.run(cfg.embeddingModel, { text: [text] }) as
+  const res = await (env.AI as { run: (m: string, o: object) => Promise<unknown> }).run(cfg.embeddingModel, { text: [text] }) as
     { data: number[][] };
   if (!res?.data?.[0]) throw new Error("Embedding failed");
   return res.data[0];
@@ -13,7 +13,7 @@ export async function embed(env: Env, text: string, cfg: RagConfig): Promise<num
 /** Embed many strings in one call (batched). */
 export async function embedBatch(env: Env, texts: string[], cfg: RagConfig): Promise<number[][]> {
   if (!texts.length) return [];
-  const res = await env.AI.run(cfg.embeddingModel, { text: texts }) as
+  const res = await (env.AI as { run: (m: string, o: object) => Promise<unknown> }).run(cfg.embeddingModel, { text: texts }) as
     { data: number[][] };
   return res.data ?? [];
 }

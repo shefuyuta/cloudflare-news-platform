@@ -2,8 +2,8 @@
 import type { Env } from "../types";
 
 export interface RagConfig {
-  embeddingModel: keyof AiModels;
-  llmModel: keyof AiModels;
+  embeddingModel: string;
+  llmModel: string;
   topK: number;
   minScore: number;
   temperature: number;

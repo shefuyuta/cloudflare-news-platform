@@ -47,7 +47,7 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
     ];
 
     // 4. Call Workers AI
-    const result = await env.AI.run(cfg.llmModel, {
+    const result = await (env.AI as { run: (m: string, o: object) => Promise<unknown> }).run(cfg.llmModel, {
       messages,
       temperature: cfg.temperature,
       max_tokens: cfg.maxTokens,

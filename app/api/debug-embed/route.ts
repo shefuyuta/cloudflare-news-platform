@@ -68,7 +68,7 @@ export async function GET(): Promise<Response> {
 
     // 6. Try LLM
     try {
-      const result = await env.AI.run(cfg.llmModel, {
+      const result = await (env.AI as { run: (m: string, o: object) => Promise<unknown> }).run(cfg.llmModel, {
         messages: [{ role: "user", content: "Say hello in one word." }],
         max_tokens: 10,
       } as Record<string, unknown>) as { response?: string };
