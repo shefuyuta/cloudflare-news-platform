@@ -42,6 +42,7 @@ export default async function RansomwarePage({
   let victims: VictimWithNews[] = [];
   let groups:  string[]          = [];
   let dbError: string | null     = null;
+  let latestFetched              = "";
 
   try {
     // ── Fetch victims ─────────────────────────────────────────────────
@@ -143,6 +144,7 @@ export default async function RansomwarePage({
 
       const groupSet = new Set(rawVictims.map(v => v.group_name).filter(Boolean));
       groups = [...groupSet].sort();
+      latestFetched = rawVictims.reduce((max, v) => v.fetched_at > max ? v.fetched_at : max, "");
     }
   } catch (err) {
     // Table may not exist yet — show "run migration" message instead of crashing
