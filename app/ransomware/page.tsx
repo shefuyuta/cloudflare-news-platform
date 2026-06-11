@@ -195,7 +195,7 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         victims={victims}
         groups={groups}
         totalCount={victims.length}
-        latestDate={victims[0]?.discovered ?? ""}
+        latestDate={latestFetched}
         hasCache={victims.length > 0}
         lang={lang}
         selectedGroup={sp.group ?? ""}

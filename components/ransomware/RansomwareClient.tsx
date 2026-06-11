@@ -45,8 +45,6 @@ export function RansomwareClient({
   const [fetching,    setFetching]    = useState(false);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
   const [openId,      setOpenId]      = useState<string | null>(null);
-  const [filterGroup, setFilterGroup] = useState<string | null>(null);
-  const [filterAct,   setFilterAct]   = useState<string | null>(null);
 
   const ja = lang === "ja";
 
@@ -81,13 +79,6 @@ export function RansomwareClient({
     router.push(`${pathname}?${sp.toString()}`);
   }
 
-  // Apply stat-chart filters on top of URL-level group filter
-  const displayVictims = victims.filter(v => {
-    if (filterGroup && v.groupDisplay !== filterGroup && v.group !== filterGroup) return false;
-    if (filterAct && (v.activity || (ja ? "不明" : "Unknown")) !== filterAct) return false;
-    return true;
-  });
-
   return (
     <div>
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -104,7 +95,9 @@ export function RansomwareClient({
                 : `Sourced from ransomware.live. Showing ${totalCount} Japan victims.`}
               {latestDate && (
                 <span className="ml-2 text-[var(--ink-4)]">
-                  {ja ? `最新: ${latestDate}` : `Latest: ${latestDate}`}
+                  {ja
+                    ? `最終更新: ${new Date(latestDate).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                    : `Updated: ${new Date(latestDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
                 </span>
               )}
             </p>
@@ -157,14 +150,7 @@ export function RansomwareClient({
       {hasCache && (
         <>
           {/* ── Statistics ─────────────────────────────────────────────── */}
-          <RansomwareStats
-            victims={victims}
-            lang={lang}
-            onFilterGroup={setFilterGroup}
-            onFilterAct={setFilterAct}
-            activeGroup={filterGroup}
-            activeAct={filterAct}
-          />
+          <RansomwareStats victims={victims} lang={lang} />
 
           {/* ── Group filter ──────────────────────────────────────────── */}
           {groups.length > 0 && (
@@ -201,16 +187,8 @@ export function RansomwareClient({
           )}
 
           {/* ── Victim list ───────────────────────────────────────────── */}
-          {(filterGroup || filterAct) && (
-            <p className="text-[11px] text-[var(--ink-3)] mb-3">
-              {displayVictims.length}{ja ? "件を表示中" : " results"} —{" "}
-              {filterGroup && <span className="font-medium">{filterGroup}</span>}
-              {filterGroup && filterAct && " · "}
-              {filterAct && <span className="font-medium">{filterAct}</span>}
-            </p>
-          )}
           <div className="space-y-0 divide-y divide-[var(--line)]">
-            {displayVictims.map(v => (
+            {victims.map(v => (
               <VictimRow
                 key={v.uid}
                 victim={v}
