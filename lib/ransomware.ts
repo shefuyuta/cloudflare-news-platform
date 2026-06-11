@@ -40,10 +40,19 @@ export interface VictimWithNews {
 
 const BASE_URL = "https://api.ransomware.live";
 
-/** Extract UUID from post_url. Returns post_url itself if no UUID found. */
+/** Extract a unique key from post_url.
+ *  Tries: ?uuid= param → path UUID → hash fragment → full URL
+ */
 export function extractUid(post_url: string): string {
-  const m = post_url?.match(/uuid=([0-9a-f-]{36})/i);
-  return m ? m[1] : (post_url ?? "");
+  if (!post_url) return "";
+  // Pattern 1: ?uuid=xxxxxxxx-xxxx-...
+  const qm = post_url.match(/[?&]uuid=([0-9a-f-]{36})/i);
+  if (qm) return qm[1];
+  // Pattern 2: /posts/xxxxxxxx-xxxx-... (path segment UUID)
+  const pm = post_url.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[/?#]|$)/i);
+  if (pm) return pm[1];
+  // Pattern 3: #fragment or full URL as fallback (still unique)
+  return post_url;
 }
 
 export async function fetchRecentVictims(): Promise<RansomwareVictim[]> {
