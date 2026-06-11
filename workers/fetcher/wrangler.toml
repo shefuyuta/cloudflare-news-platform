@@ -4,11 +4,10 @@
 #
 # Deploy:
 #   cd workers/fetcher
-#   npx wrangler deploy
+#   bunx wrangler deploy
 #
 # Test manually:
 #   curl https://newshub-fetcher.<your-subdomain>.workers.dev/run
-#   curl https://newshub-fetcher.<your-subdomain>.workers.dev/run-ransomware
 # ------------------------------------------------------------------
 
 name = "newshub-fetcher"
@@ -17,10 +16,9 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 # --- Cron schedules --------------------------------------------------
-# "0 */2 * * *"   → every 2 hours  (news RSS fetch)
-# "*/30 * * * *"  → every 30 mins  (ransomware.live JP victims sync)
+# "0 */2 * * *" → every 2 hours (news fetch + ransomware sync + cleanup)
 [triggers]
-crons = ["0 */2 * * *", "*/30 * * * *"]
+crons = ["0 */2 * * *"]
 
 # --- Environment variables ------------------------------------------
 [vars]

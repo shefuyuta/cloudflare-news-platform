@@ -37,18 +37,11 @@ const BATCH_SIZE = 20;
 // =====================================================================
 
 export default {
-  /** Cron trigger — dispatches to the right handler based on schedule.
-   *  "0 */2 * * *"  → full news fetch pipeline
-   *  "*/30 * * * *" → ransomware.live JP victim sync only
+  /** Cron trigger — runs full pipeline every 2 hours.
+   *  RSS fetch → embed → score → scrape → summary → ransomware sync → cleanup
    */
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    if (event.cron === "*/30 * * * *") {
-      // Lightweight: only sync ransomware victims
-      ctx.waitUntil(runRansomwareSync(env));
-    } else {
-      // Full pipeline: RSS → embed → score → scrape → ransomware → cleanup
-      ctx.waitUntil(runFetcher(env));
-    }
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(runFetcher(env));
   },
 
   /** HTTP trigger — for manual testing: GET /  */
@@ -213,67 +206,6 @@ interface IngestArticle {
   importanceScore?: number;
 }
 
-
-// =====================================================================
-// RSS2JSON proxy fetch (for sources that block Cloudflare Worker IPs)
-// =====================================================================
-
-interface Rss2JsonItem {
-  title:       string;
-  link:        string;
-  pubDate:     string;
-  description: string;
-  content?:    string;
-}
-
-interface Rss2JsonResponse {
-  status: string;
-  items:  Rss2JsonItem[];
-  message?: string;
-}
-
-/** Fetch RSS via rss2json.com proxy — bypasses direct IP blocks. */
-async function fetchViaProxy(feedUrl: string): Promise<{ title: string; url: string; summary: string; publishedAt: string }[]> {
-  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=50`;
-  const resp = await fetch(apiUrl, {
-    headers: { "User-Agent": "shefutech-newshub/1.0" },
-    // @ts-expect-error cf option
-    cf: { cacheTtl: 600 },
-  });
-
-  if (!resp.ok) {
-    throw new Error(`rss2json proxy ${resp.status} for ${feedUrl}`);
-  }
-
-  const data = await resp.json() as Rss2JsonResponse;
-
-  if (data.status !== "ok") {
-    throw new Error(`rss2json error: ${data.message ?? data.status} for ${feedUrl}`);
-  }
-
-  return (data.items ?? []).map(item => ({
-    title:       (item.title ?? "").trim(),
-    url:         item.link ?? "",
-    summary:     stripHtml(item.description ?? item.content ?? ""),
-    publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
-  }));
-}
-
-/** Strip HTML tags from RSS description */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim()
-    .slice(0, 500);
-}
-
 async function fetchSource(
   source: FeedSource,
   cutoff: Date,
@@ -283,25 +215,18 @@ async function fetchSource(
 
   for (const feedUrl of source.urls) {
     try {
-      let items: { title: string; url: string; summary: string; publishedAt: string }[];
+      const resp = await fetch(feedUrl, {
+        headers: FETCH_HEADERS,
+        cf: { cacheTtl: 600 },  // Cache at edge for 10 min
+      });
 
-      if (source.useProxy) {
-        // Route through rss2json.com to bypass Cloudflare Worker IP blocks
-        items = await fetchViaProxy(feedUrl);
-      } else {
-        const resp = await fetch(feedUrl, {
-          headers: FETCH_HEADERS,
-          cf: { cacheTtl: 600 },
-        });
-
-        if (!resp.ok) {
-          console.warn(`[fetcher] ${source.name} ${resp.status}: ${feedUrl}`);
-          continue;
-        }
-
-        const xml = await resp.text();
-        items = parseFeed(xml);
+      if (!resp.ok) {
+        console.warn(`[fetcher] ${source.name} ${resp.status}: ${feedUrl}`);
+        continue;
       }
+
+      const xml = await resp.text();
+      const items = parseFeed(xml);
 
       for (const item of items) {
         // Skip if already seen (dedup across feeds)
