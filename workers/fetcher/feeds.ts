@@ -104,6 +104,57 @@ export const FEEDS: FeedSource[] = [
       "https://www.forbes.com/money/index.xml",
     ],
   },
+
+  // --- Japan General/Tech (via proxy) ---
+  {
+    name: "ZDNet Japan",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://japan.zdnet.com/index.rdf"],
+  },
+  {
+    name: "CNET Japan",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://japan.cnet.com/index.rdf"],
+  },
+  {
+    name: "Gigazine",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://gigazine.net/news/rss_2.0/"],
+  },
+  {
+    name: "TechCrunch Japan",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://jp.techcrunch.com/feed/"],
+  },
+  {
+    name: "Kyodo News",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://www.kyodo.co.jp/feed/"],
+  },
+  {
+    name: "Toyo Keizai",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://toyokeizai.net/list/feed/rss"],
+  },
+  {
+    name: "Nikkei Business",
+    category: "general",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://business.nikkei.com/rss/SNS/nb.rss"],
+  },
   // =====================================================================
   // CYBERSECURITY
   // =====================================================================
@@ -151,6 +202,29 @@ export const FEEDS: FeedSource[] = [
     urls: [
       "http://www.hitachi.co.jp/hirt/security/index.rdf",
     ],
+  },
+
+  // --- Japan Cybersecurity (additional, via proxy) ---
+  {
+    name: "Piyolog",
+    category: "cybersecurity",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://piyolog.hatenadiary.jp/rss"],
+  },
+  {
+    name: "NTT Security JP",
+    category: "cybersecurity",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://jp.security.ntt/resources/blog/feed"],
+  },
+  {
+    name: "ScanNetSecurity",
+    category: "cybersecurity",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://scan.netsecurity.ne.jp/rss/news.rdf"],
   },
   // --- Global ---
   {
@@ -200,6 +274,22 @@ export const FEEDS: FeedSource[] = [
   // =====================================================================
   // AI NEWS
   // =====================================================================
+  // --- Japan AI (via proxy) ---
+  {
+    name: "Ledge.ai",
+    category: "ai",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://ledge.ai/feed/"],
+  },
+  {
+    name: "AI Market",
+    category: "ai",
+    regionHint: "japan",
+    useProxy: true,
+    urls: ["https://ai-market.jp/feed/"],
+  },
+
   {
     name: "Reuters Tech",
     category: "ai",
