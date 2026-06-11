@@ -19,6 +19,7 @@ type RawVictim = {
   post_url: string;
   discovered: string;
   published: string;
+  fetched_at: string;
 };
 
 type RawNews = {
