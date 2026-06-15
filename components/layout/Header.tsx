@@ -23,7 +23,14 @@ export function Header() {
   const { lang, toggle, t } = useLang();
   const { theme, toggle: toggleTheme, mounted: themeMounted } = useDarkMode();
   const [val, setVal]           = useState(params.get("q") ?? "");
-  const [fetching, setFetching] = useState(false);
+  const [fetching,     setFetching]     = useState(false);
+  const [lastFetchedAt, setLastFetchedAt] = useState<string>("");
+
+  // Load last fetch time from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("newshub-last-fetched");
+    if (saved) setLastFetchedAt(saved);
+  }, []);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [alertOpen, setAlertOpen]     = useState(false);
@@ -228,11 +235,17 @@ export function Header() {
             </span>
           </button>
 
-          {fetchResult && (
+          {fetchResult ? (
             <span className="text-[11px] text-emerald-600 font-medium hidden md:inline truncate max-w-[160px]">
               {fetchResult}
             </span>
-          )}
+          ) : lastFetchedAt ? (
+            <span className="text-[10px] text-[var(--ink-4)] hidden md:inline font-mono">
+              {lang === "ja"
+                ? `最終更新 ${new Date(lastFetchedAt).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                : `Updated ${new Date(lastFetchedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+            </span>
+          ) : null}
 
           {/* Theme toggle */}
           {themeMounted && (
