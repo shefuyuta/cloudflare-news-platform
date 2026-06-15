@@ -43,7 +43,8 @@ export default async function RansomwarePage({
   let victims: VictimWithNews[] = [];
   let groups:  string[]          = [];
   let dbError: string | null     = null;
-  let latestFetched              = "";
+  let latestFetched              = "";  // Last ransomware.live sync
+  let newsLastFetched            = "";  // Last RSS news fetch
 
   try {
     // ── Fetch victims ─────────────────────────────────────────────────
@@ -145,7 +146,14 @@ export default async function RansomwarePage({
 
       const groupSet = new Set(rawVictims.map(v => v.group_name).filter(Boolean));
       groups = [...groupSet].sort();
-      latestFetched = rawVictims.reduce((max, v) => v.fetched_at > max ? v.fetched_at : max, "");
+
+      // Get last fetch timestamps directly from DB (more reliable than reduce)
+      const [rwTimestamp, newsTimestamp] = await Promise.all([
+        env.DB.prepare("SELECT MAX(fetched_at) as ts FROM ransomware_victims").first() as Promise<{ ts: string } | null>,
+        env.DB.prepare("SELECT MAX(published_at) as ts FROM articles").first() as Promise<{ ts: string } | null>,
+      ]);
+      latestFetched   = rwTimestamp?.ts  ?? "";
+      newsLastFetched = newsTimestamp?.ts ?? "";
     }
   } catch (err) {
     // Table may not exist yet — show "run migration" message instead of crashing
@@ -199,6 +207,7 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         groups={groups}
         totalCount={victims.length}
         latestDate={latestFetched}
+        newsLastFetched={newsLastFetched}
         hasCache={victims.length > 0}
         lang={lang}
         selectedGroup={sp.group ?? ""}

@@ -30,13 +30,14 @@ interface Props {
   groups:        string[];
   totalCount:    number;
   latestDate:    string;
+  newsLastFetched: string;
   hasCache:      boolean;
   lang:          string;
   selectedGroup: string;
 }
 
 export function RansomwareClient({
-  victims, groups, totalCount, latestDate, hasCache, lang, selectedGroup,
+  victims, groups, totalCount, latestDate, newsLastFetched, hasCache, lang, selectedGroup,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -93,13 +94,22 @@ export function RansomwareClient({
               {ja
                 ? `ransomware.live より取得。${totalCount}件の国内被害を表示中。`
                 : `Sourced from ransomware.live. Showing ${totalCount} Japan victims.`}
-              {latestDate && (
-                <span className="ml-2 text-[var(--ink-4)]">
-                  {ja
-                    ? `最終更新: ${new Date(latestDate).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
-                    : `Updated: ${new Date(latestDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
-                </span>
-              )}
+              <div className="flex flex-col gap-0.5 mt-1">
+                {latestDate && (
+                  <span className="text-[11px] text-[var(--ink-4)]">
+                    {ja
+                      ? `🔴 被害データ更新: ${new Date(latestDate).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                      : `🔴 Victim data: ${new Date(latestDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+                  </span>
+                )}
+                {newsLastFetched && (
+                  <span className="text-[11px] text-[var(--ink-4)]">
+                    {ja
+                      ? `📰 ニュース更新: ${new Date(newsLastFetched).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                      : `📰 News feed: ${new Date(newsLastFetched).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+                  </span>
+                )}
+              </div>
             </p>
           </div>
 
