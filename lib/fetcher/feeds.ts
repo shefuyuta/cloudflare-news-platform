@@ -178,6 +178,23 @@ export const FEEDS: FeedSource[] = [
       "https://www.levelblue.com/blogs/spiderlabs-blog/rss.xml",
     ],
   },
+  {
+    name: "IPA",
+    category: "cybersecurity",
+    regionHint: "japan",
+    subHint: "vulnerability",
+    urls: [
+      "https://www.ipa.go.jp/security/alert-rss.rdf",
+    ],
+  },
+  {
+    name: "RocketBoys SecurityLab",
+    category: "cybersecurity",
+    regionHint: "japan",
+    urls: [
+      "https://rocket-boys.co.jp/security-measures-lab/feed/",
+    ],
+  },
 
   // =====================================================================
   // AI NEWS
@@ -265,6 +282,21 @@ export const FEEDS: FeedSource[] = [
     category: "ai",
     urls: [
       "https://feeds.bloomberg.com/technology/news.rss",
+    ],
+  },
+  {
+    name: "Forbes Business",
+    category: "general",
+    urls: [
+      "https://www.forbes.com/business/feed/",
+    ],
+  },
+  {
+    name: "ToyoKeizai",
+    category: "general",
+    regionHint: "japan",
+    urls: [
+      "https://toyokeizai.net/list/feed/rss",
     ],
   },
 ];
