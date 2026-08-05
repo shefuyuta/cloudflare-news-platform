@@ -14,7 +14,6 @@ export type NewsArticle = {
   source: string;
   url: string;
   publishedAt: string;            // ISO 8601 string
-  importanceScore?: number;       // 0–10
 };
 
 /** Cloudflare bindings exposed via getCloudflareContext().env */
@@ -27,17 +26,18 @@ export interface Env {
 /** Filters the UI can send to /api/articles. */
 export interface ArticleQuery {
   category?: Category;
+  /** When set alongside `category`, also match articles carrying this
+   *  cross-cut tag (e.g. "AI" on the /ai desk). Enables multi-label
+   *  articles to appear on more than one desk. */
+  crossLabel?: string;
   region?: string;
   subcategory?: string;
   tags?: string[];
   source?: string;          // filter by exact source name
   q?: string;
-  important?: boolean;
   hoursAgo?: number;
   noTimeLimit?: boolean;    // bypass hoursAgo — used by /search
-  sortBy?: "date" | "importance" | "relevance"; // default: date
-  minScore?: number;          // importance_score >= minScore
-  maxScore?: number;          // importance_score <= maxScore
+  sortBy?: "date" | "relevance"; // default: date
   limit?: number;
   offset?: number;
 }

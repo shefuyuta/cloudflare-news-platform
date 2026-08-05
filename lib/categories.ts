@@ -75,7 +75,3 @@ export function subcategoryLabel(v: string | undefined | null): string | null {
   if (!v) return null;
   return SUBCATEGORIES[v as KnownSubcategory]?.label ?? v;
 }
-
-/** Articles with importance_score >= this threshold get the "Important" badge
- *  and appear on the /important cross-cut view. Tunable. */
-export const IMPORTANT_THRESHOLD = 7;

@@ -11,17 +11,15 @@ export async function GET(req: Request): Promise<Response> {
 
   const q: ArticleQuery = {
     category:     (searchParams.get("category") as Category) ?? undefined,
+    crossLabel:   searchParams.get("crossLabel")  ?? undefined,
     region:       searchParams.get("region")      ?? undefined,
     subcategory:  searchParams.get("subcategory") ?? undefined,
     tags:         searchParams.getAll("tag"),
     source:       searchParams.get("source")      ?? undefined,
     q:            searchParams.get("q")           ?? undefined,
-    important:    searchParams.get("important") === "1",
     hoursAgo:     clampInt(searchParams.get("hours"), 24, 1, 168),
     noTimeLimit:  searchParams.get("all") === "1",
-    minScore:     searchParams.get("minScore") ? parseInt(searchParams.get("minScore")!, 10) : undefined,
-    maxScore:     searchParams.get("maxScore") ? parseInt(searchParams.get("maxScore")!, 10) : undefined,
-    sortBy:       (searchParams.get("sort") as "date" | "importance" | "relevance" | null) ?? undefined,
+    sortBy:       (searchParams.get("sort") as "date" | "relevance" | null) ?? undefined,
     limit:        clampInt(searchParams.get("limit"),  50,  1, 200),
     offset:       clampInt(searchParams.get("offset"),  0,  0, 10_000),
   };

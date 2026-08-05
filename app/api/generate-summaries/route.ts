@@ -22,7 +22,7 @@ export async function POST(): Promise<Response> {
       AND length(content) > 300
       AND (summary IS NULL OR length(summary) < 80)
       AND ai_summary_at IS NULL
-    ORDER BY importance_score DESC, published_at DESC
+    ORDER BY published_at DESC
     LIMIT ?
   `).bind(BATCH).all();
 

@@ -61,11 +61,11 @@ export async function retrieve(
   const ph   = ids.map(() => "?").join(",");
   const rows = await env.DB.prepare(`
     SELECT id, title, summary, content, category, subcategory, region,
-           source, url, importance_score, published_at
+           source, url, published_at
     FROM articles
     WHERE id IN (${ph})
       AND published_at >= ?
-    ORDER BY importance_score DESC, published_at DESC
+    ORDER BY published_at DESC
   `).bind(...ids, cutoff).all();
 
   if (!rows.results?.length) return [];
@@ -97,7 +97,6 @@ export async function retrieve(
     region:          r.region as string | undefined,
     source:          r.source as string,
     url:             r.url as string,
-    importanceScore: r.importance_score as number | undefined,
     publishedAt:     r.published_at as string,
     tags:            tagMap.get(r.id as string) ?? [],
   }));

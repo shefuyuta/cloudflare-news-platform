@@ -86,15 +86,7 @@ export function Header() {
         if (embedData.embedded === 0) break;
       }
 
-      setFetchResult(lang === "ja" ? "スコアリング中…" : "Scoring…");
-      let scoringDone = false;
-      while (!scoringDone) {
-        const scoreRes  = await fetch("/api/score-articles", { method: "POST" });
-        const scoreData = await scoreRes.json() as { scored: number; remaining: number };
-        if (scoreData.scored === 0 || scoreData.remaining === 0) scoringDone = true;
-      }
-
-      // Step 4: Scrape full article content in background (non-blocking)
+      // Step 3: Scrape full article content in background (non-blocking)
       setFetchResult(lang === "ja" ? "本文取得中…" : "Scraping content…");
       fetch("/api/scrape-content", { method: "POST" }).catch(() => {});
       // Fire-and-forget — don't await so UI isn't blocked

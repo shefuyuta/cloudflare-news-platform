@@ -15,7 +15,6 @@ interface DashStats {
   bySource: { source: string; category: string; cnt: number }[];
   trendingTags: { name: string; cnt: number }[];
   hourly: { hours_ago: number; jst_hour: number; cnt: number }[];
-  importanceDist: { high: number; medium: number; low: number } | null;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -98,9 +97,6 @@ export function DashboardClient() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 12);
 
-  const imp = stats.importanceDist;
-  const impTotal = imp ? (imp.high + imp.medium + imp.low) || 1 : 1;
-
   return (
     <div className="space-y-10">
       {/* ── KPI Row ─────────────────────────────────────────────────── */}
@@ -123,33 +119,6 @@ export function DashboardClient() {
           </a>
         ))}
       </div>
-
-      {/* ── Importance distribution ─────────────────────────────────── */}
-      {imp && (
-        <section>
-          <SectionHeading>{t("byCategory")}</SectionHeading>
-          <div className="flex gap-3 flex-wrap">
-            {[
-              { label: lang === "ja" ? "重要 (7-10)" : "High (7-10)", val: imp.high, color: "#9f1239", href: `/search?minScore=7&hours=${stats.hours}` },
-              { label: lang === "ja" ? "中 (4-6)" : "Medium (4-6)", val: imp.medium, color: "#1e3a8a", href: `/search?minScore=4&maxScore=6&hours=${stats.hours}` },
-              { label: lang === "ja" ? "低 (0-3)" : "Low (0-3)", val: imp.low, color: "#71717a", href: `/search?maxScore=3&hours=${stats.hours}` },
-            ].map((b) => (
-              <a key={b.label} href={b.href} className="flex-1 min-w-[120px] border hairline rounded-lg p-4 hover:opacity-80 transition-opacity block">
-                <div className="text-[11px] font-medium uppercase tracking-widest mb-2" style={{ color: b.color }}>
-                  {b.label}
-                </div>
-                <div className="text-2xl font-semibold">{b.val}</div>
-                <div className="mt-2 h-1.5 bg-[var(--line-soft)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${(b.val / impTotal) * 100}%`, background: b.color }}
-                  />
-                </div>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* ── Hourly activity spark ───────────────────────────────────── */}
       {stats.hourly.length > 0 && (
@@ -322,9 +291,6 @@ export function DashboardClient() {
           </p>
         </div>
       </section>
-
-      {/* ── Briefing Delivery ───────────────────────────────────────── */}
-      <BriefingDelivery lang={lang} />
     </div>
   );
 }
@@ -353,108 +319,6 @@ function SectionHeading({ children, as: Tag = "h2" }: { children: React.ReactNod
     </Tag>
   );
 }
-
-function BriefingDelivery({ lang }: { lang: string }) {
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-
-  async function send(target: "slack" | "email") {
-    if (sending) return;
-    setSending(true);
-    setStatus(null);
-    try {
-      const body =
-        target === "slack"
-          ? { webhookUrl, lang }
-          : { email, lang };
-      const res = await fetch("/api/slack-briefing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        setStatus(lang === "ja" ? "✓ 送信しました" : "✓ Sent successfully");
-      } else {
-        setStatus(lang === "ja" ? "送信に失敗しました" : "Delivery failed");
-      }
-    } catch {
-      setStatus(lang === "ja" ? "エラーが発生しました" : "An error occurred");
-    } finally {
-      setSending(false);
-      setTimeout(() => setStatus(null), 5000);
-    }
-  }
-
-  return (
-    <section>
-      <h2 className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] mb-3">
-        {lang === "ja" ? "ブリーフィング配信" : "Briefing Delivery"}
-      </h2>
-      <div className="border hairline rounded-lg p-5 space-y-4">
-        {/* Slack */}
-        <div>
-          <label className="block text-[11px] font-medium uppercase tracking-wider text-[var(--ink-3)] mb-1.5">
-            Slack Webhook URL
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="url"
-              value={webhookUrl}
-              onChange={(e) => setWebhookUrl(e.target.value)}
-              placeholder="https://hooks.slack.com/services/…"
-              className="flex-1 text-sm bg-[var(--line-soft)] px-3 py-2 rounded-md outline-none focus:ring-1 ring-[var(--ink)]"
-            />
-            <button
-              onClick={() => send("slack")}
-              disabled={!webhookUrl || sending}
-              className="px-3 py-2 text-[11px] font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] disabled:opacity-40 transition-colors"
-            >
-              {lang === "ja" ? "Slackへ送信" : "Send to Slack"}
-            </button>
-          </div>
-        </div>
-
-        {/* Email */}
-        <div>
-          <label className="block text-[11px] font-medium uppercase tracking-wider text-[var(--ink-3)] mb-1.5">
-            {lang === "ja" ? "メールアドレス (Resend)" : "Email Address (via Resend)"}
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="flex-1 text-sm bg-[var(--line-soft)] px-3 py-2 rounded-md outline-none focus:ring-1 ring-[var(--ink)]"
-            />
-            <button
-              onClick={() => send("email")}
-              disabled={!email || sending}
-              className="px-3 py-2 text-[11px] font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] disabled:opacity-40 transition-colors"
-            >
-              {lang === "ja" ? "メール送信" : "Send Email"}
-            </button>
-          </div>
-          <p className="text-[10px] text-[var(--ink-4)] mt-1.5">
-            {lang === "ja"
-              ? "事前に wrangler.toml へ RESEND_API_KEY と BRIEFING_FROM を設定してください。"
-              : "Requires RESEND_API_KEY and BRIEFING_FROM set in wrangler.toml."}
-          </p>
-        </div>
-
-        {status && (
-          <p className={`text-sm font-medium ${status.includes("✓") ? "text-emerald-600" : "text-red-600"}`}>
-            {status}
-          </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-
 
 function catLucideIcon(cat: string): ReactNode {
   if (cat === "general")       return <Globe   size={15} strokeWidth={1.5} />;

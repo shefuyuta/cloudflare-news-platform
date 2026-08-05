@@ -1,9 +1,8 @@
 // components/news/TagBadge.tsx
 import {
-  CATEGORIES, regionLabel, subcategoryLabel, IMPORTANT_THRESHOLD,
+  CATEGORIES, regionLabel, subcategoryLabel,
   type Category,
 } from "@/lib/categories";
-import { Star } from "@/components/ui/Icon";
 
 export function CategoryBadge({ category }: { category: Category }) {
   const c = CATEGORIES[category];
@@ -28,12 +27,24 @@ export function SubBadge({
   );
 }
 
-export function ImportanceBadge({ score }: { score?: number }) {
-  if (!score || score < IMPORTANT_THRESHOLD) return null;
+/**
+ * Cross-cut desk badge. Shown on a card when the article's PRIMARY desk
+ * differs from a desk it also belongs to (multi-label). E.g. a story
+ * filed under Cybersecurity that also matches AI shows an "AI" cross
+ * badge on the /cybersecurity desk, and vice-versa. Uses the accent of
+ * the desk it points TO, with a small arrow to signal "also appears on".
+ */
+export function CrossBadge({ label, primary }: { label: string; primary: Category }) {
+  const target: Category | null =
+    label === "AI" ? "ai" : label === "Cyber" ? "cybersecurity" : null;
+  if (!target || target === primary) return null;
+  const c = CATEGORIES[target];
   return (
-    <span className="badge bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200 font-mono flex items-center gap-1">
-      <Star size={10} strokeWidth={1.5} className="fill-amber-400 text-amber-400" />
-      {score}/10
+    <span
+      className={`badge ${c.accent.bg} ${c.accent.text} ring-1 ring-inset ${c.accent.ring} opacity-80`}
+      title={`Also on the ${c.label} desk`}
+    >
+      ↔ {c.label}
     </span>
   );
 }

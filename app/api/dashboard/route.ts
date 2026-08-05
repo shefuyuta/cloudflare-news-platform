@@ -22,14 +22,13 @@ export async function GET(req: Request): Promise<Response> {
 
   const [
     totalRow, byCategoryRows, bySourceRows, trendingTagsRows,
-    hourlyRows, importanceDistRows, dbTotalRow,
+    hourlyRows, dbTotalRow,
   ] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) as cnt FROM articles WHERE published_at >= ?").bind(cutoff).first(),
     env.DB.prepare("SELECT category, COUNT(*) as cnt FROM articles WHERE published_at >= ? GROUP BY category ORDER BY cnt DESC").bind(cutoff).all(),
     env.DB.prepare(`SELECT source, category, COUNT(*) as cnt FROM articles WHERE published_at >= ? GROUP BY source, category ORDER BY cnt DESC LIMIT 60`).bind(cutoff).all(),
     env.DB.prepare(`SELECT t.name, COUNT(*) as cnt FROM tags t JOIN article_tags at ON t.id = at.tag_id JOIN articles a ON at.article_id = a.id WHERE a.published_at >= ? GROUP BY t.name ORDER BY cnt DESC LIMIT 20`).bind(cutoff).all(),
     env.DB.prepare(`SELECT CAST((strftime('%s','now') - strftime('%s', published_at)) / 3600 AS INTEGER) as hours_ago, CAST((strftime('%H', published_at, '+9 hours')) AS INTEGER) as jst_hour, COUNT(*) as cnt FROM articles WHERE published_at >= datetime('now','-24 hours') GROUP BY hours_ago ORDER BY hours_ago DESC`).all(),
-    env.DB.prepare(`SELECT SUM(CASE WHEN importance_score >= 7 THEN 1 ELSE 0 END) as high, SUM(CASE WHEN importance_score >= 4 AND importance_score < 7 THEN 1 ELSE 0 END) as medium, SUM(CASE WHEN importance_score < 4 OR importance_score IS NULL THEN 1 ELSE 0 END) as low FROM articles WHERE published_at >= ?`).bind(cutoff).first(),
     env.DB.prepare("SELECT COUNT(*) as cnt FROM articles").first(),
   ]);
 
@@ -41,7 +40,6 @@ export async function GET(req: Request): Promise<Response> {
     bySource:       (bySourceRows.results    ?? []).map(r => r as { source: string; category: string; cnt: number }),
     trendingTags:   (trendingTagsRows.results ?? []).map(r => r as { name: string; cnt: number }),
     hourly:         (hourlyRows.results      ?? []).map(r => r as { hours_ago: number; jst_hour: number; cnt: number }),
-    importanceDist: importanceDistRows as { high: number; medium: number; low: number } | null,
   };
 
   const response = NextResponse.json(data);

@@ -15,7 +15,6 @@ export async function GET(req: Request): Promise<Response> {
     subcategory: searchParams.get("subcategory") ?? undefined,
     tags: searchParams.getAll("tag"),
     q: searchParams.get("q") ?? undefined,
-    important: searchParams.get("important") === "1",
     hoursAgo: parseInt(searchParams.get("hours") ?? "24", 10),
     limit: 500,
   };
@@ -23,7 +22,7 @@ export async function GET(req: Request): Promise<Response> {
   const articles = await listArticles(env, q);
 
   // Build CSV
-  const header = ["ID", "Title", "Category", "Subcategory", "Region", "Source", "Tags", "ImportanceScore", "PublishedAt", "URL"];
+  const header = ["ID", "Title", "Category", "Subcategory", "Region", "Source", "Tags", "PublishedAt", "URL"];
   const rows = articles.map((a) => [
     a.id,
     csvEscape(a.title),
@@ -32,7 +31,6 @@ export async function GET(req: Request): Promise<Response> {
     a.region ?? "",
     csvEscape(a.source),
     csvEscape(a.tags.join("; ")),
-    a.importanceScore?.toString() ?? "",
     a.publishedAt,
     a.url,
   ]);

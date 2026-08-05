@@ -23,10 +23,8 @@ const T = {
   navCyberSub:      { en: "Security News", ja: "脆弱性・インシデント" },
   navAI:            { en: "AI",            ja: "AI" },
   navAISub:         { en: "AI News",       ja: "人工知能ニュース" },
-  navImportant:     { en: "Important",     ja: "重要" },
   navRansomware:    { en: "Ransomware JP",  ja: "ランサムウェア被害" },
   navRansomwareSub: { en: "Japan victims",  ja: "国内被害情報" },
-  navImportantSub:  { en: "High priority", ja: "重要記事のみ" },
 
   // ---- Page headings ------------------------------------------------
   todaysEdition:    { en: "The latest News", ja: "最新のニュース" },
@@ -46,9 +44,6 @@ const T = {
   aiTitle:          { en: "AI",            ja: "AI" },
   aiSub:            { en: "Model releases, research, deployments, and policy.",
                       ja: "モデルリリース、研究、デプロイ、政策。" },
-  importantTitle:   { en: "Important",     ja: "重要記事" },
-  importantSub:     { en: "High-importance stories across every desk",
-                      ja: "全デスクの重要記事" },
 
   // ---- Filters ------------------------------------------------------
   all:              { en: "All",           ja: "すべて" },
@@ -95,8 +90,8 @@ const T = {
   // ---- Bookmark -----------------------------------------------------
   bookmark:         { en: "Bookmark",      ja: "ブックマーク" },
   bookmarked:       { en: "Bookmarked",    ja: "ブックマーク済み" },
-  markRead:         { en: "Mark read",     ja: "既読にする" },
-  readArticle:      { en: "Read",          ja: "既読" },
+  markRead:         { en: "Mark seen",     ja: "確認済みにする" },
+  readArticle:      { en: "Seen",          ja: "確認済み" },
 
   // ---- Export -------------------------------------------------------
   exportCSV:        { en: "Export CSV",    ja: "CSV出力" },

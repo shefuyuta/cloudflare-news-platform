@@ -8,12 +8,12 @@ export async function POST(req: Request): Promise<Response> {
   const env = (await getCloudflareContext()).env as unknown as Env;
   const { lang = "ja" } = (await req.json().catch(() => ({}))) as { lang?: string };
 
-  // Fetch top recent articles (importance-weighted)
+  // Fetch top recent articles (most recent first)
   const rows = await env.DB.prepare(
     `SELECT title, source, category, summary
      FROM articles
      WHERE published_at >= datetime('now','-24 hours')
-     ORDER BY COALESCE(importance_score, 0) DESC, published_at DESC
+     ORDER BY published_at DESC
      LIMIT 15`
   ).all();
 

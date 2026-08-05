@@ -31,7 +31,6 @@ interface IngestArticle {
   tags?: string[];
   summary?: string;
   content?: string;
-  importanceScore?: number;
   publishedAt?: string;           // ISO 8601; defaults to "now"
 }
 
@@ -53,22 +52,22 @@ export async function POST(req: Request): Promise<Response> {
 
     const id          = a.id ?? hashUrl(a.url);
     const publishedAt = a.publishedAt ?? new Date().toISOString();
-    const tags        = (a.tags ?? []).map(s => s.trim()).filter(Boolean);
+    const tags        = [...new Set((a.tags ?? []).map(s => s.trim()).filter(Boolean))];
 
     // 1. Upsert article row -----------------------------------------
     await env.DB.prepare(`
       INSERT INTO articles (id, title, summary, content, category, subcategory, region,
-                            source, url, importance_score, published_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                            source, url, published_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
       ON CONFLICT(url) DO UPDATE SET
         title=excluded.title, summary=excluded.summary, content=excluded.content,
         category=excluded.category, subcategory=excluded.subcategory, region=excluded.region,
-        source=excluded.source, importance_score=excluded.importance_score,
+        source=excluded.source,
         published_at=excluded.published_at
     `).bind(
       id, a.title, a.summary ?? null, a.content ?? null,
       a.category, a.subcategory ?? null, a.region ?? null,
-      a.source, a.url, a.importanceScore ?? null, publishedAt,
+      a.source, a.url, publishedAt,
     ).run();
 
     // 2. Tags: upsert names + replace article_tags links ------------

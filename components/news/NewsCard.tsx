@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { NewsArticle } from "@/lib/types";
-import { CategoryBadge, SubBadge, ImportanceBadge, TagChip } from "./TagBadge";
+import { CategoryBadge, SubBadge, CrossBadge, TagChip } from "./TagBadge";
 import { useLang } from "@/components/LangProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Check, MessageCircle } from "@/components/ui/Icon";
@@ -38,6 +38,11 @@ export function NewsCard({
   // Use prop if provided (from NewsList), fallback to false
   const read = isReadProp ?? false;
 
+  // Split control tags (multi-label routing) from user-facing tags.
+  // Cross-desk labels ("AI"/"Cyber") become badges; sub:* are hidden.
+  const crossLabels = article.tags.filter(t => t === "AI" || t === "Cyber");
+  const displayTags = article.tags.filter(t => !t.startsWith("sub:") && t !== "AI" && t !== "Cyber");
+
   function handleHeaderClick() {
     if (onToggle) onToggle(article.id);
   }
@@ -60,7 +65,9 @@ export function NewsCard({
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <CategoryBadge category={article.category} />
             <SubBadge category={article.category} region={article.region} subcategory={article.subcategory} />
-            <ImportanceBadge score={article.importanceScore} />
+            {crossLabels.slice(0, 2).map(l => (
+              <CrossBadge key={l} label={l} primary={article.category} />
+            ))}
             {read && (
               <span className="text-[10px] text-[var(--ink-4)] font-mono flex items-center gap-0.5">
                 <Check size={10} strokeWidth={2} />{t("readArticle")}
@@ -134,9 +141,9 @@ export function NewsCard({
             )}
           </div>
 
-          {article.tags.length > 0 && (
+          {displayTags.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap mt-3">
-              {article.tags.slice(0, 6).map(tag => (
+              {displayTags.slice(0, 6).map(tag => (
                 <TagChip
                   key={tag} tag={tag}
                   onClick={onTagClick ? () => onTagClick(tag) : undefined}

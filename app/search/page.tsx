@@ -17,10 +17,7 @@ interface SP {
   category?: string;
   region?: string;
   subcategory?: string;
-  important?: string;
   hours?: string;
-  minScore?: string;
-  maxScore?: string;
 }
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -41,11 +38,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     category:    sp.category as Category | undefined,
     region:      sp.region,
     subcategory: sp.subcategory,
-    important:   sp.important === "1",
     noTimeLimit: noTimeLim,
     hoursAgo,
-    minScore:    sp.minScore ? parseInt(sp.minScore, 10) : undefined,
-    maxScore:    sp.maxScore ? parseInt(sp.maxScore, 10) : undefined,
     limit:       200,
   }),
   listAllTags(env),
@@ -56,8 +50,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (sp.source)      filters.push(sp.source);
   if (sp.category)    filters.push(sp.category);
   if (tags.length)    filters.push(tags.map(tg => `#${tg}`).join(" "));
-  if (sp.minScore)    filters.push(`score≥${sp.minScore}`);
-  if (sp.maxScore)    filters.push(`score≤${sp.maxScore}`);
 
   const title = filters.length > 0
     ? `${t("searchResultsFor", lang)} ${filters.join(" · ")}`

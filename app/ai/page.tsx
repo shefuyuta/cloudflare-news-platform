@@ -19,7 +19,7 @@ export default async function AiPage({ searchParams }: {
   const hoursAgo = parseInt(sp.hours ?? "24", 10);
 
   const [items, available] = await Promise.all([
-    listArticles(env, { category: "ai", q: sp.q, tags, hoursAgo, limit: 200 }),
+    listArticles(env, { category: "ai", crossLabel: "AI", q: sp.q, tags, hoursAgo, limit: 200 }),
     listAllTags(env, "ai"),
   ]);
 

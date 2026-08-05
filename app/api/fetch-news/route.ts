@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { FEEDS, type FeedSource } from "@/lib/fetcher/feeds";
 import { parseFeed } from "@/lib/fetcher/parser";
-import { classifyCategory, classifyRegion, classifySubcategory, extractTags } from "@/lib/fetcher/classifier";
+import { classifyCategoryMulti, classifyRegion, classifySubcategories, extractTags } from "@/lib/fetcher/classifier";
 import { upsertTags, setArticleTags } from "@/lib/db";
 import type { Env } from "@/lib/types";
 
@@ -105,17 +105,28 @@ async function fetchSource(
         const pubDate = new Date(item.publishedAt);
         if (pubDate < cutoff) continue;
 
-        const category = classifyCategory(source, item.title, item.summary);
+        const { category, crossLabels } = classifyCategoryMulti(source, item.title, item.summary);
 
         const region = category === "general"
           ? classifyRegion(source, item.title, item.summary)
           : undefined;
 
-        const subcategory = category === "cybersecurity"
-          ? classifySubcategory(source, item.title, item.summary)
-          : undefined;
+        // Multi-label subcategory. Primary column value = first label
+        // (higher-scored); the full set is emitted as sub:* tags so an
+        // article can live on both the vulnerability and incident tabs.
+        const subLabels = category === "cybersecurity"
+          ? classifySubcategories(source, item.title, item.summary)
+          : [];
+        const subcategory = subLabels[0];
 
-        const tags = extractTags(category, item.title, item.summary);
+        // Base content tags + cross-cut desk labels (AI/Cyber) so a
+        // story that is primarily one desk still surfaces on the other,
+        // + sub:* labels for multi-label subcategory filtering.
+        const tags = [...new Set([
+          ...extractTags(category, item.title, item.summary),
+          ...crossLabels,
+          ...subLabels.map(s => `sub:${s}`),
+        ])];
 
         articles.push({
           title: item.title,

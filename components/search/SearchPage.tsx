@@ -26,7 +26,6 @@ const CATEGORIES = [
 
 const SORT_OPTIONS = [
   { value: "date",       ja: "日付順",   en: "Latest first" },
-  { value: "importance", ja: "重要度順", en: "Most important" },
   { value: "relevance",  ja: "関連度順", en: "Most relevant" },
 ] as const;
 
@@ -214,7 +213,7 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
         )}
 
         {/* Active filter chips */}
-        {(params.get("q") || params.get("category") || params.get("source") || params.get("hours") || params.get("minScore") || params.get("maxScore") || params.get("sort")) && (
+        {(params.get("q") || params.get("category") || params.get("source") || params.get("hours") || params.get("sort")) && (
           <div className="flex flex-wrap gap-1.5 pt-1 border-t hairline">
             {[
               { key: "q",        label: params.get("q") ? `"${params.get("q")}"` : null },
@@ -222,8 +221,6 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
               { key: "source",   label: params.get("source") },
               { key: "hours",    label: params.get("hours") ? `${params.get("hours")}h` : null },
               { key: "sort",     label: params.get("sort") },
-              { key: "minScore", label: params.get("minScore") ? `score≥${params.get("minScore")}` : null },
-              { key: "maxScore", label: params.get("maxScore") ? `score≤${params.get("maxScore")}` : null },
             ].filter(c => c.label).map(c => (
               <span key={c.key} className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--ink)] text-ink-contrast">
                 {c.label}

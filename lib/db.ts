@@ -1,6 +1,5 @@
 // lib/db.ts
 import type { NewsArticle, ArticleQuery, Env } from "./types";
-import { IMPORTANT_THRESHOLD } from "./categories";
 
 /* ---------- Row → NewsArticle ------------------------------------ */
 
@@ -17,7 +16,6 @@ function rowToArticle(row: Record<string, unknown>, tags: string[]): NewsArticle
     source:          (row.source ?? "") as string,
     url:             (row.url    ?? "") as string,
     publishedAt:     (row.published_at ?? "") as string,
-    importanceScore: (row.importance_score ?? undefined) as number | undefined,
   };
 }
 
@@ -64,14 +62,35 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
   const where:  string[] = [];
   const binds:  unknown[] = [];
 
-  if (q.category)            { where.push("a.category    = ?"); binds.push(q.category); }
+  // Category filter. When crossLabel is set (e.g. "AI" for the /ai desk,
+  // "Cyber" for /cybersecurity), an article matches if it is EITHER the
+  // primary category OR carries the cross-cut tag — this is what makes a
+  // story appear on both desks (multi-label, design "X + A").
+  if (q.category) {
+    if (q.crossLabel) {
+      where.push(`(a.category = ? OR EXISTS (
+        SELECT 1 FROM article_tags atc JOIN tags tc ON atc.tag_id = tc.id
+        WHERE atc.article_id = a.id AND tc.name = ?
+      ))`);
+      binds.push(q.category, q.crossLabel);
+    } else {
+      where.push("a.category = ?");
+      binds.push(q.category);
+    }
+  }
   if (q.region)              { where.push("a.region      = ?"); binds.push(q.region); }
-  if (q.subcategory)         { where.push("a.subcategory = ?"); binds.push(q.subcategory); }
+  // Subcategory is multi-label: match against the sub:* tag rather than
+  // the single `subcategory` column, so an article that is both a
+  // vulnerability and an incident shows on either tab.
+  if (q.subcategory) {
+    where.push(`EXISTS (
+      SELECT 1 FROM article_tags ats JOIN tags ts ON ats.tag_id = ts.id
+      WHERE ats.article_id = a.id AND ts.name = ?
+    )`);
+    binds.push(`sub:${q.subcategory}`);
+  }
   if (q.source)              { where.push("a.source      = ?"); binds.push(q.source); }
   if (q.q)                   { where.push("(a.title LIKE ? OR a.summary LIKE ? OR a.content LIKE ?)"); binds.push(`%${q.q}%`, `%${q.q}%`, `%${q.q}%`); }
-  if (q.important)           { where.push("a.importance_score >= ?"); binds.push(IMPORTANT_THRESHOLD); }
-  if (q.minScore !== undefined) { where.push("a.importance_score >= ?"); binds.push(q.minScore); }
-  if (q.maxScore !== undefined) { where.push("(a.importance_score <= ? OR a.importance_score IS NULL)"); binds.push(q.maxScore); }
 
   // Time range — skipped when noTimeLimit is set (used by /search)
   if (!q.noTimeLimit && q.hoursAgo && q.hoursAgo > 0) {
@@ -94,15 +113,13 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
   const sql = `
     SELECT a.id, a.title, a.summary, a.content,
            a.category, a.subcategory, a.region,
-           a.source, a.url, a.importance_score, a.published_at
+           a.source, a.url, a.published_at
     FROM articles a
     ${where.length ? "WHERE " + where.join(" AND ") : ""}
     ORDER BY
-      ${q.sortBy === "importance"
-        ? "COALESCE(a.importance_score, 0) DESC, a.published_at DESC"
-        : q.sortBy === "relevance" && q.q
-          ? `CASE WHEN a.title LIKE '%${(q.q ?? "").replace(/'/g, "''")}%' THEN 0 ELSE 1 END, a.published_at DESC`
-          : "a.published_at DESC"}
+      ${q.sortBy === "relevance" && q.q
+        ? `CASE WHEN a.title LIKE '%${(q.q ?? "").replace(/'/g, "''")}%' THEN 0 ELSE 1 END, a.published_at DESC`
+        : "a.published_at DESC"}
     LIMIT ? OFFSET ?
   `;
   binds.push(q.limit ?? 50, q.offset ?? 0);
@@ -123,7 +140,7 @@ export async function getArticlesByIds(env: Env, ids: string[]): Promise<NewsArt
   const ph = ids.map(() => "?").join(",");
   const rows = await env.DB.prepare(`
     SELECT id, title, summary, content, category, subcategory, region,
-           source, url, importance_score, published_at
+           source, url, published_at
     FROM articles WHERE id IN (${ph})
   `).bind(...ids).all();
   const tagMap = await fetchTagsFor(env, ids);
@@ -133,6 +150,13 @@ export async function getArticlesByIds(env: Env, ids: string[]): Promise<NewsArt
 }
 
 /* ---------- Distinct tags (for the filter chip list) -------------- */
+
+/** Control tags that drive multi-label routing but should never appear
+ *  as user-facing filter chips or on cards: sub:* subcategory labels and
+ *  the cross-desk labels ("AI"/"Cyber"). */
+export function isControlTag(name: string): boolean {
+  return name.startsWith("sub:") || name === "AI" || name === "Cyber";
+}
 
 export async function listAllTags(env: Env, category?: string): Promise<string[]> {
   const sql = category
@@ -144,7 +168,9 @@ export async function listAllTags(env: Env, category?: string): Promise<string[]
     : `SELECT DISTINCT name FROM tags ORDER BY name`;
   const stmt = category ? env.DB.prepare(sql).bind(category) : env.DB.prepare(sql);
   const res  = await stmt.all();
-  return (res.results ?? []).map(r => (r as { name: string }).name);
+  return (res.results ?? [])
+    .map(r => (r as { name: string }).name)
+    .filter(name => !isControlTag(name));
 }
 
 /* ---------- Tag upsert (used by ingest) --------------------------- */

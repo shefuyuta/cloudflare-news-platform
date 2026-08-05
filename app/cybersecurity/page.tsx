@@ -19,7 +19,7 @@ export default async function CyberPage({ searchParams }: {
   const hoursAgo = parseInt(sp.hours ?? "24", 10);
 
   const [items, available] = await Promise.all([
-    listArticles(env, { category: "cybersecurity", subcategory: sp.subcategory, q: sp.q, tags, hoursAgo, limit: 200 }),
+    listArticles(env, { category: "cybersecurity", crossLabel: "Cyber", subcategory: sp.subcategory, q: sp.q, tags, hoursAgo, limit: 200 }),
     listAllTags(env, "cybersecurity"),
   ]);
 
