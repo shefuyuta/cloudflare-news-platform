@@ -16,7 +16,7 @@ const TIME_RANGES = [
   { hours: 168, key: "week1"   as const },
 ];
 
-export function Header() {
+export function Header({ initialLastFetch = "" }: { initialLastFetch?: string }) {
   const router   = useRouter();
   const pathname = usePathname();
   const params   = useSearchParams();
@@ -24,13 +24,15 @@ export function Header() {
   const { theme, toggle: toggleTheme, mounted: themeMounted } = useDarkMode();
   const [val, setVal]           = useState(params.get("q") ?? "");
   const [fetching,     setFetching]     = useState(false);
-  const [lastFetchedAt, setLastFetchedAt] = useState<string>("");
+  const [lastFetchedAt, setLastFetchedAt] = useState<string>(initialLastFetch);
 
-  // Load last fetch time from localStorage on mount
+  // Server value (from rag_config, reflects manual + cron) is the source of
+  // truth. Fall back to localStorage only if the server didn't provide one.
   useEffect(() => {
+    if (initialLastFetch) { setLastFetchedAt(initialLastFetch); return; }
     const saved = localStorage.getItem("newshub-last-fetched");
     if (saved) setLastFetchedAt(saved);
-  }, []);
+  }, [initialLastFetch]);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [alertOpen, setAlertOpen]     = useState(false);
@@ -73,8 +75,13 @@ export function Header() {
     setFetchResult(lang === "ja" ? "記事を取得中…" : "Fetching…");
     try {
       const fetchRes  = await fetch("/api/fetch-news", { method: "POST" });
-      const fetchData = await fetchRes.json() as { ingested: number };
+      const fetchData = await fetchRes.json() as { ingested: number; fetchedAt?: string };
       setFetchResult(lang === "ja" ? `${fetchData.ingested}件取得。AI処理中…` : `${fetchData.ingested} fetched. Embedding…`);
+
+      // Record the fetch time (server-authoritative; falls back to now).
+      const fetchedAt = fetchData.fetchedAt ?? new Date().toISOString();
+      setLastFetchedAt(fetchedAt);
+      try { localStorage.setItem("newshub-last-fetched", fetchedAt); } catch { /* ignore */ }
 
       let totalEmbedded = 0;
       let remaining = 999;

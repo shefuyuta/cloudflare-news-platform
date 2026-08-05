@@ -58,6 +58,20 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
+  // Record the fetch execution time in rag_config so the Header can show
+  // a "last updated" timestamp. Both manual refresh and the future cron
+  // call this route, so both write here and the timestamp reflects either
+  // path (per design decision).
+  const fetchedAt = new Date().toISOString();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO rag_config (key, value) VALUES ('last_fetch_at', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    ).bind(fetchedAt).run();
+  } catch (e) {
+    console.warn("[fetch-news] Failed to record last_fetch_at", e);
+  }
+
   // Kick off embedding for the newly-ingested articles. embed-missing
   // processes in bounded batches (≤30/run) and returns `remaining`, so we
   // chain calls until the backlog is drained. Done as fire-and-forget
@@ -70,6 +84,7 @@ export async function POST(req: Request): Promise<Response> {
     fetched,
     ingested,
     errors,
+    fetchedAt,
     sources: FEEDS.length,
     elapsed: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
   });

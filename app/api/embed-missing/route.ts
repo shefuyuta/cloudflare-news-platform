@@ -49,8 +49,13 @@ export async function POST(): Promise<Response> {
 
     const r = row as Record<string, unknown>;
     const id = r.id as string;
-    // Priority: scraped full content > RSS summary > title
-    const text = ((r.content as string) || (r.summary as string) || (r.title as string) || "").trim();
+    // Embed TITLE + cleaned body. Title is the cleanest, most on-topic
+    // signal (e.g. "Ransomware Victim: …") and must always be included —
+    // some feeds (RedPacketSecurity) put CSS/HTML in the summary, which
+    // otherwise drowns the real topic. cleanText strips that noise.
+    const title = (r.title as string) || "";
+    const body  = cleanText((r.content as string) || (r.summary as string) || "");
+    const text  = [title, body].filter(Boolean).join(". ").trim();
     if (!text) continue;
 
     try {
@@ -140,4 +145,51 @@ async function refineSubTags(env: Env, articleId: string, labels: string[]): Pro
   const finalNames = [...new Set([...nonSub, ...newSub])];
   const tagIds = await upsertTags(env, finalNames);
   await setArticleTags(env, articleId, tagIds);
+}
+
+/**
+ * Strip CSS/HTML/script noise from feed text before embedding.
+ *
+ * Several RSS sources (e.g. RedPacketSecurity) inject <style> blocks,
+ * inline CSS rules, or HTML wrappers into the summary/content. Embedding
+ * that noise produces vectors that represent the CSS, not the article —
+ * which is why "ランサム" failed to match a "Ransomware Victim" article
+ * whose summary was a block of CSS. This removes the common offenders and
+ * collapses whitespace. Deliberately conservative: it strips markup and
+ * CSS-rule syntax but keeps ordinary prose (including code-like terms in
+ * real sentences).
+ */
+function cleanText(input: string): string {
+  if (!input) return "";
+  let s = input;
+
+  // Remove <style>/<script> blocks entirely (including contents).
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, " ");
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, " ");
+
+  // Remove HTML/XML comments and CSS block comments.
+  s = s.replace(/<!--[\s\S]*?-->/g, " ");
+  s = s.replace(/\/\*[\s\S]*?\*\//g, " ");
+
+  // Remove CSS rule blocks: "selector { prop: value; ... }".
+  // Runs until no brace-blocks remain (handles a few nested/stacked rules).
+  for (let i = 0; i < 5 && /\{[^{}]*\}/.test(s); i++) {
+    s = s.replace(/[^{}]*\{[^{}]*\}/g, " ");
+  }
+
+  // Strip any remaining HTML tags.
+  s = s.replace(/<[^>]+>/g, " ");
+
+  // Decode a few common HTML entities.
+  s = s.replace(/&nbsp;/gi, " ")
+       .replace(/&amp;/gi, "&")
+       .replace(/&lt;/gi, "<")
+       .replace(/&gt;/gi, ">")
+       .replace(/&quot;/gi, '"')
+       .replace(/&#39;/gi, "'");
+
+  // Collapse whitespace.
+  s = s.replace(/\s+/g, " ").trim();
+
+  return s;
 }

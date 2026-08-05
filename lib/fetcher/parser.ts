@@ -153,7 +153,33 @@ function extractAttr(xml: string, tag: string, attr: string): string | null {
 
 function clean(s: string | null): string {
   if (!s) return "";
-  return stripHtml(decodeEntities(s)).replace(/\s+/g, " ").trim();
+  return stripHtml(decodeEntities(stripStyleAndCss(s)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Remove <style>/<script> blocks (including their CONTENTS) and bare CSS
+ * rule blocks before tag-stripping. Plain stripHtml only removes the
+ * <style> tags, leaving the CSS text behind — which is how feeds like
+ * RedPacketSecurity leak "#rps-openai-block{ display:flex; … }" into the
+ * summary. Doing this at the parser means every downstream consumer
+ * (storage, display, classification, embedding) gets clean text.
+ */
+function stripStyleAndCss(s: string): string {
+  let out = s;
+  // Whole <style>/<script> blocks, contents included.
+  out = out.replace(/<style[\s\S]*?<\/style>/gi, " ");
+  out = out.replace(/<script[\s\S]*?<\/script>/gi, " ");
+  // HTML comments and CSS block comments.
+  out = out.replace(/<!--[\s\S]*?-->/g, " ");
+  out = out.replace(/\/\*[\s\S]*?\*\//g, " ");
+  // Bare CSS rule blocks: "selector { prop: value; … }". A few passes
+  // handle stacked rules; conservative so real prose isn't harmed.
+  for (let i = 0; i < 5 && /\{[^{}]*\}/.test(out); i++) {
+    out = out.replace(/[^{}]*\{[^{}]*\}/g, " ");
+  }
+  return out;
 }
 
 function stripHtml(s: string): string {

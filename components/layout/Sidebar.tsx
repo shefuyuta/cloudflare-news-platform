@@ -77,12 +77,7 @@ export function SidebarContent({
           ))}
         </ul>
 
-        <div className="mt-6 mb-2 px-3">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-4)]">
-            {t("crossCuts")}
-          </p>
-        </div>
-        <ul className="space-y-0.5">
+        <ul className="space-y-0.5 mt-2">
           {CROSSCUT.map((item) => (
             <NavItem key={item.href} item={item} pathname={pathname} onClick={onNavClick} />
           ))}

@@ -1,7 +1,7 @@
 ﻿name = "cloudflare-news-platform"
 compatibility_date = "2025-05-01"
 compatibility_flags = ["nodejs_compat"]
-main = "worker.ts"
+main = ".open-next/worker.js"
 
 [assets]
 directory = ".open-next/assets"
@@ -22,6 +22,3 @@ index_name = "newshub-index"
 [ai]
 binding = "AI"
 
-# ----- Cron: fetch every 2 hours (skips if <2h since last fetch) -----
-[triggers]
-crons = ["0 */2 * * *"]

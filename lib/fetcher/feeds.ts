@@ -107,6 +107,22 @@ export const FEEDS: FeedSource[] = [
     ],
   },
   {
+    name: "ITmedia NEWS",
+    category: "general",
+    regionHint: "japan",
+    urls: [
+      "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml",
+    ],
+  },
+  {
+    name: "ITmedia AI＋",
+    category: "ai",
+    regionHint: "japan",
+    urls: [
+      "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",
+    ],
+  },
+  {
     name: "JPCERT/CC",
     category: "cybersecurity",
     regionHint: "japan",
