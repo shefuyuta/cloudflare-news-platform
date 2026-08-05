@@ -26,9 +26,10 @@ export async function retrieve(
 
   const vec = await embed(env, query, cfg);
 
-  // Fetch more candidates than topK so we still have enough after date filtering
+  // Fetch more candidates than topK so we still have enough after date filtering.
+  // Cap at 50: with returnMetadata:"all", Vectorize rejects topK > 50 (err 40025).
   const search = await env.VECTORIZE.query(vec, {
-    topK: cfg.topK * 3,      // over-fetch to compensate for date filter drop-off
+    topK: Math.min(cfg.topK * 3, 50),   // over-fetch, but stay within the 50 cap
     filter: buildFilter(ctx),
     returnValues: false,
     returnMetadata: "all",

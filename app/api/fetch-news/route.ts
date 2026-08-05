@@ -19,7 +19,7 @@ const FETCH_HEADERS = {
 
 const MAX_AGE_HOURS = 72;
 
-export async function POST(): Promise<Response> {
+export async function POST(req: Request): Promise<Response> {
   const startTime = Date.now();
   const env = (await getCloudflareContext()).env as unknown as Env;
   const cutoff = new Date(Date.now() - MAX_AGE_HOURS * 3600_000);
@@ -58,6 +58,14 @@ export async function POST(): Promise<Response> {
     }
   }
 
+  // Kick off embedding for the newly-ingested articles. embed-missing
+  // processes in bounded batches (≤30/run) and returns `remaining`, so we
+  // chain calls until the backlog is drained. Done as fire-and-forget
+  // fetches so the fetch-news response isn't blocked; the future cron gets
+  // the same behaviour for free because it calls this same route.
+  const origin = new URL(req.url).origin;
+  void drainEmbeddings(origin);
+
   return NextResponse.json({
     fetched,
     ingested,
@@ -65,6 +73,25 @@ export async function POST(): Promise<Response> {
     sources: FEEDS.length,
     elapsed: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
   });
+}
+
+/**
+ * Repeatedly call /api/embed-missing until no articles remain unembedded
+ * (or a safety cap is hit). Fire-and-forget: errors are swallowed so a
+ * transient embedding failure never breaks the fetch response.
+ */
+async function drainEmbeddings(origin: string): Promise<void> {
+  const MAX_ROUNDS = 60; // safety cap (60 × 30 = up to 1800 articles/fetch)
+  try {
+    for (let i = 0; i < MAX_ROUNDS; i++) {
+      const res = await fetch(`${origin}/api/embed-missing`, { method: "POST" });
+      if (!res.ok) break;
+      const data = await res.json() as { remaining?: number; embedded?: number };
+      if (!data || (data.remaining ?? 0) <= 0) break;
+    }
+  } catch {
+    // Swallow — embedding can be retried by a later fetch or manual call.
+  }
 }
 
 // =====================================================================

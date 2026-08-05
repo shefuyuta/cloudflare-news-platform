@@ -73,8 +73,11 @@ export async function semanticSearch(
 
   // 3. Query Vectorize. Over-fetch so we still have enough after the
   //    D1-side time/source/tag filtering drops some candidates.
+  //    NOTE: with returnMetadata:"all", Vectorize caps topK at 50 (error
+  //    40025 if exceeded). We need the full metadata (article_id, text),
+  //    so we cap at 50 rather than switching to returnMetadata:"indexed".
   const search = await env.VECTORIZE.query(vec, {
-    topK: Math.min(Math.max(limit * 4, 20), 100),
+    topK: Math.min(Math.max(limit * 4, 20), 50),
     filter: Object.keys(filter).length ? filter : undefined,
     returnValues: false,
     returnMetadata: "all",

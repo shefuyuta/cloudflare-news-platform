@@ -15,16 +15,17 @@ export interface RagConfig {
 type AiModels = {
   "@cf/baai/bge-base-en-v1.5": unknown;
   "@cf/baai/bge-large-en-v1.5": unknown;
+  "@cf/baai/bge-m3": unknown;
   "@cf/meta/llama-3.1-8b-instruct": unknown;
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast": unknown;
   "@cf/mistral/mistral-7b-instruct-v0.2": unknown;
 };
 
 export const DEFAULTS: RagConfig = {
-  embeddingModel: "@cf/baai/bge-base-en-v1.5",
-  llmModel:       "@cf/meta/llama-3.1-8b-instruct",
+  embeddingModel: "@cf/baai/bge-m3",
+  llmModel:       "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   topK:           6,
-  minScore:       0.55,
+  minScore:       0.35,
   temperature:    0.1,
   maxTokens:      1024,
   contextCharsPerSource: 2000,
