@@ -11,12 +11,13 @@
 -- ---- 1. Drop the importance_score column ---------------------------
 -- The importance scoring system (/important page, score-articles API,
 -- Slack/email briefing, importance sort) has been permanently removed.
--- D1 supports DROP COLUMN. If this errors with "no such column", it was
--- already dropped — safe to skip.
-ALTER TABLE articles DROP COLUMN importance_score;
-
--- The importance index referenced that column; drop it too.
+--
+-- ORDER MATTERS: drop the index that references the column FIRST, then
+-- drop the column. SQLite refuses to drop a column while an index still
+-- depends on it. D1 supports DROP COLUMN. If DROP COLUMN errors with
+-- "no such column", it was already dropped — safe to skip.
 DROP INDEX IF EXISTS idx_articles_importance;
+ALTER TABLE articles DROP COLUMN importance_score;
 
 -- ---- 2. Backfill sub:* tags for existing cyber articles ------------
 -- New articles get sub:vulnerability / sub:incident tags at ingest time
