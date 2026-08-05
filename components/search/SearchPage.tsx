@@ -36,9 +36,10 @@ interface Props {
   subtitle:   string;
   lang:       string;
   allTags:    string[];   // for autocomplete
+  searchMode: "semantic" | "keyword";
 }
 
-export function SearchPage({ articles, activeTags, title, subtitle, lang, allTags }: Props) {
+export function SearchPage({ articles, activeTags, title, subtitle, lang, allTags, searchMode }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
   const params   = useSearchParams();
@@ -101,6 +102,24 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
 
       {/* ── Filter bar ─────────────────────────────────────────────── */}
       <div className="mb-6 space-y-3 p-4 border hairline rounded-lg bg-[var(--line-soft)]/40">
+
+        {/* Search mode — only meaningful with a free-text query */}
+        {params.get("q") && (
+          <FilterRow label={lang === "ja" ? "検索方式" : "Mode"}>
+            <Chip2
+              active={searchMode === "semantic" && params.get("mode") !== "keyword"}
+              onClick={() => set("mode", null)}
+            >
+              {lang === "ja" ? "意味検索" : "Semantic"}
+            </Chip2>
+            <Chip2
+              active={params.get("mode") === "keyword"}
+              onClick={() => set("mode", "keyword")}
+            >
+              {lang === "ja" ? "キーワード" : "Keyword"}
+            </Chip2>
+          </FilterRow>
+        )}
 
         {/* Sort */}
         <FilterRow label={lang === "ja" ? "並び順" : "Sort"}>

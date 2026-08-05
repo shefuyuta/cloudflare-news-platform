@@ -9,6 +9,8 @@ import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { loadRuntimeConfig } from "@/lib/rag/config";
 import { embedBatch, chunk } from "@/lib/rag/embeddings";
+import { loadSubcategoryRefs, classifyByEmbedding } from "@/lib/fetcher/subcategory-embed";
+import { upsertTags, setArticleTags } from "@/lib/db";
 import type { Env } from "@/lib/types";
 
 const BATCH_TIMEOUT_MS = 25_000;
@@ -18,6 +20,13 @@ export async function POST(): Promise<Response> {
   const startTime = Date.now();
   const env = (await getCloudflareContext()).env as unknown as Env;
   const cfg = await loadRuntimeConfig(env);
+
+  // Phase 2-A: if reference vectors are present, refine cyber articles'
+  // sub:* tags by embedding similarity. Absent → keyword tags stand.
+  const subRefs = await loadSubcategoryRefs(env);
+  // Similarity threshold for subcategory assignment. Tune in rag_config
+  // via key "subcategory_threshold" if needed; default 0.5.
+  const subThreshold = await loadSubThreshold(env);
 
   // Fetch articles without embeddings.
   // Prefer articles that have scraped content (richer embeddings).
@@ -65,6 +74,17 @@ export async function POST(): Promise<Response> {
           "UPDATE articles SET vector_id = ?, embedded_at = ? WHERE id = ?"
         ).bind(`${id}#0`, new Date().toISOString(), id).run();
 
+        // Phase 2-A: refine subcategory tags via embedding similarity.
+        // Only for cyber articles, only when references are loaded, and
+        // only when we have a usable article vector (first chunk).
+        if (subRefs && (r.category as string) === "cybersecurity" && vectors[0]) {
+          const labels = classifyByEmbedding(vectors[0], subRefs, subThreshold);
+          if (labels.length) {
+            await refineSubTags(env, id, labels);
+          }
+          // No label clears threshold → keep the keyword sub:* tags.
+        }
+
         embedded++;
       }
     } catch (e) {
@@ -85,4 +105,39 @@ export async function POST(): Promise<Response> {
     remaining: remaining?.cnt ?? 0,
     elapsed: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
   });
+}
+
+/** Load the subcategory similarity threshold from rag_config (default 0.5). */
+async function loadSubThreshold(env: Env): Promise<number> {
+  try {
+    const row = await env.DB.prepare(
+      "SELECT value FROM rag_config WHERE key = 'subcategory_threshold'"
+    ).first() as { value: string } | null;
+    const n = row ? Number(row.value) : NaN;
+    return Number.isFinite(n) ? n : 0.5;
+  } catch {
+    return 0.5;
+  }
+}
+
+/**
+ * Replace an article's sub:* tags with the embedding-derived set, while
+ * preserving all other (content/cross-cut) tags. Ensures the sub:* tag
+ * rows exist, then rebuilds the article's full tag links.
+ */
+async function refineSubTags(env: Env, articleId: string, labels: string[]): Promise<void> {
+  // Current tag names for this article.
+  const existing = await env.DB.prepare(`
+    SELECT t.name AS name
+    FROM article_tags at JOIN tags t ON at.tag_id = t.id
+    WHERE at.article_id = ?
+  `).bind(articleId).all();
+
+  const currentNames = (existing.results ?? []).map(r => (r as { name: string }).name);
+  const nonSub = currentNames.filter(n => !n.startsWith("sub:"));
+  const newSub = labels.map(l => `sub:${l}`);
+
+  const finalNames = [...new Set([...nonSub, ...newSub])];
+  const tagIds = await upsertTags(env, finalNames);
+  await setArticleTags(env, articleId, tagIds);
 }

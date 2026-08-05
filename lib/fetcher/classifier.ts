@@ -266,10 +266,11 @@ const INCIDENT_PATTERNS: RegExp[] = [
  * nothing matches, falls back to the source hint, then "other".
  *
  * NOTE (Phase 2 / embeddings): the ambiguous middle — where an article
- * sits between vuln and incident — is exactly what embedding similarity
- * will disambiguate. The hook is `classifySubcategoriesEmbedding` below;
- * this keyword version is the Phase-1 structural fix (kills first-match
- * bias) and remains the deterministic fallback.
+ * sits between vuln and incident — is disambiguated by embedding
+ * similarity in lib/fetcher/subcategory-embed.ts (applied during the
+ * embed-missing pass when reference vectors are present). This keyword
+ * version is the structural fix (kills first-match bias) and remains the
+ * deterministic fallback at fetch time and when refs are absent.
  */
 export function classifySubcategories(
   source: FeedSource,
@@ -316,23 +317,6 @@ export function classifySubcategory(
   if (incScore > vulnScore) return "incident";
   if (vulnScore > incScore) return "vulnerability";
   return "incident"; // tie-break corrected (was: first-match = vulnerability)
-}
-
-/**
- * Phase-2 embedding hook (not yet active). Given precomputed reference
- * vectors for each subcategory and the article's own embedding, return
- * the labels whose cosine similarity clears the threshold. Wired in a
- * later step once reference vectors are backfilled; until then callers
- * use `classifySubcategories`.
- */
-export async function classifySubcategoriesEmbedding(
-  _articleVector: number[],
-  _refVectors: Record<string, number[]>,
-  _threshold = 0.5,
-): Promise<string[] | null> {
-  // Intentionally unimplemented in Phase 1. Returning null signals the
-  // caller to fall back to the keyword classifier above.
-  return null;
 }
 
 /** Generate relevant tags from title and summary. */
