@@ -61,6 +61,7 @@ export default async function RansomwarePage({
   let victims: VictimWithNews[] = [];
   let groups:  string[]          = [];
   let countries: { code: string; count: number }[] = [];
+  const mapCounts: Record<string, number> = {};
   let dbError: string | null     = null;
   let latestFetched              = "";  // Last ransomware.live sync
 
@@ -115,6 +116,26 @@ export default async function RansomwarePage({
     countries = [...countryMap.entries()]
       .map(([code, count]) => ({ code, count }))
       .sort((a, b) => b.count - a.count);
+
+    // Per-country counts for the world map. Respects the RANGE filter (so
+    // the map reacts to today/7d/30d) but ignores the country filter,
+    // since the map is only shown in global view. JP variants fold to JP.
+    const mapWhere: string[] = [];
+    const mapBinds: unknown[] = [];
+    if (rangeCutoff) { mapWhere.push("datetime(discovered) >= datetime(?)"); mapBinds.push(rangeCutoff); }
+    const mapRows = await env.DB.prepare(
+      `SELECT country, COUNT(*) AS cnt FROM ransomware_victims
+       ${mapWhere.length ? "WHERE " + mapWhere.join(" AND ") : ""}
+       GROUP BY country`
+    ).bind(...mapBinds).all();
+    for (const row of mapRows.results ?? []) {
+      const r = row as { country: string; cnt: number };
+      const raw = (r.country ?? "").trim();
+      if (!raw) continue;
+      const code = (raw === "Japan" || raw === "日本") ? "JP" : raw.toUpperCase();
+      if (code.length !== 2) continue; // only ISO alpha-2 maps to the SVG
+      mapCounts[code] = (mapCounts[code] ?? 0) + Number(r.cnt);
+    }
 
     // ── Find related news (batched, not per-victim) ────────────────────
     const newsMap = new Map<string, VictimWithNews["relatedNews"]>();
@@ -262,6 +283,7 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         selectedGroup={sp.group ?? ""}
         selectedCountry={countrySel}
         selectedRange={rangeSel}
+        mapCounts={mapCounts}
       />
     </Suspense>
   );

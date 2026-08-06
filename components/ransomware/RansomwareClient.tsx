@@ -6,6 +6,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ExternalLink, RefreshCw, Shield, ChevronRight } from "@/components/ui/Icon";
 import type { VictimWithNews } from "@/lib/ransomware";
 import { RansomwareStats } from "./RansomwareStats";
+import { WorldMap } from "./WorldMap";
 
 const GROUP_COLORS: Record<string, string> = {
   lockbit3:   "#dc2626", lockbit: "#dc2626",
@@ -36,10 +37,11 @@ interface Props {
   selectedGroup: string;
   selectedCountry: string;
   selectedRange: string;
+  mapCounts: Record<string, number>;
 }
 
 export function RansomwareClient({
-  victims, groups, countries, totalCount, latestDate, hasCache, lang, selectedGroup, selectedCountry, selectedRange,
+  victims, groups, countries, totalCount, latestDate, hasCache, lang, selectedGroup, selectedCountry, selectedRange, mapCounts,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -168,18 +170,15 @@ export function RansomwareClient({
 
       {hasCache && (
         <>
-          {/* ── Statistics ─────────────────────────────────────────────── */}
-          <RansomwareStats victims={victims} lang={lang} />
-
-          {/* ── Time-range filter (drives stats, graphs, country counts) ── */}
-          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          {/* ── Time-range filter (drives map, stats, graphs, counts) ───── */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-4">
             <span className="text-[11px] text-[var(--ink-3)] mr-1">
               {ja ? "期間:" : "Range:"}
             </span>
             {([
-              { key: "today", ja: "本日", en: "24h" },
-              { key: "week",  ja: "今週", en: "7d" },
-              { key: "month", ja: "今月", en: "30d" },
+              { key: "today", ja: "24時間", en: "24h" },
+              { key: "week",  ja: "7日間", en: "7d" },
+              { key: "month", ja: "30日間", en: "30d" },
               { key: "all",   ja: "全期間", en: "All" },
             ] as const).map(r => (
               <button
@@ -196,6 +195,21 @@ export function RansomwareClient({
               </button>
             ))}
           </div>
+
+          {/* ── World map (global view only, prominent) ─────────────────── */}
+          {(!selectedCountry || selectedCountry === "all") && Object.keys(mapCounts).length > 0 && (
+            <div className="mb-6">
+              <WorldMap
+                counts={mapCounts}
+                lang={lang}
+                selectedCountry={selectedCountry}
+                onSelectCountry={setCountry}
+              />
+            </div>
+          )}
+
+          {/* ── Statistics ─────────────────────────────────────────────── */}
+          <RansomwareStats victims={victims} lang={lang} />
 
           {/* ── Country filter: Japan / Global + collapsible per-country ── */}
           <div className="mb-6">
