@@ -180,21 +180,33 @@ export function RansomwareStats({
       {months.length > 1 && (
         <section className="border hairline rounded-lg p-5">
           <h3 className="text-[11px] uppercase tracking-widest text-[var(--ink-3)] mb-4">
-            {ja ? "月別被害件数" : "Monthly Victims"}
+            {ja ? "月別被害件数（推移）" : "Monthly Victims (trend)"}
           </h3>
-          <div className="flex items-end gap-2" style={{ height: "72px" }}>
-            {months.map(([month, cnt]) => (
-              <div key={month} className="flex-1 group relative flex flex-col items-center justify-end">
-                <div
-                  className="w-full rounded-sm bg-red-500 transition-all duration-500"
-                  style={{ height: `${Math.max(4, (cnt / maxM) * 60)}px`, opacity: 0.6 + (cnt / maxM) * 0.4 }}
-                />
-                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-ink-contrast text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
-                  {month} · {cnt}{ja ? "件" : ""}
-                </div>
-              </div>
-            ))}
-          </div>
+          {(() => {
+            const W = 640, H = 96, PAD = 6;
+            const n = months.length;
+            const stepX = n > 1 ? (W - PAD * 2) / (n - 1) : 0;
+            const pts = months.map(([, cnt], i) => {
+              const x = PAD + i * stepX;
+              const y = H - PAD - (cnt / maxM) * (H - PAD * 2);
+              return { x, y };
+            });
+            const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+            const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${H - PAD} L${pts[0].x.toFixed(1)},${H - PAD} Z`;
+            return (
+              <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "96px" }} preserveAspectRatio="none">
+                <path d={area} fill="rgb(239 68 68 / 0.10)" />
+                <path d={line} fill="none" stroke="rgb(239 68 68)" strokeWidth={1.5}
+                      strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                {pts.map((p, i) => (
+                  <g key={i}>
+                    <circle cx={p.x} cy={p.y} r={2.5} fill="rgb(239 68 68)" />
+                    <title>{`${months[i][0]} · ${months[i][1]}${ja ? "件" : ""}`}</title>
+                  </g>
+                ))}
+              </svg>
+            );
+          })()}
           <div className="flex gap-2 mt-1.5">
             {months.map(([month], i) => (
               <div key={month} className="flex-1 text-center">

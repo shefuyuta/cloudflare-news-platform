@@ -31,15 +31,15 @@ interface Props {
   countries:     { code: string; count: number }[];
   totalCount:    number;
   latestDate:    string;
-  newsLastFetched: string;
   hasCache:      boolean;
   lang:          string;
   selectedGroup: string;
   selectedCountry: string;
+  selectedRange: string;
 }
 
 export function RansomwareClient({
-  victims, groups, countries, totalCount, latestDate, newsLastFetched, hasCache, lang, selectedGroup, selectedCountry,
+  victims, groups, countries, totalCount, latestDate, hasCache, lang, selectedGroup, selectedCountry, selectedRange,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -89,6 +89,13 @@ export function RansomwareClient({
     router.push(`${pathname}?${sp.toString()}`);
   }
 
+  function setRange(r: string) {
+    const sp = new URLSearchParams(params);
+    // "today" is the default; keep the URL clean by omitting it.
+    if (r && r !== "today") sp.set("range", r); else sp.delete("range");
+    router.push(`${pathname}?${sp.toString()}`);
+  }
+
   return (
     <div>
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -109,13 +116,6 @@ export function RansomwareClient({
                     {ja
                       ? `🔴 被害データ更新: ${new Date(latestDate).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
                       : `🔴 Victim data: ${new Date(latestDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
-                  </span>
-                )}
-                {newsLastFetched && (
-                  <span className="text-[11px] text-[var(--ink-4)]">
-                    {ja
-                      ? `📰 ニュース更新: ${new Date(newsLastFetched).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
-                      : `📰 News feed: ${new Date(newsLastFetched).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
                   </span>
                 )}
               </div>
@@ -170,6 +170,32 @@ export function RansomwareClient({
         <>
           {/* ── Statistics ─────────────────────────────────────────────── */}
           <RansomwareStats victims={victims} lang={lang} />
+
+          {/* ── Time-range filter (drives stats, graphs, country counts) ── */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            <span className="text-[11px] text-[var(--ink-3)] mr-1">
+              {ja ? "期間:" : "Range:"}
+            </span>
+            {([
+              { key: "today", ja: "本日", en: "24h" },
+              { key: "week",  ja: "今週", en: "7d" },
+              { key: "month", ja: "今月", en: "30d" },
+              { key: "all",   ja: "全期間", en: "All" },
+            ] as const).map(r => (
+              <button
+                key={r.key}
+                onClick={() => setRange(r.key)}
+                className={[
+                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
+                  (selectedRange || "today") === r.key
+                    ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
+                    : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+                ].join(" ")}
+              >
+                {ja ? r.ja : r.en}
+              </button>
+            ))}
+          </div>
 
           {/* ── Country filter: Japan / Global + collapsible per-country ── */}
           <div className="mb-6">

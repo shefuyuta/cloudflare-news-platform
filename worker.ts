@@ -77,6 +77,21 @@ async function runScheduledFetch(env: Env): Promise<void> {
     const res = await fetch(`${SELF_ORIGIN}/api/fetch-news`, { method: "POST" });
     const body = await res.text();
     console.log(`[cron] fetch-news → ${res.status} ${body.slice(0, 200)}`);
+
+    // 4. Also refresh the ransomware victim list (separate endpoint,
+    //    separate data source). Pulls the recent window; the route
+    //    upserts so re-runs are idempotent.
+    try {
+      const rw = await fetch(`${SELF_ORIGIN}/api/ransomware-fetch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ months: 1 }),
+      });
+      const rwBody = await rw.text();
+      console.log(`[cron] ransomware-fetch → ${rw.status} ${rwBody.slice(0, 200)}`);
+    } catch (e) {
+      console.error("[cron] ransomware-fetch failed:", e);
+    }
   } catch (e) {
     console.error("[cron] scheduled fetch failed:", e);
   }

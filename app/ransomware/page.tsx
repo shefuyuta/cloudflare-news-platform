@@ -33,7 +33,7 @@ type RawNews = {
 export default async function RansomwarePage({
   searchParams,
 }: {
-  searchParams: Promise<{ group?: string; country?: string }>;
+  searchParams: Promise<{ group?: string; country?: string; range?: string }>;
 }) {
   const sp          = await searchParams;
   const env         = (await getCloudflareContext()).env as unknown as Env;
@@ -44,12 +44,25 @@ export default async function RansomwarePage({
   // given ISO code. Japan matches the historical JP/Japan/日本 variants.
   const countrySel  = (sp.country ?? "").trim();
 
+  // Time range on `discovered`. Default 24h ("today"). Values:
+  // today = last 24h, week = last 7d, month = last 30d, all = no limit.
+  const rangeSel    = (sp.range ?? "today").trim();
+  const rangeCutoff = ((): string | null => {
+    const now = Date.now();
+    switch (rangeSel) {
+      case "week":  return new Date(now - 7  * 86400000).toISOString();
+      case "month": return new Date(now - 30 * 86400000).toISOString();
+      case "all":   return null;
+      case "today":
+      default:      return new Date(now - 1  * 86400000).toISOString();
+    }
+  })();
+
   let victims: VictimWithNews[] = [];
   let groups:  string[]          = [];
   let countries: { code: string; count: number }[] = [];
   let dbError: string | null     = null;
   let latestFetched              = "";  // Last ransomware.live sync
-  let newsLastFetched            = "";  // Last RSS news fetch
 
   try {
     // ── Build WHERE clause for country + group ────────────────────────
@@ -66,6 +79,12 @@ export default async function RansomwarePage({
     if (sp.group) {
       where.push("LOWER(group_name) = LOWER(?)");
       binds.push(sp.group);
+    }
+    if (rangeCutoff) {
+      // discovered is ISO-ish ("YYYY-MM-DD HH:MM:SS" or ISO). datetime()
+      // normalizes both sides for a correct comparison.
+      where.push("datetime(discovered) >= datetime(?)");
+      binds.push(rangeCutoff);
     }
     const whereSql = where.length ? "WHERE " + where.join(" AND ") : "";
 
@@ -178,13 +197,12 @@ export default async function RansomwarePage({
       groups = [...groupSet].sort();
 
 
-      // Get last fetch timestamps directly from DB (more reliable than reduce)
-      const [rwTimestamp, newsTimestamp] = await Promise.all([
-        env.DB.prepare("SELECT MAX(fetched_at) as ts FROM ransomware_victims").first() as Promise<{ ts: string } | null>,
-        env.DB.prepare("SELECT MAX(published_at) as ts FROM articles").first() as Promise<{ ts: string } | null>,
-      ]);
-      latestFetched   = rwTimestamp?.ts  ?? "";
-      newsLastFetched = newsTimestamp?.ts ?? "";
+      // Last ransomware.live sync time (victim data). The news feed
+      // timestamp is shown globally in the Header, so we don't fetch it here.
+      const rwTimestamp = await env.DB.prepare(
+        "SELECT MAX(fetched_at) as ts FROM ransomware_victims"
+      ).first() as { ts: string } | null;
+      latestFetched = rwTimestamp?.ts ?? "";
     }
   } catch (err) {
     // Table may not exist yet — show "run migration" message instead of crashing
@@ -239,11 +257,11 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         countries={countries}
         totalCount={victims.length}
         latestDate={latestFetched}
-        newsLastFetched={newsLastFetched}
         hasCache={victims.length > 0}
         lang={lang}
         selectedGroup={sp.group ?? ""}
         selectedCountry={countrySel}
+        selectedRange={rangeSel}
       />
     </Suspense>
   );
