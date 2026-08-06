@@ -21,7 +21,7 @@ async function translateToJapanese(env: Env, names: string[]): Promise<Record<st
 ${names.map((n, i) => `${i + 1}. ${n}`).join("\n")}`;
 
   try {
-    const resp = await ai.run("@cf/meta/llama-3.1-8b-instruct", {
+    const resp = await ai.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
       messages: [{ role: "user", content: prompt }],
       max_tokens: 400,
     });
@@ -62,23 +62,25 @@ export async function POST(req: Request): Promise<Response> {
     } catch (e) { errors.push(`monthly ${d.getFullYear()}/${d.getMonth() + 1}: ${e}`); }
   }
 
-  // ── Filter Japan, deduplicate ──────────────────────────────────────
+  // ── Deduplicate (all countries — global collection) ────────────────
   const seen  = new Set<string>();
-  const japan = allVictims.filter(v => {
+  const victims = allVictims.filter(v => {
     const uid = extractUid(v.post_url);
     if (!uid || seen.has(uid)) return false;
     seen.add(uid);
-    return isJapan(v.country);
+    return true;
   });
 
-  if (!japan.length) {
-    return NextResponse.json({ upserted: 0, total_japan: 0, scanned: allVictims.length, errors });
+  if (!victims.length) {
+    return NextResponse.json({ upserted: 0, total: 0, scanned: allVictims.length, errors });
   }
 
-  // ── Translate victim names to Japanese (batch, for new entries only) ─
-  // Check which UIDs already have victim_ja
-  const newVictims = japan; // translate all to keep fresh
-  const uniqueNames = [...new Set(newVictims.map(v => v.post_title).filter(Boolean))];
+  // ── Translate victim names to Japanese — JP victims ONLY ───────────
+  // Translating every global victim would be slow and wasteful (and add
+  // little value for foreign org names), so we only translate Japanese
+  // victims. Non-JP victims keep their English name.
+  const jpVictims   = victims.filter(v => isJapan(v.country));
+  const uniqueNames = [...new Set(jpVictims.map(v => v.post_title).filter(Boolean))];
 
   // Translate in batches of 10 to stay within token limits
   const jaMap: Record<string, string> = {};
@@ -95,7 +97,7 @@ export async function POST(req: Request): Promise<Response> {
   const fetchedAt = now.toISOString();
   let upserted = 0;
 
-  for (const v of japan) {
+  for (const v of victims) {
     const uid   = extractUid(v.post_url);
     const jaName = jaMap[v.post_title] ?? null;
     try {
@@ -116,7 +118,7 @@ export async function POST(req: Request): Promise<Response> {
         v.post_title  ?? "",
         jaName,
         v.group_name  ?? "",
-        v.country     ?? "JP",
+        v.country     ?? "",
         v.activity    ?? "",
         v.website     ?? "",
         v.description ?? "",
@@ -131,10 +133,10 @@ export async function POST(req: Request): Promise<Response> {
 
   return NextResponse.json({
     upserted,
-    total_japan:  japan.length,
+    total:        victims.length,
+    japan:        jpVictims.length,
     scanned:      allVictims.length,
     translated:   Object.keys(jaMap).length,
-    sample_trans: Object.entries(jaMap).slice(0, 3),
     errors:       errors.length ? errors.slice(0, 5) : undefined,
   });
 }

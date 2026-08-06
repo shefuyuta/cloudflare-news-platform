@@ -23,8 +23,8 @@ const T = {
   navCyberSub:      { en: "Security News", ja: "脆弱性・インシデント" },
   navAI:            { en: "AI",            ja: "AI" },
   navAISub:         { en: "AI News",       ja: "人工知能ニュース" },
-  navRansomware:    { en: "Ransomware JP",  ja: "ランサムウェア被害" },
-  navRansomwareSub: { en: "Japan victims",  ja: "国内被害情報" },
+  navRansomware:    { en: "Ransomware",     ja: "ランサムウェア被害" },
+  navRansomwareSub: { en: "Victim tracker",  ja: "被害組織トラッカー" },
 
   // ---- Page headings ------------------------------------------------
   todaysEdition:    { en: "The latest News", ja: "最新のニュース" },

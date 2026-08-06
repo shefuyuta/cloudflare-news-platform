@@ -33,39 +33,69 @@ type RawNews = {
 export default async function RansomwarePage({
   searchParams,
 }: {
-  searchParams: Promise<{ group?: string }>;
+  searchParams: Promise<{ group?: string; country?: string }>;
 }) {
   const sp          = await searchParams;
   const env         = (await getCloudflareContext()).env as unknown as Env;
   const cookieStore = await cookies();
   const lang        = (cookieStore.get(LANG_COOKIE)?.value as Lang) ?? DEFAULT_LANG;
 
+  // Country filter: "" or "all" = every country; "JP" = Japan; else the
+  // given ISO code. Japan matches the historical JP/Japan/日本 variants.
+  const countrySel  = (sp.country ?? "").trim();
+
   let victims: VictimWithNews[] = [];
   let groups:  string[]          = [];
+  let countries: { code: string; count: number }[] = [];
   let dbError: string | null     = null;
   let latestFetched              = "";  // Last ransomware.live sync
   let newsLastFetched            = "";  // Last RSS news fetch
 
   try {
-    // ── Fetch victims ─────────────────────────────────────────────────
-    const victimRows = sp.group
-      ? await env.DB.prepare(
-          `SELECT id, victim, group_name, activity, website, description,
-                  post_url, discovered, published
-           FROM ransomware_victims
-           WHERE country IN ('JP', 'Japan', '日本')
-             AND LOWER(group_name) = LOWER(?)
-           ORDER BY discovered DESC, published DESC LIMIT 200`
-        ).bind(sp.group).all()
-      : await env.DB.prepare(
-          `SELECT id, victim, group_name, activity, website, description,
-                  post_url, discovered, published
-           FROM ransomware_victims
-           WHERE country IN ('JP', 'Japan', '日本')
-           ORDER BY discovered DESC, published DESC LIMIT 200`
-        ).all();
+    // ── Build WHERE clause for country + group ────────────────────────
+    const where: string[] = [];
+    const binds: unknown[] = [];
+    if (countrySel && countrySel !== "all") {
+      if (countrySel === "JP") {
+        where.push("country IN ('JP', 'Japan', '日本')");
+      } else {
+        where.push("country = ?");
+        binds.push(countrySel);
+      }
+    }
+    if (sp.group) {
+      where.push("LOWER(group_name) = LOWER(?)");
+      binds.push(sp.group);
+    }
+    const whereSql = where.length ? "WHERE " + where.join(" AND ") : "";
+
+    const victimRows = await env.DB.prepare(
+      `SELECT id, victim, victim_ja, group_name, activity, website, description,
+              post_url, discovered, published
+       FROM ransomware_victims
+       ${whereSql}
+       ORDER BY discovered DESC, published DESC LIMIT 200`
+    ).bind(...binds).all();
 
     const rawVictims = (victimRows.results ?? []) as RawVictim[];
+
+    // Country list with counts across ALL victims (independent of the
+    // current filter) so the filter UI always shows every option, even
+    // when the active filter yields zero rows. JP variants fold into "JP".
+    const countryRows = await env.DB.prepare(
+      `SELECT country, COUNT(*) AS cnt FROM ransomware_victims
+       GROUP BY country ORDER BY cnt DESC`
+    ).all();
+    const countryMap = new Map<string, number>();
+    for (const row of countryRows.results ?? []) {
+      const r = row as { country: string; cnt: number };
+      const raw = (r.country ?? "").trim();
+      const code = (raw === "Japan" || raw === "日本") ? "JP" : (raw || "??");
+      countryMap.set(code, (countryMap.get(code) ?? 0) + Number(r.cnt));
+    }
+    countries = [...countryMap.entries()]
+      .map(([code, count]) => ({ code, count }))
+      .sort((a, b) => b.count - a.count);
 
     // ── Find related news (batched, not per-victim) ────────────────────
     const newsMap = new Map<string, VictimWithNews["relatedNews"]>();
@@ -147,6 +177,7 @@ export default async function RansomwarePage({
       const groupSet = new Set(rawVictims.map(v => v.group_name).filter(Boolean));
       groups = [...groupSet].sort();
 
+
       // Get last fetch timestamps directly from DB (more reliable than reduce)
       const [rwTimestamp, newsTimestamp] = await Promise.all([
         env.DB.prepare("SELECT MAX(fetched_at) as ts FROM ransomware_victims").first() as Promise<{ ts: string } | null>,
@@ -205,12 +236,14 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
       <RansomwareClient
         victims={victims}
         groups={groups}
+        countries={countries}
         totalCount={victims.length}
         latestDate={latestFetched}
         newsLastFetched={newsLastFetched}
         hasCache={victims.length > 0}
         lang={lang}
         selectedGroup={sp.group ?? ""}
+        selectedCountry={countrySel}
       />
     </Suspense>
   );

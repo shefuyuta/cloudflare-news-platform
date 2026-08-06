@@ -28,16 +28,18 @@ function groupColor(group: string): string {
 interface Props {
   victims:       VictimWithNews[];
   groups:        string[];
+  countries:     { code: string; count: number }[];
   totalCount:    number;
   latestDate:    string;
   newsLastFetched: string;
   hasCache:      boolean;
   lang:          string;
   selectedGroup: string;
+  selectedCountry: string;
 }
 
 export function RansomwareClient({
-  victims, groups, totalCount, latestDate, newsLastFetched, hasCache, lang, selectedGroup,
+  victims, groups, countries, totalCount, latestDate, newsLastFetched, hasCache, lang, selectedGroup, selectedCountry,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -46,6 +48,7 @@ export function RansomwareClient({
   const [fetching,    setFetching]    = useState(false);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
   const [openId,      setOpenId]      = useState<string | null>(null);
+  const [showCountries, setShowCountries] = useState(false);
 
   const ja = lang === "ja";
 
@@ -80,6 +83,12 @@ export function RansomwareClient({
     router.push(`${pathname}?${sp.toString()}`);
   }
 
+  function setCountry(c: string) {
+    const sp = new URLSearchParams(params);
+    if (c && c !== "all") sp.set("country", c); else sp.delete("country");
+    router.push(`${pathname}?${sp.toString()}`);
+  }
+
   return (
     <div>
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -88,12 +97,12 @@ export function RansomwareClient({
           <div>
             <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight flex items-center gap-3">
               <Shield size={28} strokeWidth={1.5} className="text-red-600" />
-              {ja ? "日本国内ランサムウェア被害" : "Japan Ransomware Victims"}
+              {ja ? "ランサムウェア被害" : "Ransomware Victims"}
             </h1>
             <p className="text-sm text-[var(--ink-3)] mt-2">
               {ja
-                ? `ransomware.live より取得。${totalCount}件の国内被害を表示中。`
-                : `Sourced from ransomware.live. Showing ${totalCount} Japan victims.`}
+                ? `ransomware.live より取得。${totalCount}件を表示中。`
+                : `Sourced from ransomware.live. Showing ${totalCount} victims.`}
               <div className="flex flex-col gap-0.5 mt-1">
                 {latestDate && (
                   <span className="text-[11px] text-[var(--ink-4)]">
@@ -161,6 +170,73 @@ export function RansomwareClient({
         <>
           {/* ── Statistics ─────────────────────────────────────────────── */}
           <RansomwareStats victims={victims} lang={lang} />
+
+          {/* ── Country filter: Japan / Global + collapsible per-country ── */}
+          <div className="mb-6">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={() => setCountry("all")}
+                className={[
+                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
+                  !selectedCountry || selectedCountry === "all"
+                    ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
+                    : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+                ].join(" ")}
+              >
+                {ja ? "全世界" : "Global"}
+              </button>
+              <button
+                onClick={() => setCountry("JP")}
+                className={[
+                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
+                  selectedCountry === "JP"
+                    ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
+                    : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+                ].join(" ")}
+              >
+                {ja ? "日本" : "Japan"}
+                {(() => {
+                  const jp = countries.find(c => c.code === "JP");
+                  return jp ? ` (${jp.count})` : "";
+                })()}
+              </button>
+
+              {/* Toggle for the detailed per-country list */}
+              {countries.length > 1 && (
+                <button
+                  onClick={() => setShowCountries(s => !s)}
+                  className="px-2 py-1 text-[11px] text-[var(--ink-3)] hover:text-[var(--ink)] inline-flex items-center gap-1 transition-colors"
+                >
+                  <ChevronRight
+                    size={12}
+                    strokeWidth={1.5}
+                    className={`transition-transform ${showCountries ? "rotate-90" : ""}`}
+                  />
+                  {ja ? "国で絞り込む" : "Filter by country"}
+                </button>
+              )}
+            </div>
+
+            {/* Collapsible per-country toggles (default hidden) */}
+            {showCountries && countries.length > 1 && (
+              <div className="mt-2 p-3 border hairline rounded-lg flex flex-wrap gap-1.5 bg-[var(--line-soft)]/40">
+                {countries.map(({ code, count }) => (
+                  <button
+                    key={code}
+                    onClick={() => setCountry(code === selectedCountry ? "all" : code)}
+                    className={[
+                      "px-2 py-0.5 text-[11px] font-medium rounded-full border transition-colors",
+                      selectedCountry === code
+                        ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
+                        : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+                    ].join(" ")}
+                  >
+                    {code} ({count})
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* ── Group filter ──────────────────────────────────────────── */}
           {groups.length > 0 && (
