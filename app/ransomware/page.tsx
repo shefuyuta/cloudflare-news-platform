@@ -133,6 +133,15 @@ export default async function RansomwarePage({
     const anyRow = await env.DB.prepare("SELECT 1 FROM ransomware_victims LIMIT 1").first();
     hasAnyData = !!anyRow;
 
+    // Last ransomware.live sync time. This is the DB-wide sync timestamp,
+    // independent of the active range/country filter, so it's queried
+    // OUTSIDE the "has victims in range" block — otherwise it vanishes
+    // whenever a filter yields zero rows (same class of bug as hasCache).
+    const rwTimestamp = await env.DB.prepare(
+      "SELECT MAX(fetched_at) as ts FROM ransomware_victims"
+    ).first() as { ts: string } | null;
+    latestFetched = rwTimestamp?.ts ?? "";
+
     // Country list with counts for the filter UI. Respects the RANGE
     // filter (so the detail list shows this period's counts) but ignores
     // the country/group filter — it's the selector itself. JP variants
@@ -257,12 +266,6 @@ export default async function RansomwarePage({
       groups = [...groupSet].sort();
 
 
-      // Last ransomware.live sync time (victim data). The news feed
-      // timestamp is shown globally in the Header, so we don't fetch it here.
-      const rwTimestamp = await env.DB.prepare(
-        "SELECT MAX(fetched_at) as ts FROM ransomware_victims"
-      ).first() as { ts: string } | null;
-      latestFetched = rwTimestamp?.ts ?? "";
     }
   } catch (err) {
     // Table may not exist yet — show "run migration" message instead of crashing
