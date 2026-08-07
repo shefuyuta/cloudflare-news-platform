@@ -8,7 +8,6 @@ const T = {
   brand:            { en: "shefutech News Hub", ja: "shefutech News Hub" },
   editionDate:      { en: "Edition", ja: "Edition" },
   poweredBy:        { en: "AI-augmented news desk\npowered by Cloudflare", ja: "AI連携ニュースデスク\npowered by Cloudflare" },
-  crossCuts:        { en: "Overall", ja: "全体" },
 
   // ---- Nav ----------------------------------------------------------
   navLatest:        { en: "Latest",        ja: "最新" },
@@ -31,7 +30,6 @@ const T = {
   todaysEditionSub: { en: "Latest from across General, Cybersecurity, and AI desks.",
                       ja: "一般・サイバーセキュリティ・AIの最新記事。" },
   desk:             { en: "Section",       ja: "セクション" },
-  crossCut:         { en: "Overall",       ja: "全体" },
   dashboardTitle:   { en: "Dashboard",     ja: "ダッシュボード" },
   dashboardSub:     { en: "News overview and statistics", ja: "ニュースの俯瞰と統計" },
 
