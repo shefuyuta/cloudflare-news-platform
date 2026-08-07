@@ -33,6 +33,10 @@ interface Props {
   totalCount:    number;
   latestDate:    string;
   hasCache:      boolean;
+  statTotal:     number;
+  byGroup:       [string, number][];
+  byActivity:    [string, number][];
+  byMonth:       [string, number][];
   lang:          string;
   selectedGroup: string;
   selectedCountry: string;
@@ -41,7 +45,7 @@ interface Props {
 }
 
 export function RansomwareClient({
-  victims, groups, countries, totalCount, latestDate, hasCache, lang, selectedGroup, selectedCountry, selectedRange, mapCounts,
+  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, lang, selectedGroup, selectedCountry, selectedRange, mapCounts,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -110,8 +114,8 @@ export function RansomwareClient({
             </h1>
             <p className="text-sm text-[var(--ink-3)] mt-2">
               {ja
-                ? `ransomware.live より取得。${totalCount}件を表示中。`
-                : `Sourced from ransomware.live. Showing ${totalCount} victims.`}
+                ? `ransomware.live より取得。${statTotal.toLocaleString()}件中 ${Math.min(totalCount, statTotal).toLocaleString()}件を表示。`
+                : `Sourced from ransomware.live. Showing ${Math.min(totalCount, statTotal).toLocaleString()} of ${statTotal.toLocaleString()}.`}
               <div className="flex flex-col gap-0.5 mt-1">
                 {latestDate && (
                   <span className="text-[11px] text-[var(--ink-4)]">
@@ -209,7 +213,25 @@ export function RansomwareClient({
           )}
 
           {/* ── Statistics ─────────────────────────────────────────────── */}
-          <RansomwareStats victims={victims} lang={lang} />
+          {statTotal > 0 ? (
+            <RansomwareStats
+              statTotal={statTotal}
+              byGroup={byGroup}
+              byActivity={byActivity}
+              byMonth={byMonth}
+              showMonthly={selectedRange === "all"}
+              lang={lang}
+            />
+          ) : (
+            <div className="py-12 text-center border hairline rounded-lg mb-6">
+              <p className="text-sm text-[var(--ink-3)]">
+                {ja ? "この期間に該当する被害はありません。" : "No victims in this range."}
+              </p>
+              <p className="text-[11px] text-[var(--ink-4)] mt-1">
+                {ja ? "上の期間フィルタで範囲を広げてください。" : "Widen the range filter above."}
+              </p>
+            </div>
+          )}
 
           {/* ── Country filter: Japan / Global + collapsible per-country ── */}
           <div className="mb-6">
@@ -235,10 +257,6 @@ export function RansomwareClient({
                 ].join(" ")}
               >
                 {ja ? "日本" : "Japan"}
-                {(() => {
-                  const jp = countries.find(c => c.code === "JP");
-                  return jp ? ` (${jp.count})` : "";
-                })()}
               </button>
 
               {/* Toggle for the detailed per-country list */}
@@ -288,7 +306,7 @@ export function RansomwareClient({
                   !selectedGroup ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]" : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
                 ].join(" ")}
               >
-                {ja ? "すべて" : "All"} ({totalCount})
+                {ja ? "すべて" : "All"} ({statTotal.toLocaleString()})
               </button>
               {groups.map(g => {
                 const count = victims.filter(v => v.group === g).length;

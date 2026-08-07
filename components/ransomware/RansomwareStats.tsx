@@ -1,10 +1,14 @@
 // components/ransomware/RansomwareStats.tsx
 "use client";
 
-import type { VictimWithNews } from "@/lib/ransomware";
+
 
 interface Props {
-  victims:        VictimWithNews[];
+  statTotal:      number;
+  byGroup:        [string, number][];
+  byActivity:     [string, number][];
+  byMonth:        [string, number][];
+  showMonthly:    boolean;
   lang:           string;
   onFilterGroup?: (group: string | null) => void;
   onFilterAct?:   (act:   string | null) => void;
@@ -13,24 +17,15 @@ interface Props {
 }
 
 export function RansomwareStats({
-  victims, lang, onFilterGroup, onFilterAct, activeGroup, activeAct,
+  statTotal, byGroup, byActivity, byMonth, showMonthly, lang, onFilterGroup, onFilterAct, activeGroup, activeAct,
 }: Props) {
-  if (victims.length === 0) return null;
+  if (statTotal === 0) return null;
   const ja = lang === "ja";
 
-  // ── Aggregate ─────────────────────────────────────────────────────
-  const byGroup:    Record<string, number> = {};
-  const byActivity: Record<string, number> = {};
-
-  for (const v of victims) {
-    const g = v.groupDisplay || v.group || "Unknown";
-    byGroup[g] = (byGroup[g] ?? 0) + 1;
-    const a = v.activity || (ja ? "不明" : "Unknown");
-    byActivity[a] = (byActivity[a] ?? 0) + 1;
-  }
-
-  const topGroups = Object.entries(byGroup).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const topActs   = Object.entries(byActivity).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  // Aggregates are computed server-side over the full filtered set, so
+  // these charts agree with the world map (no LIMIT-200 skew).
+  const topGroups = byGroup;
+  const topActs   = byActivity;
   const maxG = topGroups[0]?.[1] ?? 1;
   const maxA = topActs[0]?.[1]   ?? 1;
 
@@ -50,15 +45,7 @@ export function RansomwareStats({
     "Hunters International": "#6366f1",
   };
 
-  // Monthly timeline
-  const byMonth: Record<string, number> = {};
-  for (const v of victims) {
-    const d = v.discovered || "";
-    if (!d) continue;
-    const m = d.slice(0, 7);
-    byMonth[m] = (byMonth[m] ?? 0) + 1;
-  }
-  const months = Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).slice(-12);
+  const months = byMonth;
   const maxM = Math.max(...months.map(([, n]) => n), 1);
 
   const clickable = !!onFilterGroup || !!onFilterAct;
@@ -66,7 +53,7 @@ export function RansomwareStats({
   return (
     <div className="mb-10 space-y-8">
       <h2 className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)]">
-        {ja ? "被害統計" : "Statistics"} — {victims.length}{ja ? "件" : " victims"}
+        {ja ? "被害統計" : "Statistics"} — {statTotal}{ja ? "件" : " victims"}
         {clickable && (
           <span className="ml-2 normal-case font-normal opacity-60">
             {ja ? "— バーをクリックで絞り込み" : "— click a bar to filter"}
@@ -177,7 +164,7 @@ export function RansomwareStats({
       </div>
 
       {/* ── Monthly timeline ─────────────────────────────────────── */}
-      {months.length > 1 && (
+      {showMonthly && months.length > 1 && (
         <section className="border hairline rounded-lg p-5">
           <h3 className="text-[11px] uppercase tracking-widest text-[var(--ink-3)] mb-4">
             {ja ? "月別被害件数（推移）" : "Monthly Victims (trend)"}

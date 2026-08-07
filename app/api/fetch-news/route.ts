@@ -9,7 +9,6 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { FEEDS, type FeedSource } from "@/lib/fetcher/feeds";
 import { parseFeed } from "@/lib/fetcher/parser";
 import { classifyCategoryMulti, classifyRegion, classifySubcategories, extractTags } from "@/lib/fetcher/classifier";
-import { upsertTags, setArticleTags } from "@/lib/db";
 import type { Env } from "@/lib/types";
 
 const FETCH_HEADERS = {
@@ -19,7 +18,7 @@ const FETCH_HEADERS = {
 
 const MAX_AGE_HOURS = 72;
 
-export async function POST(req: Request): Promise<Response> {
+export async function POST(): Promise<Response> {
   const startTime = Date.now();
   const env = (await getCloudflareContext()).env as unknown as Env;
   const cutoff = new Date(Date.now() - MAX_AGE_HOURS * 3600_000);
@@ -47,21 +46,11 @@ export async function POST(req: Request): Promise<Response> {
   // Sort newest first
   allArticles.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
-  // Insert into D1 only (no embedding — that's done by /api/embed-missing)
-  for (const a of allArticles) {
-    try {
-      await ingestArticle(env, a);
-      ingested++;
-    } catch (e) {
-      console.warn(`[fetch-news] Failed to ingest: ${a.url}`, e);
-      errors++;
-    }
-  }
-
-  // Record the fetch execution time in rag_config so the Header can show
-  // a "last updated" timestamp. Both manual refresh and the future cron
-  // call this route, so both write here and the timestamp reflects either
-  // path (per design decision).
+  // Record the fetch execution time FIRST — before the ingest loop below
+  // consumes the Worker's subrequest budget. Writing it after ingesting
+  // 1000+ articles hits "Too many API requests by single Worker
+  // invocation" and the write silently fails. Both manual refresh and the
+  // cron call this route, so both record the timestamp here.
   const fetchedAt = new Date().toISOString();
   try {
     await env.DB.prepare(
@@ -72,13 +61,23 @@ export async function POST(req: Request): Promise<Response> {
     console.warn("[fetch-news] Failed to record last_fetch_at", e);
   }
 
-  // Kick off embedding for the newly-ingested articles. embed-missing
-  // processes in bounded batches (≤30/run) and returns `remaining`, so we
-  // chain calls until the backlog is drained. Done as fire-and-forget
-  // fetches so the fetch-news response isn't blocked; the future cron gets
-  // the same behaviour for free because it calls this same route.
-  const origin = new URL(req.url).origin;
-  void drainEmbeddings(origin);
+  // ── Batched ingest (subrequest-efficient) ─────────────────────────
+  // The old path did ~5 DB round-trips PER article (insert + upsertTags
+  // ×2 + setArticleTags ×2), so 1000 articles = ~5000 subrequests, far
+  // over the Worker's ~1000 limit → ~60% failed. We now:
+  //   1. bulk-upsert every unique tag in one statement,
+  //   2. fetch all tag ids in one query,
+  //   3. batch article inserts and article_tags inserts via DB.batch()
+  //      (each batch() is a single subrequest of many statements).
+  // This turns thousands of round-trips into a couple dozen.
+  try {
+    const r = await ingestBatch(env, allArticles);
+    ingested = r.ingested;
+    errors  += r.errors;
+  } catch (e) {
+    console.warn("[fetch-news] Batch ingest failed", e);
+    errors += allArticles.length;
+  }
 
   return NextResponse.json({
     fetched,
@@ -88,25 +87,6 @@ export async function POST(req: Request): Promise<Response> {
     sources: FEEDS.length,
     elapsed: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
   });
-}
-
-/**
- * Repeatedly call /api/embed-missing until no articles remain unembedded
- * (or a safety cap is hit). Fire-and-forget: errors are swallowed so a
- * transient embedding failure never breaks the fetch response.
- */
-async function drainEmbeddings(origin: string): Promise<void> {
-  const MAX_ROUNDS = 60; // safety cap (60 × 30 = up to 1800 articles/fetch)
-  try {
-    for (let i = 0; i < MAX_ROUNDS; i++) {
-      const res = await fetch(`${origin}/api/embed-missing`, { method: "POST" });
-      if (!res.ok) break;
-      const data = await res.json() as { remaining?: number; embedded?: number };
-      if (!data || (data.remaining ?? 0) <= 0) break;
-    }
-  } catch {
-    // Swallow — embedding can be retried by a later fetch or manual call.
-  }
 }
 
 // =====================================================================
@@ -193,27 +173,108 @@ async function fetchSource(
 // D1 insert only (no Vectorize)
 // =====================================================================
 
-async function ingestArticle(env: Env, a: IngestArticle): Promise<void> {
-  const id = hashUrl(a.url);
+/**
+ * Batched, subrequest-efficient ingest of many articles at once.
+ *
+ * Strategy:
+ *  - Compute all ids + collect all unique tag names in memory (no I/O).
+ *  - One bulk `INSERT OR IGNORE` for every unique tag, then one SELECT to
+ *    resolve name→id for all of them.
+ *  - Article rows inserted with DB.batch() in chunks (one subrequest per
+ *    chunk, not per row).
+ *  - article_tags links: delete-then-insert per article, also via
+ *    DB.batch() in chunks.
+ *
+ * D1 caps ~100 statements per batch() call, so we chunk at 50 to stay
+ * comfortably within limits while keeping subrequest count low.
+ */
+async function ingestBatch(
+  env: Env,
+  articles: IngestArticle[],
+): Promise<{ ingested: number; errors: number }> {
+  if (!articles.length) return { ingested: 0, errors: 0 };
 
-  await env.DB.prepare(`
-    INSERT INTO articles (id, title, summary, category, subcategory, region,
-                          source, url, published_at)
-    VALUES (?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(url) DO UPDATE SET
-      title=excluded.title, summary=excluded.summary,
-      category=excluded.category, subcategory=excluded.subcategory, region=excluded.region,
-      source=excluded.source, published_at=excluded.published_at
-  `).bind(
-    id, a.title, a.summary ?? null,
-    a.category, a.subcategory ?? null, a.region ?? null,
-    a.source, a.url, a.publishedAt,
-  ).run();
+  const BATCH = 50;
+  let errors = 0;
 
-  if (a.tags.length) {
-    const tagIds = await upsertTags(env, a.tags);
-    await setArticleTags(env, id, tagIds);
+  // Precompute ids and gather unique tags.
+  const withIds = articles.map(a => ({ a, id: hashUrl(a.url) }));
+  const uniqueTags = [...new Set(articles.flatMap(a => a.tags).filter(Boolean))];
+
+  // 1. Bulk-upsert tags (chunked) then resolve ids in one pass per chunk.
+  const tagIdByName = new Map<string, number>();
+  if (uniqueTags.length) {
+    for (let i = 0; i < uniqueTags.length; i += BATCH) {
+      const chunk = uniqueTags.slice(i, i + BATCH);
+      try {
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO tags (name) VALUES " + chunk.map(() => "(?)").join(","),
+        ).bind(...chunk).run();
+        const ph = chunk.map(() => "?").join(",");
+        const res = await env.DB.prepare(
+          `SELECT id, name FROM tags WHERE name IN (${ph})`,
+        ).bind(...chunk).all();
+        for (const row of res.results ?? []) {
+          tagIdByName.set((row as { name: string }).name, (row as { id: number }).id);
+        }
+      } catch (e) {
+        console.warn("[fetch-news] tag chunk failed", e);
+      }
+    }
   }
+
+  // 2. Batch-insert article rows.
+  let ingested = 0;
+  for (let i = 0; i < withIds.length; i += BATCH) {
+    const chunk = withIds.slice(i, i + BATCH);
+    const stmts = chunk.map(({ a, id }) =>
+      env.DB.prepare(`
+        INSERT INTO articles (id, title, summary, category, subcategory, region,
+                              source, url, published_at)
+        VALUES (?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(url) DO UPDATE SET
+          title=excluded.title, summary=excluded.summary,
+          category=excluded.category, subcategory=excluded.subcategory, region=excluded.region,
+          source=excluded.source, published_at=excluded.published_at
+      `).bind(
+        id, a.title, a.summary ?? null,
+        a.category, a.subcategory ?? null, a.region ?? null,
+        a.source, a.url, a.publishedAt,
+      ),
+    );
+    try {
+      await env.DB.batch(stmts);
+      ingested += chunk.length;
+    } catch (e) {
+      console.warn("[fetch-news] article batch failed", e);
+      errors += chunk.length;
+    }
+  }
+
+  // 3. Batch-insert article_tags (delete + insert per article).
+  const tagStmts = [];
+  for (const { a, id } of withIds) {
+    const tagIds = a.tags.map(t => tagIdByName.get(t)).filter((x): x is number => !!x);
+    tagStmts.push(env.DB.prepare("DELETE FROM article_tags WHERE article_id = ?").bind(id));
+    if (tagIds.length) {
+      const vals = tagIds.map(() => "(?, ?)").join(",");
+      const binds: unknown[] = [];
+      for (const tid of tagIds) { binds.push(id, tid); }
+      tagStmts.push(
+        env.DB.prepare(`INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES ${vals}`).bind(...binds),
+      );
+    }
+  }
+  for (let i = 0; i < tagStmts.length; i += BATCH) {
+    const chunk = tagStmts.slice(i, i + BATCH);
+    try {
+      await env.DB.batch(chunk);
+    } catch (e) {
+      console.warn("[fetch-news] article_tags batch failed", e);
+    }
+  }
+
+  return { ingested, errors };
 }
 
 function hashUrl(url: string): string {

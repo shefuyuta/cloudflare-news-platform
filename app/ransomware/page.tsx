@@ -62,6 +62,13 @@ export default async function RansomwarePage({
   let groups:  string[]          = [];
   let countries: { code: string; count: number }[] = [];
   const mapCounts: Record<string, number> = {};
+  // Server-side aggregates over the FULL range-filtered set (not the
+  // LIMIT-200 list), so the charts agree with the world map.
+  let statTotal = 0;
+  let byGroup:    [string, number][] = [];
+  let byActivity: [string, number][] = [];
+  let byMonth:    [string, number][] = [];
+  let hasAnyData  = false;   // true if the table has ANY rows (ignores filters)
   let dbError: string | null     = null;
   let latestFetched              = "";  // Last ransomware.live sync
 
@@ -99,13 +106,39 @@ export default async function RansomwarePage({
 
     const rawVictims = (victimRows.results ?? []) as RawVictim[];
 
-    // Country list with counts across ALL victims (independent of the
-    // current filter) so the filter UI always shows every option, even
-    // when the active filter yields zero rows. JP variants fold into "JP".
+    // ── Server-side aggregates over the FULL filtered set ─────────────
+    // These power the stat charts (group / activity / monthly) so they
+    // reflect every matching victim, not just the LIMIT-200 list.
+    const [totalRow, groupRows, actRows, monthRows] = await Promise.all([
+      env.DB.prepare(`SELECT COUNT(*) AS c FROM ransomware_victims ${whereSql}`).bind(...binds).first() as Promise<{ c: number } | null>,
+      env.DB.prepare(`SELECT group_name AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY group_name ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
+      env.DB.prepare(`SELECT activity AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY activity ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
+      // Monthly trend is a full-history view (ignores range) so the line
+      // chart always shows the trend; the client only renders it for "all".
+      env.DB.prepare(`SELECT substr(discovered,1,7) AS k, COUNT(*) AS c FROM ransomware_victims WHERE discovered != '' GROUP BY k ORDER BY k ASC`).all(),
+    ]);
+    statTotal  = totalRow?.c ?? 0;
+    byGroup    = (groupRows.results ?? []).map(r => [(r as {k:string}).k || "Unknown", Number((r as {c:number}).c)] as [string, number]);
+    byActivity = (actRows.results ?? []).map(r => [(r as {k:string}).k || "Unknown", Number((r as {c:number}).c)] as [string, number]);
+    byMonth    = (monthRows.results ?? []).map(r => [(r as {k:string}).k, Number((r as {c:number}).c)] as [string, number]).slice(-12);
+
+    // Does the table hold ANY rows (regardless of the active filter)? This
+    // separates "no data fetched yet" from "no data in this range".
+    const anyRow = await env.DB.prepare("SELECT 1 FROM ransomware_victims LIMIT 1").first();
+    hasAnyData = !!anyRow;
+
+    // Country list with counts for the filter UI. Respects the RANGE
+    // filter (so the detail list shows this period's counts) but ignores
+    // the country/group filter — it's the selector itself. JP variants
+    // fold into "JP".
+    const clWhere: string[] = [];
+    const clBinds: unknown[] = [];
+    if (rangeCutoff) { clWhere.push("datetime(discovered) >= datetime(?)"); clBinds.push(rangeCutoff); }
     const countryRows = await env.DB.prepare(
       `SELECT country, COUNT(*) AS cnt FROM ransomware_victims
+       ${clWhere.length ? "WHERE " + clWhere.join(" AND ") : ""}
        GROUP BY country ORDER BY cnt DESC`
-    ).all();
+    ).bind(...clBinds).all();
     const countryMap = new Map<string, number>();
     for (const row of countryRows.results ?? []) {
       const r = row as { country: string; cnt: number };
@@ -278,7 +311,11 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         countries={countries}
         totalCount={victims.length}
         latestDate={latestFetched}
-        hasCache={victims.length > 0}
+        hasCache={hasAnyData}
+        statTotal={statTotal}
+        byGroup={byGroup}
+        byActivity={byActivity}
+        byMonth={byMonth}
         lang={lang}
         selectedGroup={sp.group ?? ""}
         selectedCountry={countrySel}

@@ -7,10 +7,11 @@
 // that generated handler and add a `scheduled` handler, per the OpenNext
 // "custom worker" pattern.
 //
-// The scheduled handler drives the same /api/fetch-news route the manual
-// refresh button uses (which also chains embedding via drainEmbeddings
-// and records last_fetch_at), so manual and automatic fetches share one
-// code path.
+// The scheduled handler drives the same routes the manual refresh uses:
+// fetch-news (records last_fetch_at), ransomware-fetch, then loops
+// embed-missing until the embedding backlog is drained. All are fast now
+// (batched DB + batched Workers AI), so the whole pass completes well
+// within the scheduled handler's budget.
 //
 // Cadence: cron fires every 2 hours, but we SKIP if the last fetch was
 // under 2 hours ago — so a manual refresh resets the clock and no
@@ -91,6 +92,27 @@ async function runScheduledFetch(env: Env): Promise<void> {
       console.log(`[cron] ransomware-fetch → ${rw.status} ${rwBody.slice(0, 200)}`);
     } catch (e) {
       console.error("[cron] ransomware-fetch failed:", e);
+    }
+
+    // 5. Embed the newly-ingested articles. embed-missing processes up to
+    //    ~200/run in a few seconds (batched Workers AI calls) and returns
+    //    `remaining`, so we loop until the backlog is drained. Bounded by
+    //    a round cap so a persistent failure can't spin forever. Each
+    //    response body IS read (unlike the old fire-and-forget) so there
+    //    is no stalled-response/deadlock.
+    try {
+      const MAX_ROUNDS = 20;   // 20 × ~200 = up to 4000 articles/cron
+      let totalEmbedded = 0;
+      for (let i = 0; i < MAX_ROUNDS; i++) {
+        const em = await fetch(`${SELF_ORIGIN}/api/embed-missing`, { method: "POST" });
+        if (!em.ok) { console.warn(`[cron] embed-missing → ${em.status}`); break; }
+        const data = await em.json() as { embedded?: number; remaining?: number };
+        totalEmbedded += data.embedded ?? 0;
+        if ((data.remaining ?? 0) <= 0) break;
+      }
+      console.log(`[cron] embed-missing done → embedded ${totalEmbedded}`);
+    } catch (e) {
+      console.error("[cron] embed-missing failed:", e);
     }
   } catch (e) {
     console.error("[cron] scheduled fetch failed:", e);
