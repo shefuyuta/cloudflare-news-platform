@@ -1,7 +1,7 @@
 // components/ransomware/RansomwareClient.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ExternalLink, RefreshCw, Shield, ChevronRight } from "@/components/ui/Icon";
 import type { VictimWithNews } from "@/lib/ransomware";
@@ -57,6 +57,7 @@ export function RansomwareClient({
   const [fetchResult, setFetchResult] = useState<string | null>(null);
   const [openId,      setOpenId]      = useState<string | null>(null);
   const [showCountries, setShowCountries] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const ja = lang === "ja";
 
@@ -89,14 +90,14 @@ export function RansomwareClient({
     const sp = new URLSearchParams(params);
     if (g) sp.set("group", g); else sp.delete("group");
     sp.delete("page");
-    router.push(`${pathname}?${sp.toString()}`);
+    startTransition(() => router.push(`${pathname}?${sp.toString()}`));
   }
 
   function setCountry(c: string) {
     const sp = new URLSearchParams(params);
     if (c && c !== "all") sp.set("country", c); else sp.delete("country");
     sp.delete("page");
-    router.push(`${pathname}?${sp.toString()}`);
+    startTransition(() => router.push(`${pathname}?${sp.toString()}`));
   }
 
   function setRange(r: string) {
@@ -104,20 +105,20 @@ export function RansomwareClient({
     // "today" is the default; keep the URL clean by omitting it.
     if (r && r !== "today") sp.set("range", r); else sp.delete("range");
     sp.delete("page"); // reset to page 1 when the filter changes
-    router.push(`${pathname}?${sp.toString()}`);
+    startTransition(() => router.push(`${pathname}?${sp.toString()}`));
   }
 
   function setPer(n: number) {
     const sp = new URLSearchParams(params);
     if (n !== 20) sp.set("per", String(n)); else sp.delete("per");
     sp.delete("page"); // reset to page 1 when page size changes
-    router.push(`${pathname}?${sp.toString()}`);
+    startTransition(() => router.push(`${pathname}?${sp.toString()}`));
   }
 
   function goToPage(p: number) {
     const sp = new URLSearchParams(params);
     if (p > 1) sp.set("page", String(p)); else sp.delete("page");
-    router.push(`${pathname}?${sp.toString()}`);
+    startTransition(() => router.push(`${pathname}?${sp.toString()}`));
   }
 
   return (
@@ -191,7 +192,14 @@ export function RansomwareClient({
       )}
 
       {hasCache && (
-        <>
+        <div className="relative">
+          {/* Loading indicator during filter/page navigation */}
+          {isPending && (
+            <div className="absolute -top-1 left-0 right-0 z-20 h-0.5 overflow-hidden rounded">
+              <div className="h-full w-1/3 bg-[var(--accent-cyber)] animate-[loadingbar_1s_ease-in-out_infinite]" />
+            </div>
+          )}
+          <div className={isPending ? "opacity-60 transition-opacity pointer-events-none" : "transition-opacity"}>
           {/* ── Time-range filter (drives map, stats, graphs, counts) ───── */}
           <div className="flex flex-wrap items-center gap-1.5 mb-4">
             <span className="text-[11px] text-[var(--ink-3)] mr-1">
@@ -227,6 +235,22 @@ export function RansomwareClient({
                 selectedCountry={selectedCountry}
                 onSelectCountry={setCountry}
               />
+            </div>
+          )}
+          {/* When a specific country is selected the global map is hidden. */}
+          {selectedCountry && selectedCountry !== "all" && (
+            <div className="mb-6 flex items-center justify-between gap-2 px-3 py-2 border hairline rounded-lg text-[11px] text-[var(--ink-3)] bg-[var(--line-soft)]/40">
+              <span>
+                {ja
+                  ? `「${selectedCountry === "JP" ? "日本" : selectedCountry}」で絞り込み中のため世界地図は非表示です。`
+                  : `World map is hidden while filtered to "${selectedCountry}".`}
+              </span>
+              <button
+                onClick={() => setCountry("all")}
+                className="shrink-0 underline hover:text-[var(--ink)] transition-colors"
+              >
+                {ja ? "全世界に戻す" : "Back to global"}
+              </button>
             </div>
           )}
 
@@ -439,7 +463,8 @@ export function RansomwareClient({
               </div>
             );
           })()}
-        </>
+          </div>
+        </div>
       )}
 
       {/* ── Source attribution ────────────────────────────────────────── */}

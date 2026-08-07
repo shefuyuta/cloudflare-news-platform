@@ -96,15 +96,31 @@ export function WorldMap({ counts, lang, onSelectCountry, selectedCountry }: Pro
         )}
       </div>
 
-      {/* Top countries legend */}
+      {/* Continuous colour scale + top countries */}
       {topN.length > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-[var(--ink-3)]">
-          {topN.map(([iso, c]) => (
-            <span key={iso} className="inline-flex items-center gap-1.5">
-              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: fill(iso) }} />
-              {iso} · {c}
+        <div className="mt-3 space-y-2">
+          {/* Gradient scale: faint (few) → deep (many) */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-[var(--ink-4)]">{ja ? "少" : "Low"}</span>
+            <div
+              className="flex-1 h-2 rounded-sm"
+              style={{
+                background: `linear-gradient(to right, hsl(0 72% 92%), hsl(0 72% 64%), hsl(0 72% 37%))`,
+              }}
+            />
+            <span className="text-[10px] text-[var(--ink-4)]">
+              {ja ? `多 (最大${max})` : `High (max ${max})`}
             </span>
-          ))}
+          </div>
+          {/* Top countries */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--ink-3)]">
+            {topN.map(([iso, c]) => (
+              <span key={iso} className="inline-flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: fill(iso) }} />
+                {iso} · {c}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </section>
