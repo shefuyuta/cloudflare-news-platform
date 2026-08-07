@@ -33,7 +33,7 @@ type RawNews = {
 export default async function RansomwarePage({
   searchParams,
 }: {
-  searchParams: Promise<{ group?: string; country?: string; range?: string }>;
+  searchParams: Promise<{ group?: string; country?: string; range?: string; page?: string; per?: string }>;
 }) {
   const sp          = await searchParams;
   const env         = (await getCloudflareContext()).env as unknown as Env;
@@ -43,6 +43,12 @@ export default async function RansomwarePage({
   // Country filter: "" or "all" = every country; "JP" = Japan; else the
   // given ISO code. Japan matches the historical JP/Japan/日本 variants.
   const countrySel  = (sp.country ?? "").trim();
+
+  // Pagination. per ∈ {20,50,100} (default 20); page is 1-based.
+  const perRaw  = parseInt(sp.per ?? "20", 10);
+  const perPage = [20, 50, 100].includes(perRaw) ? perRaw : 20;
+  const pageRaw = parseInt(sp.page ?? "1", 10);
+  const page    = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
 
   // Time range on `discovered`. Default 24h ("today"). Values:
   // today = last 24h, week = last 7d, month = last 30d, all = no limit.
@@ -101,8 +107,8 @@ export default async function RansomwarePage({
               post_url, discovered, published
        FROM ransomware_victims
        ${whereSql}
-       ORDER BY discovered DESC, published DESC LIMIT 200`
-    ).bind(...binds).all();
+       ORDER BY discovered DESC, published DESC LIMIT ? OFFSET ?`
+    ).bind(...binds, perPage, (page - 1) * perPage).all();
 
     const rawVictims = (victimRows.results ?? []) as RawVictim[];
 
@@ -321,6 +327,8 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         selectedCountry={countrySel}
         selectedRange={rangeSel}
         mapCounts={mapCounts}
+        page={page}
+        perPage={perPage}
       />
     </Suspense>
   );

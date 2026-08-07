@@ -42,10 +42,12 @@ interface Props {
   selectedCountry: string;
   selectedRange: string;
   mapCounts: Record<string, number>;
+  page: number;
+  perPage: number;
 }
 
 export function RansomwareClient({
-  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, lang, selectedGroup, selectedCountry, selectedRange, mapCounts,
+  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, lang, selectedGroup, selectedCountry, selectedRange, mapCounts, page, perPage,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -86,12 +88,14 @@ export function RansomwareClient({
   function setGroup(g: string) {
     const sp = new URLSearchParams(params);
     if (g) sp.set("group", g); else sp.delete("group");
+    sp.delete("page");
     router.push(`${pathname}?${sp.toString()}`);
   }
 
   function setCountry(c: string) {
     const sp = new URLSearchParams(params);
     if (c && c !== "all") sp.set("country", c); else sp.delete("country");
+    sp.delete("page");
     router.push(`${pathname}?${sp.toString()}`);
   }
 
@@ -99,6 +103,20 @@ export function RansomwareClient({
     const sp = new URLSearchParams(params);
     // "today" is the default; keep the URL clean by omitting it.
     if (r && r !== "today") sp.set("range", r); else sp.delete("range");
+    sp.delete("page"); // reset to page 1 when the filter changes
+    router.push(`${pathname}?${sp.toString()}`);
+  }
+
+  function setPer(n: number) {
+    const sp = new URLSearchParams(params);
+    if (n !== 20) sp.set("per", String(n)); else sp.delete("per");
+    sp.delete("page"); // reset to page 1 when page size changes
+    router.push(`${pathname}?${sp.toString()}`);
+  }
+
+  function goToPage(p: number) {
+    const sp = new URLSearchParams(params);
+    if (p > 1) sp.set("page", String(p)); else sp.delete("page");
     router.push(`${pathname}?${sp.toString()}`);
   }
 
@@ -114,8 +132,8 @@ export function RansomwareClient({
             </h1>
             <p className="text-sm text-[var(--ink-3)] mt-2">
               {ja
-                ? `ransomware.live より取得。${statTotal.toLocaleString()}件中 ${Math.min(totalCount, statTotal).toLocaleString()}件を表示。`
-                : `Sourced from ransomware.live. Showing ${Math.min(totalCount, statTotal).toLocaleString()} of ${statTotal.toLocaleString()}.`}
+                ? `ransomware.live より取得。全${statTotal.toLocaleString()}件。`
+                : `Sourced from ransomware.live. ${statTotal.toLocaleString()} total.`}
               <div className="flex flex-col gap-0.5 mt-1">
                 {latestDate && (
                   <span className="text-[11px] text-[var(--ink-4)]">
@@ -330,6 +348,34 @@ export function RansomwareClient({
             </div>
           )}
 
+          {/* ── List controls: count summary + per-page selector ───────── */}
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <span className="text-[11px] text-[var(--ink-3)]">
+              {statTotal > 0 ? (
+                ja
+                  ? `${statTotal.toLocaleString()}件中 ${((page - 1) * perPage + 1).toLocaleString()}–${Math.min(page * perPage, statTotal).toLocaleString()}件を表示`
+                  : `${((page - 1) * perPage + 1).toLocaleString()}–${Math.min(page * perPage, statTotal).toLocaleString()} of ${statTotal.toLocaleString()}`
+              ) : ""}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-[var(--ink-4)]">{ja ? "表示件数:" : "Per page:"}</span>
+              {[20, 50, 100].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setPer(n)}
+                  className={[
+                    "px-2 py-0.5 text-[11px] font-medium rounded border transition-colors",
+                    perPage === n
+                      ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
+                      : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
+                  ].join(" ")}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* ── Victim list ───────────────────────────────────────────── */}
           <div className="space-y-0 divide-y divide-[var(--line)]">
             {victims.map(v => (
@@ -342,6 +388,57 @@ export function RansomwareClient({
               />
             ))}
           </div>
+
+          {/* ── Pagination ────────────────────────────────────────────── */}
+          {(() => {
+            const totalPages = Math.max(1, Math.ceil(statTotal / perPage));
+            if (totalPages <= 1) return null;
+            // Compact page window around the current page.
+            const windowSize = 5;
+            let start = Math.max(1, page - Math.floor(windowSize / 2));
+            const end = Math.min(totalPages, start + windowSize - 1);
+            start = Math.max(1, end - windowSize + 1);
+            const pages = [];
+            for (let p = start; p <= end; p++) pages.push(p);
+            const btn = "px-2.5 py-1 text-[11px] font-medium rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed";
+            const idle = "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]";
+            return (
+              <div className="flex items-center justify-center gap-1 mt-4 flex-wrap">
+                <button className={`${btn} ${idle}`} onClick={() => goToPage(page - 1)} disabled={page <= 1}>
+                  {ja ? "前へ" : "Prev"}
+                </button>
+                {start > 1 && (
+                  <>
+                    <button className={`${btn} ${idle}`} onClick={() => goToPage(1)}>1</button>
+                    {start > 2 && <span className="px-1 text-[var(--ink-4)]">…</span>}
+                  </>
+                )}
+                {pages.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => goToPage(p)}
+                    className={[
+                      btn,
+                      p === page
+                        ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
+                        : idle,
+                    ].join(" ")}
+                  >
+                    {p}
+                  </button>
+                ))}
+                {end < totalPages && (
+                  <>
+                    {end < totalPages - 1 && <span className="px-1 text-[var(--ink-4)]">…</span>}
+                    <button className={`${btn} ${idle}`} onClick={() => goToPage(totalPages)}>{totalPages}</button>
+                  </>
+                )}
+                <button className={`${btn} ${idle}`} onClick={() => goToPage(page + 1)} disabled={page >= totalPages}>
+                  {ja ? "次へ" : "Next"}
+                </button>
+              </div>
+            );
+          })()}
         </>
       )}
 
