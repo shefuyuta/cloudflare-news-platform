@@ -14,13 +14,34 @@ export interface ParsedItem {
 /** Parse an RSS 2.0, Atom, or RDF feed body into a list of items. */
 export function parseFeed(xml: string): ParsedItem[] {
   // Detect Atom vs RSS vs RDF
+  let items: ParsedItem[];
   if (xml.includes("<feed") && xml.includes("xmlns=\"http://www.w3.org/2005/Atom\"")) {
-    return parseAtom(xml);
+    items = parseAtom(xml);
+  } else if (xml.includes("<rdf:RDF") || xml.includes("xmlns:rdf=")) {
+    items = parseRDF(xml);
+  } else {
+    items = parseRSS(xml);
   }
-  if (xml.includes("<rdf:RDF") || xml.includes("xmlns:rdf=")) {
-    return parseRDF(xml);
-  }
-  return parseRSS(xml);
+  // Drop feed-index / "table of contents" pseudo-items. Some sources
+  // (e.g. MainichiJP) emit section-index headings as normal RSS items —
+  // "■■ 主要ニュース ■■■■◇TOP◇■■" — which carry no article content and
+  // are meaningless in the UI. Filtering here (at the dispatcher) covers
+  // every feed format, and keeps them out of storage, embedding and
+  // search alike, matching where CSS noise is already stripped.
+  return items.filter(it => !isIndexHeading(it.title));
+}
+
+/**
+ * True for feed-index / section-heading pseudo-items that aren't real
+ * articles. Matches a "TOP" surrounded by full-width decoration glyphs
+ * (■◇◆●▽▼), the pattern MainichiJP uses for its section-index rows
+ * (e.g. "◇TOP◇"). Deliberately narrow: a bare "TOP", or a "◇" elsewhere
+ * in an ordinary headline, does NOT match — only TOP flanked by those
+ * decoration glyphs — so genuine articles are never dropped.
+ */
+export function isIndexHeading(title: string): boolean {
+  if (!title) return false;
+  return /[■◇◆●▽▼]\s*TOP\s*[■◇◆●▽▼]/.test(title);
 }
 
 function parseRSS(xml: string): ParsedItem[] {
