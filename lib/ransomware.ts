@@ -3,17 +3,21 @@
 // Field names verified against actual API response (2025-05).
 
 export interface RansomwareVictim {
-  // Unique identifier — extracted from post_url UUID
-  // (API doesn't return a top-level id field)
-  post_url:    string;
-  post_title:  string;    // victim / organization name
-  group_name:  string;    // threat actor group
+  // ransomware.live API v2 shape. The v1 endpoint (post_title/group_name/
+  // post_url/published) was retired — v1 URLs now 301-redirect to /v1/ and
+  // the bare host serves an HTML "Redirecting…" page, so the old code's
+  // res.json() threw and every cron ransomware fetch silently failed.
+  // v2 renames most fields; see the mapping in lib/pipeline/ransomware-fetch.ts.
+  victim:      string;    // was post_title — victim / organization name
+  group:       string;    // was group_name — threat actor group
   country:     string;    // ISO 3166-1 alpha-2 e.g. "JP"
   activity:    string;    // industry / sector
-  website:     string;
+  domain:      string;    // was website
   description: string;
-  discovered:  string;    // ISO datetime
-  published:   string;    // ISO datetime
+  discovered:  string;    // ISO datetime (unchanged)
+  attackdate:  string;    // was published — ISO datetime
+  claim_url:   string;    // was post_url — onion leak-site URL (may be "")
+  url:         string;    // NEW — public ransomware.live page, always unique
   screenshot?: string;
 }
 
@@ -39,21 +43,29 @@ export interface VictimWithNews {
   }[];
 }
 
-const BASE_URL = "https://api.ransomware.live";
+// v2 lives under /v2. We hit it directly rather than the bare host, whose
+// only purpose now is to 301-redirect to a versioned path.
+const BASE_URL = "https://api.ransomware.live/v2";
 
-/** Extract a unique key from post_url.
- *  Tries: ?uuid= param → path UUID → hash fragment → full URL
+/**
+ * Unique key for a victim.
+ *
+ * v2 provides a `url` field — the public ransomware.live page, e.g.
+ * "https://www.ransomware.live/id/TUVESUNPU0BicmF2b3g=" — whose base64
+ * tail encodes "victim@group" and is therefore always present and unique.
+ * The old approach keyed off the onion `post_url`/`claim_url`, but in v2
+ * claim_url is empty for many victims (it would collapse them all to one
+ * empty id), so we key off `url` instead.
+ *
+ * NOTE: this changes the id scheme, so existing rows (keyed the old way)
+ * won't match new upserts. Existing victims are re-fetched fresh; a one-time
+ * cleanup of the old rows is applied alongside this change.
  */
-export function extractUid(post_url: string): string {
-  if (!post_url) return "";
-  // Pattern 1: ?uuid=xxxxxxxx-xxxx-...
-  const qm = post_url.match(/[?&]uuid=([0-9a-f-]{36})/i);
-  if (qm) return qm[1];
-  // Pattern 2: /posts/xxxxxxxx-xxxx-... (path segment UUID)
-  const pm = post_url.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[/?#]|$)/i);
-  if (pm) return pm[1];
-  // Pattern 3: #fragment or full URL as fallback (still unique)
-  return post_url;
+export function extractUid(v: Pick<RansomwareVictim, "url" | "claim_url">): string {
+  if (v.url) return v.url;
+  // Fallbacks if `url` is somehow missing: onion claim URL, else "".
+  if (v.claim_url) return v.claim_url;
+  return "";
 }
 
 export async function fetchRecentVictims(): Promise<RansomwareVictim[]> {

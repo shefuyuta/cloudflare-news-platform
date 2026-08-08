@@ -82,7 +82,7 @@ export async function runRansomwareFetch(env: Env, months = 6): Promise<Ransomwa
   // ── Deduplicate (all countries — global collection) ────────────────
   const seen  = new Set<string>();
   const victims = allVictims.filter(v => {
-    const uid = extractUid(v.post_url);
+    const uid = extractUid(v);
     if (!uid || seen.has(uid)) return false;
     seen.add(uid);
     return true;
@@ -97,7 +97,7 @@ export async function runRansomwareFetch(env: Env, months = 6): Promise<Ransomwa
   // little value for foreign org names), so we only translate Japanese
   // victims. Non-JP victims keep their English name.
   const jpVictims   = victims.filter(v => isJapan(v.country));
-  const uniqueNames = [...new Set(jpVictims.map(v => v.post_title).filter(Boolean))];
+  const uniqueNames = [...new Set(jpVictims.map(v => v.victim).filter(Boolean))];
 
   // Translate in batches of 10 to stay within token limits
   const jaMap: Record<string, string> = {};
@@ -114,34 +114,45 @@ export async function runRansomwareFetch(env: Env, months = 6): Promise<Ransomwa
   const fetchedAt = now.toISOString();
   let upserted = 0;
 
+  // Column mapping (existing column ← v2 field), keeping existing column
+  // semantics so the ransomware page reads unchanged. Only public_url is new.
+  //   id         ← v2 url    (public page, always unique — the new id source)
+  //   victim     ← v2 victim
+  //   group_name ← v2 group
+  //   website    ← v2 domain
+  //   post_url   ← v2 claim_url (onion leak URL, as before; may be "")
+  //   published  ← v2 attackdate
+  //   public_url ← v2 url    (public https page, for UI linking)
   for (const v of victims) {
-    const uid   = extractUid(v.post_url);
-    const jaName = jaMap[v.post_title] ?? null;
+    const uid    = extractUid(v);
+    const jaName = jaMap[v.victim] ?? null;
     try {
       await env.DB.prepare(`
         INSERT INTO ransomware_victims
           (id, victim, victim_ja, group_name, country, activity, website,
-           description, post_url, discovered, published, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           description, post_url, public_url, discovered, published, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           victim=excluded.victim,
           victim_ja=COALESCE(excluded.victim_ja, victim_ja),
           group_name=excluded.group_name,
           country=excluded.country,
           description=excluded.description,
+          public_url=excluded.public_url,
           fetched_at=excluded.fetched_at
       `).bind(
         uid,
-        v.post_title  ?? "",
+        v.victim      ?? "",
         jaName,
-        v.group_name  ?? "",
+        v.group       ?? "",
         v.country     ?? "",
         v.activity    ?? "",
-        v.website     ?? "",
+        v.domain      ?? "",
         v.description ?? "",
-        v.post_url    ?? "",
+        v.claim_url   ?? "",
+        v.url         ?? "",
         v.discovered  ?? "",
-        v.published   ?? "",
+        v.attackdate  ?? "",
         fetchedAt,
       ).run();
       upserted++;

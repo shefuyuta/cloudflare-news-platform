@@ -17,6 +17,7 @@ type RawVictim = {
   website: string;
   description: string;
   post_url: string;
+  public_url: string;
   discovered: string;
   published: string;
   country: string;
@@ -108,7 +109,7 @@ export default async function RansomwarePage({
 
     const victimRows = await env.DB.prepare(
       `SELECT id, victim, victim_ja, group_name, activity, website, description,
-              post_url, discovered, published, country
+              post_url, public_url, discovered, published, country
        FROM ransomware_victims
        ${whereSql}
        ORDER BY discovered DESC, published DESC LIMIT ? OFFSET ?`
