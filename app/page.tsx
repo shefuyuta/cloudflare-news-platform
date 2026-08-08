@@ -1,4 +1,4 @@
-// app/page.tsx — Latest: past 2 hours only
+// app/page.tsx — Latest: past 12 hours only
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
@@ -15,7 +15,7 @@ export default async function HomePage({ searchParams }: {
   const cookieStore = await cookies();
   const lang = (cookieStore.get(LANG_COOKIE)?.value as Lang) ?? DEFAULT_LANG;
   const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
-  const items = await listArticles(env, { q: sp.q, tags, hoursAgo: 2, limit: 200 });
+  const items = await listArticles(env, { q: sp.q, tags, hoursAgo: 12, limit: 200 });
 
   return (
     <>

@@ -27,8 +27,8 @@ const T = {
 
   // ---- Page headings ------------------------------------------------
   todaysEdition:    { en: "The latest News", ja: "最新のニュース" },
-  todaysEditionSub: { en: "Latest from across General, Cybersecurity, and AI desks.",
-                      ja: "一般・サイバーセキュリティ・AIの最新記事。" },
+  todaysEditionSub: { en: "Latest from across General, Cybersecurity, and AI desks — stories from the past 12 hours.",
+                      ja: "一般・サイバーセキュリティ・AIの最新記事（過去12時間以内）。" },
   desk:             { en: "Section",       ja: "セクション" },
   dashboardTitle:   { en: "Dashboard",     ja: "ダッシュボード" },
   dashboardSub:     { en: "News overview and statistics", ja: "ニュースの俯瞰と統計" },

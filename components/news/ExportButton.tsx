@@ -6,7 +6,44 @@ import { useSearchParams, usePathname } from "next/navigation";
 import { useLang } from "@/components/LangProvider";
 import { Download, Table2, FileText } from "@/components/ui/Icon";
 
-export function ExportButton() {
+/**
+ * Minimal but correct RFC-4180-ish CSV parser. The old PDF path did
+ * text.split("\n").map(r => r.split(",")), which breaks whenever a field
+ * contains a comma or newline (titles and tags routinely do) — those get
+ * quoted by the server's csvEscape, so a naive split shifts every later
+ * column. This walks the text char by char, honoring "quotes" and ""
+ * escapes, so quoted commas/newlines stay inside their field.
+ */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }  // escaped quote
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field); field = "";
+    } else if (c === "\n") {
+      row.push(field); field = "";
+      rows.push(row); row = [];
+    } else if (c === "\r") {
+      // ignore — handles CRLF
+    } else field += c;
+  }
+  // flush trailing field/row
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.length && !(r.length === 1 && r[0] === ""));
+}
+
+export function ExportButton({ articleIds }: { articleIds?: string[] } = {}) {
   const { lang, t } = useLang();
   const params   = useSearchParams();
   const pathname = usePathname();
@@ -15,6 +52,13 @@ export function ExportButton() {
 
   function buildExportUrl() {
     const sp = new URLSearchParams();
+    // If the caller supplied an explicit id list (search page, whose results
+    // come from semantic search and can't be reproduced from `q`), export
+    // exactly those articles. Otherwise derive the query from the URL.
+    if (articleIds && articleIds.length) {
+      for (const id of articleIds) sp.append("id", id);
+      return `/api/export?${sp.toString()}`;
+    }
     const category =
       pathname.startsWith("/general")       ? "general" :
       pathname.startsWith("/cybersecurity") ? "cybersecurity" :
@@ -44,8 +88,9 @@ export function ExportButton() {
     try {
       const res  = await fetch(buildExportUrl());
       const text = await res.text();
-      const rows = text.split("\n").map(r => r.split(","));
+      const rows = parseCsv(text);
       const [header, ...data] = rows;
+      const esc = (s: string) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>NewsHub Export</title>
 <style>body{font-family:-apple-system,sans-serif;font-size:11px;padding:24px}
 table{width:100%;border-collapse:collapse;font-size:10px}
@@ -53,8 +98,8 @@ th{background:#f4f4f5;text-align:left;padding:6px 8px;border:1px solid #e4e4e7;f
 td{padding:5px 8px;border:1px solid #e4e4e7;vertical-align:top;max-width:200px;overflow:hidden}
 tr:nth-child(even){background:#fafaf9}</style></head><body>
 <h1 style="font-size:18px;border-bottom:1px solid #e4e4e7;padding-bottom:8px">NewsHub — ${new Date().toLocaleDateString()}</h1>
-<table><thead><tr>${(header ?? []).map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>
-${data.slice(0, 200).map(row => `<tr>${row.map(cell => `<td>${cell?.replace(/""/g, '"').replace(/^"|"$/g, '') ?? ''}</td>`).join("")}</tr>`).join("")}
+<table><thead><tr>${(header ?? []).map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>
+${data.slice(0, 200).map(row => `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join("")}</tr>`).join("")}
 </tbody></table></body></html>`;
       const win = window.open("", "_blank");
       if (win) { win.document.write(htmlContent); win.document.close(); win.print(); }

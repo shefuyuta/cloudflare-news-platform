@@ -87,7 +87,7 @@ export function NewsList({ articles, activeTags = [] }: {
             ))}
           </div>
         </div>
-        <ExportButton />
+        <ExportButton articleIds={articles.map(a => a.id)} />
       </div>
 
       {/* ── Keyword alert banner ─────────────────────────────────────── */}
