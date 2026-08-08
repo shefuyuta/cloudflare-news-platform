@@ -55,29 +55,38 @@ async function runScheduledFetch(env: Env): Promise<void> {
       lastMs = 0; // If we can't read it, err on the side of fetching.
     }
 
-    // 2. Skip if the last fetch was under the minimum gap ago.
+    // 2. Decide whether to run the FETCH pipelines. We skip them if the
+    //    last fetch was under the minimum gap ago (a manual refresh also
+    //    writes last_fetch_at, so this suppresses a redundant auto-fetch).
+    //    NOTE: embed-missing (step 5) runs REGARDLESS of this skip — it is
+    //    idempotent (only touches vector_id IS NULL rows) and near-free when
+    //    there's nothing to embed, so running it every cron drains any
+    //    backlog roughly twice as fast without waiting on the fetch cadence.
     const sinceMs = Date.now() - lastMs;
-    if (lastMs && sinceMs < MIN_GAP_MS) {
-      console.log(`[cron] Skip: last fetch ${Math.round(sinceMs / 60000)}m ago (< 120m).`);
-      return;
-    }
+    const skipFetch = Boolean(lastMs) && sinceMs < MIN_GAP_MS;
 
-    // 3. Run the fetch pipeline DIRECTLY (no self-fetch). This writes
-    //    last_fetch_at and ingests all sources in this same invocation.
-    console.log("[cron] Running fetch pipeline directly…");
-    const result = await runFetchNews(env);
-    console.log(`[cron] fetch-news -> ingested ${result.ingested}, errors ${result.errors}, ${result.elapsed}`);
+    if (skipFetch) {
+      console.log(`[cron] Skip fetch: last fetch ${Math.round(sinceMs / 60000)}m ago (< 120m). Embed still runs.`);
+    } else {
+      // 3. Run the fetch pipeline DIRECTLY (no self-fetch). This writes
+      //    last_fetch_at and ingests all sources in this same invocation.
+      console.log("[cron] Running fetch pipeline directly…");
+      const result = await runFetchNews(env);
+      console.log(`[cron] fetch-news -> ingested ${result.ingested}, errors ${result.errors}, ${result.elapsed}`);
 
-    // 4. Refresh the ransomware victim list DIRECTLY (no self-fetch).
-    try {
-      const rw = await runRansomwareFetch(env, 1);
-      console.log(`[cron] ransomware-fetch -> upserted ${rw.upserted}, total ${rw.total}, scanned ${rw.scanned}`);
-    } catch (e) {
-      console.error("[cron] ransomware-fetch failed:", e);
+      // 4. Refresh the ransomware victim list DIRECTLY (no self-fetch).
+      try {
+        const rw = await runRansomwareFetch(env, 1);
+        console.log(`[cron] ransomware-fetch -> upserted ${rw.upserted}, total ${rw.total}, scanned ${rw.scanned}`);
+      } catch (e) {
+        console.error("[cron] ransomware-fetch failed:", e);
+      }
     }
 
     // 5. Drain the embedding backlog DIRECTLY (no self-fetch), looping
-    //    until nothing remains. Each call embeds up to MAX_PER_RUN.
+    //    until nothing remains. Runs EVERY cron (see note above). Each
+    //    call embeds up to MAX_PER_RUN; if there's nothing to do it returns
+    //    almost immediately with remaining=0.
     try {
       const MAX_ROUNDS = 20;
       let totalEmbedded = 0;

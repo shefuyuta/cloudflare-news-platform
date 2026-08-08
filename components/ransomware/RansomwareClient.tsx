@@ -569,15 +569,33 @@ function VictimRow({ victim: v, isOpen, onToggle, lang }: {
             <p className="text-sm text-[var(--ink-2)] leading-relaxed">{v.description}</p>
           )}
 
-          {/* Leak site link */}
-          {v.post_url && (
-            <div className="text-[11px]">
-              <span className="text-[var(--ink-4)] mr-2">{ja ? "リークサイト:" : "Leak site:"}</span>
-              <span className="font-mono text-[var(--ink-3)] bg-[var(--line-soft)] px-2 py-0.5 rounded text-[10px]">
-                {ja
-                  ? "⚠ ダークウェブ上のURLのため直接アクセス不可"
-                  : "⚠ Dark web URL — not directly accessible"}
-              </span>
+          {/* Detail links: public ransomware.live page (clickable) + onion leak URL (shown, not clickable) */}
+          {(v.publicUrl || v.post_url) && (
+            <div className="space-y-1.5">
+              {v.publicUrl && (
+                <a
+                  href={v.publicUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[11px] text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors"
+                >
+                  <ExternalLink size={12} strokeWidth={1.5} className="flex-shrink-0" />
+                  {ja ? "ransomware.live で詳細を見る" : "View on ransomware.live"}
+                </a>
+              )}
+              {v.post_url && (
+                <div className="text-[11px]">
+                  <span className="text-[var(--ink-4)] mr-2">{ja ? "リークサイト:" : "Leak site:"}</span>
+                  <span className="font-mono text-[var(--ink-3)] bg-[var(--line-soft)] px-2 py-0.5 rounded text-[10px] break-all select-all">
+                    {v.post_url}
+                  </span>
+                  <span className="block mt-0.5 text-[10px] text-[var(--ink-4)]">
+                    {ja
+                      ? "⚠ ダークウェブ(Tor)上のURLのため直接アクセス不可"
+                      : "⚠ Dark web (Tor) URL — not directly accessible"}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

@@ -264,6 +264,7 @@ export default async function RansomwarePage({
         website:      v.website,
         description:  v.description,
         post_url:     v.post_url,
+        publicUrl:    v.public_url,
         discovered:   v.discovered,
         discoveredFmt: fmtDate(v.discovered || v.published || "", lang),
         country:      (v.country ?? "").trim(),

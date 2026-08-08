@@ -41,19 +41,45 @@ export async function runFetchNews(env: Env): Promise<FetchNewsResult> {
   let ingested = 0;
   let errors = 0;
 
-  // Fetch all sources concurrently.
-  const results = await Promise.allSettled(
-    FEEDS.map(source => fetchSource(source, cutoff, seenUrls)),
+  // --- Phase 1: fetch every feed's XML concurrently (network-bound) ---
+  // We keep the network fan-out parallel so total wall time stays ~= the
+  // slowest single feed, not the sum of all feeds.
+  const rawResults = await Promise.allSettled(
+    FEEDS.map(source => fetchRawFeeds(source)),
   );
 
-  const allArticles: IngestArticle[] = [];
-  for (const r of results) {
+  // Collect fetched XML per source, preserving the FeedSource for phase 2.
+  const fetchedFeeds: { source: FeedSource; xmls: string[] }[] = [];
+  for (let i = 0; i < rawResults.length; i++) {
+    const r = rawResults[i];
     if (r.status === "fulfilled") {
-      allArticles.push(...r.value);
-      fetched += r.value.length;
+      fetchedFeeds.push({ source: FEEDS[i], xmls: r.value });
     } else {
       errors++;
     }
+  }
+
+  // --- Phase 2: parse + dedup + classify in PRIORITY ORDER (serial) ---
+  // The same article often appears in several feeds (e.g. an ITmedia
+  // security story is in both news_security.xml and news_bursts.xml). The
+  // shared seenUrls set means whichever feed is processed FIRST wins the
+  // article — its source name and category are the ones stored. Processing
+  // is CPU-bound and fast, so doing it serially in a fixed priority order
+  // (cybersecurity → ai → general) makes the winner deterministic and keeps
+  // security stories filed under a security source/category instead of
+  // landing in "general" by a race. Wall-time cost is small (no network).
+  const priority: Record<FeedSource["category"], number> = {
+    cybersecurity: 0,
+    ai: 1,
+    general: 2,
+  };
+  fetchedFeeds.sort((a, b) => priority[a.source.category] - priority[b.source.category]);
+
+  const allArticles: IngestArticle[] = [];
+  for (const { source, xmls } of fetchedFeeds) {
+    const arts = processFeedItems(source, xmls, cutoff, seenUrls);
+    allArticles.push(...arts);
+    fetched += arts.length;
   }
 
   allArticles.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
@@ -106,59 +132,76 @@ interface IngestArticle {
   publishedAt: string;
 }
 
-async function fetchSource(
-  source: FeedSource,
-  cutoff: Date,
-  seenUrls: Set<string>,
-): Promise<IngestArticle[]> {
-  const articles: IngestArticle[] = [];
-
+/**
+ * Phase 1: fetch a source's feed URLs and return the raw XML strings.
+ * Network only — no parsing/dedup, so all sources can run concurrently
+ * without the shared seenUrls ordering mattering.
+ */
+async function fetchRawFeeds(source: FeedSource): Promise<string[]> {
+  const xmls: string[] = [];
   for (const feedUrl of source.urls) {
     try {
       const resp = await fetch(feedUrl, { headers: FETCH_HEADERS });
       if (!resp.ok) continue;
-
-      const xml = await resp.text();
-      const items = parseFeed(xml);
-
-      for (const item of items) {
-        if (seenUrls.has(item.url)) continue;
-        seenUrls.add(item.url);
-
-        const pubDate = new Date(item.publishedAt);
-        if (pubDate < cutoff) continue;
-
-        const { category, crossLabels } = classifyCategoryMulti(source, item.title, item.summary);
-
-        const region = category === "general"
-          ? classifyRegion(source, item.title, item.summary)
-          : undefined;
-
-        const subLabels = category === "cybersecurity"
-          ? classifySubcategories(source, item.title, item.summary)
-          : [];
-        const subcategory = subLabels[0];
-
-        const tags = [...new Set([
-          ...extractTags(category, item.title, item.summary),
-          ...crossLabels,
-          ...subLabels.map(s => `sub:${s}`),
-        ])];
-
-        articles.push({
-          title: item.title,
-          url: item.url,
-          source: source.name,
-          category,
-          region,
-          subcategory,
-          tags,
-          summary: item.summary || undefined,
-          publishedAt: item.publishedAt,
-        });
-      }
+      xmls.push(await resp.text());
     } catch {
       // Skip failed feeds silently.
+    }
+  }
+  return xmls;
+}
+
+/**
+ * Phase 2: parse already-fetched XML, drop duplicates (first source to
+ * claim a URL wins — callers process in priority order), apply the cutoff,
+ * and classify. Pure CPU work; called serially so seenUrls is deterministic.
+ */
+function processFeedItems(
+  source: FeedSource,
+  xmls: string[],
+  cutoff: Date,
+  seenUrls: Set<string>,
+): IngestArticle[] {
+  const articles: IngestArticle[] = [];
+
+  for (const xml of xmls) {
+    const items = parseFeed(xml);
+
+    for (const item of items) {
+      if (seenUrls.has(item.url)) continue;
+      seenUrls.add(item.url);
+
+      const pubDate = new Date(item.publishedAt);
+      if (pubDate < cutoff) continue;
+
+      const { category, crossLabels } = classifyCategoryMulti(source, item.title, item.summary);
+
+      const region = category === "general"
+        ? classifyRegion(source, item.title, item.summary)
+        : undefined;
+
+      const subLabels = category === "cybersecurity"
+        ? classifySubcategories(source, item.title, item.summary)
+        : [];
+      const subcategory = subLabels[0];
+
+      const tags = [...new Set([
+        ...extractTags(category, item.title, item.summary),
+        ...crossLabels,
+        ...subLabels.map(s => `sub:${s}`),
+      ])];
+
+      articles.push({
+        title: item.title,
+        url: item.url,
+        source: source.name,
+        category,
+        region,
+        subcategory,
+        tags,
+        summary: item.summary || undefined,
+        publishedAt: item.publishedAt,
+      });
     }
   }
   return articles;

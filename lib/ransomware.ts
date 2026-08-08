@@ -30,7 +30,8 @@ export interface VictimWithNews {
   activity:     string;
   website:      string;
   description:  string;
-  post_url:     string;
+  post_url:     string;   // onion leak-site URL (not directly clickable)
+  publicUrl:    string;   // public ransomware.live page (https, clickable)
   discovered:   string;
   discoveredFmt: string;
   country:      string;   // raw country from ransomware.live ("" if unknown)
