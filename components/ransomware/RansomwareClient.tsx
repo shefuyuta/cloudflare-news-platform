@@ -331,7 +331,7 @@ export function RansomwareClient({
                         : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
                     ].join(" ")}
                   >
-                    {code} ({count})
+                    {code === "??" ? (lang === "ja" ? "国不明" : "Unknown") : code} ({count})
                   </button>
                 ))}
               </div>
@@ -520,6 +520,15 @@ function VictimRow({ victim: v, isOpen, onToggle, lang }: {
               style={{ background: color }}
             >
               {v.groupDisplay}
+            </span>
+            {/* Country tag (?? / 🌐 when unknown) */}
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-medium">
+              {(() => {
+                const c = (v.country || "").trim();
+                if (!c) return lang === "ja" ? "🌐 国不明" : "🌐 Unknown";
+                if (c === "Japan" || c === "日本") return "🇯🇵 JP";
+                return c;
+              })()}
             </span>
             {/* Industry */}
             {v.activity && (

@@ -6,13 +6,13 @@
 // only exports a `fetch` handler. To run scheduled (cron) work we wrap
 // that generated handler and add a `scheduled` handler.
 //
-// IMPORTANT: the scheduled handler calls the fetch pipeline DIRECTLY
-// (runFetchNews(env)) rather than self-fetching its own HTTP route. A
-// scheduled handler cannot wait for a self-request to complete — the
-// invocation context closes before the sub-request finishes, so the
-// route never really ran and last_fetch_at never updated from cron
-// (observed as ~2ms CPU time per cron event). Calling the pipeline
-// function directly keeps all the work inside this one invocation.
+// IMPORTANT: the scheduled handler calls each pipeline step DIRECTLY
+// (runFetchNews / runRansomwareFetch / runEmbedMissing) rather than
+// self-fetching its own HTTP routes. A scheduled handler cannot wait for
+// a self-request to complete — the invocation context closes before the
+// sub-request finishes, so the route never really ran (observed as ~2ms
+// CPU time per cron event). Calling the pipeline functions directly
+// keeps all the work inside this one invocation.
 //
 // Cadence: cron fires every 2 hours, but we SKIP if the last fetch was
 // under 2 hours ago — so a manual refresh resets the clock and no
@@ -22,11 +22,9 @@
 // @ts-expect-error `.open-next/worker.js` is generated at build time
 import { default as handler } from "./.open-next/worker.js";
 import { runFetchNews } from "./lib/pipeline/fetch-news";
+import { runRansomwareFetch } from "./lib/pipeline/ransomware-fetch";
+import { runEmbedMissing } from "./lib/pipeline/embed-missing";
 import type { Env } from "./lib/types";
-
-// Secondary steps are still self-fetched (not yet extracted to shared
-// modules). The critical last_fetch_at write lives in runFetchNews.
-const SELF_ORIGIN = "https://cloudflare-news-platform.shefutech.workers.dev";
 
 // Minimum gap between fetches. A manual refresh writes last_fetch_at too,
 // so this also suppresses an automatic fetch right after a manual one.
@@ -70,28 +68,21 @@ async function runScheduledFetch(env: Env): Promise<void> {
     const result = await runFetchNews(env);
     console.log(`[cron] fetch-news -> ingested ${result.ingested}, errors ${result.errors}, ${result.elapsed}`);
 
-    // 4. Refresh the ransomware victim list (still via self-fetch for now).
+    // 4. Refresh the ransomware victim list DIRECTLY (no self-fetch).
     try {
-      const rw = await fetch(`${SELF_ORIGIN}/api/ransomware-fetch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ months: 1 }),
-      });
-      const rwBody = await rw.text();
-      console.log(`[cron] ransomware-fetch -> ${rw.status} ${rwBody.slice(0, 200)}`);
+      const rw = await runRansomwareFetch(env, 1);
+      console.log(`[cron] ransomware-fetch -> upserted ${rw.upserted}, total ${rw.total}, scanned ${rw.scanned}`);
     } catch (e) {
       console.error("[cron] ransomware-fetch failed:", e);
     }
 
-    // 5. Drain the embedding backlog (still via self-fetch for now). Each
-    //    response body is read so there's no stalled-response deadlock.
+    // 5. Drain the embedding backlog DIRECTLY (no self-fetch), looping
+    //    until nothing remains. Each call embeds up to MAX_PER_RUN.
     try {
       const MAX_ROUNDS = 20;
       let totalEmbedded = 0;
       for (let i = 0; i < MAX_ROUNDS; i++) {
-        const em = await fetch(`${SELF_ORIGIN}/api/embed-missing`, { method: "POST" });
-        if (!em.ok) { console.warn(`[cron] embed-missing -> ${em.status}`); break; }
-        const data = await em.json() as { embedded?: number; remaining?: number };
+        const data = await runEmbedMissing(env);
         totalEmbedded += data.embedded ?? 0;
         if ((data.remaining ?? 0) <= 0) break;
       }

@@ -29,6 +29,7 @@ export interface VictimWithNews {
   post_url:     string;
   discovered:   string;
   discoveredFmt: string;
+  country:      string;   // raw country from ransomware.live ("" if unknown)
   relatedNews: {
     id: string;
     title: string;

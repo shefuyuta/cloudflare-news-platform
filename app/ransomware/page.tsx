@@ -19,6 +19,7 @@ type RawVictim = {
   post_url: string;
   discovered: string;
   published: string;
+  country: string;
   fetched_at: string;
 };
 
@@ -85,6 +86,9 @@ export default async function RansomwarePage({
     if (countrySel && countrySel !== "all") {
       if (countrySel === "JP") {
         where.push("country IN ('JP', 'Japan', '日本')");
+      } else if (countrySel === "??") {
+        // Unknown-country bucket: empty string or NULL.
+        where.push("(country IS NULL OR TRIM(country) = '')");
       } else {
         where.push("country = ?");
         binds.push(countrySel);
@@ -104,7 +108,7 @@ export default async function RansomwarePage({
 
     const victimRows = await env.DB.prepare(
       `SELECT id, victim, victim_ja, group_name, activity, website, description,
-              post_url, discovered, published
+              post_url, discovered, published, country
        FROM ransomware_victims
        ${whereSql}
        ORDER BY discovered DESC, published DESC LIMIT ? OFFSET ?`
@@ -158,6 +162,8 @@ export default async function RansomwarePage({
     for (const row of countryRows.results ?? []) {
       const r = row as { country: string; cnt: number };
       const raw = (r.country ?? "").trim();
+      // Unknown/empty country → "??" bucket, kept as a real, filterable
+      // option (the filter query maps "??" back to empty/NULL).
       const code = (raw === "Japan" || raw === "日本") ? "JP" : (raw || "??");
       countryMap.set(code, (countryMap.get(code) ?? 0) + Number(r.cnt));
     }
@@ -259,6 +265,7 @@ export default async function RansomwarePage({
         post_url:     v.post_url,
         discovered:   v.discovered,
         discoveredFmt: fmtDate(v.discovered || v.published || "", lang),
+        country:      (v.country ?? "").trim(),
         relatedNews:  newsMap.get(String(v.id)) ?? [],
       }));
 
