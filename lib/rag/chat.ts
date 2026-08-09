@@ -3,7 +3,6 @@ import type { Env, NewsArticle, ChatRequest, Citation } from "../types";
 import { loadRuntimeConfig, type RagConfig } from "./config";
 import { retrieve, toCitations } from "./retriever";
 import { scrapeMultiple } from "./scraper";
-import { fetchNewsStats } from "./stats";
 
 /**
  * Run one chat turn:
@@ -18,11 +17,11 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
   try {
     const cfg = await loadRuntimeConfig(env);
 
-    // 1. Fetch stats (with keyword search) and retrieve articles in parallel
-    const [stats, hits] = await Promise.all([
-      fetchNewsStats(env, req.message),
-      retrieve(env, req.message, req.context, cfg),
-    ]);
+    // 1. Retrieve relevant articles from Vectorize (semantic search over all
+    //    history). No keyword-stats side-channel — it fed the model a "0
+    //    matches" count for the literal query string and made it answer
+    //    "0 articles found" even when semantic search returned sources.
+    const hits = await retrieve(env, req.message, req.context, cfg);
 
     const citations = toCitations(hits);
 
@@ -33,8 +32,8 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
 
     const liveContent = await scrapeMultiple(urlsToFetch, 3);
 
-    // 3. Build prompt with stats + live content
-    const systemMsg = buildSystemPrompt(cfg, stats, hits.map(h => ({
+    // 3. Build prompt with live content
+    const systemMsg = buildSystemPrompt(cfg, hits.map(h => ({
       article: h.article,
       text: h.chunkText,
       liveContent: liveContent.get(h.article.url) ?? null,
@@ -73,7 +72,6 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
 
 function buildSystemPrompt(
   cfg: RagConfig,
-  stats: string,
   sources: { article: NewsArticle; text?: string; liveContent?: string | null }[],
 ): string {
   const today = new Date().toISOString().slice(0, 10);
@@ -89,7 +87,6 @@ function buildSystemPrompt(
 
   return cfg.systemPrompt
     .replace("{{date}}", today)
-    .replace("{{stats}}", stats)
     .replace("{{context}}", block);
 }
 
