@@ -121,7 +121,12 @@ export function NewsList({ articles, activeTags = [] }: {
         </div>
       ) : (
         <>
-          <div className="divide-y divide-[var(--line)]">
+          {/* key reflects page + current result set so the list remounts and
+             replays the staggered entrance on page change or new filter. */}
+          <div
+            key={`${page}|${articles.length}|${articles[0]?.id ?? ""}`}
+            className="divide-y divide-[var(--line)] stagger"
+          >
             {paginated.map(a => (
               <NewsCard
                 key={a.id}
