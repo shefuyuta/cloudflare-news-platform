@@ -76,6 +76,7 @@ export default async function RansomwarePage({
   let byGroup:    [string, number][] = [];
   let byActivity: [string, number][] = [];
   let byMonth:    [string, number][] = [];
+  let byGroupMonth: { months: string[]; series: { group: string; points: number[] }[] } = { months: [], series: [] };
   let hasAnyData  = false;   // true if the table has ANY rows (ignores filters)
   let dbError: string | null     = null;
   let latestFetched              = "";  // Last ransomware.live sync
@@ -120,18 +121,58 @@ export default async function RansomwarePage({
     // ── Server-side aggregates over the FULL filtered set ─────────────
     // These power the stat charts (group / activity / monthly) so they
     // reflect every matching victim, not just the LIMIT-200 list.
-    const [totalRow, groupRows, actRows, monthRows] = await Promise.all([
+    const [totalRow, groupRows, actRows, monthRows, groupMonthRows] = await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) AS c FROM ransomware_victims ${whereSql}`).bind(...binds).first() as Promise<{ c: number } | null>,
       env.DB.prepare(`SELECT group_name AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY group_name ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
       env.DB.prepare(`SELECT activity AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY activity ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
       // Monthly trend is a full-history view (ignores range) so the line
       // chart always shows the trend; the client only renders it for "all".
       env.DB.prepare(`SELECT substr(discovered,1,7) AS k, COUNT(*) AS c FROM ransomware_victims WHERE discovered != '' GROUP BY k ORDER BY k ASC`).all(),
+      // Month x group breakdown (full history) — powers the per-group trend
+      // lines. Aggregated to top-5 groups + "Other" on the server below.
+      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, group_name AS g, COUNT(*) AS c FROM ransomware_victims WHERE discovered != '' GROUP BY m, g`).all(),
     ]);
     statTotal  = totalRow?.c ?? 0;
     byGroup    = (groupRows.results ?? []).map(r => [(r as {k:string}).k || "Unknown", Number((r as {c:number}).c)] as [string, number]);
     byActivity = (actRows.results ?? []).map(r => [(r as {k:string}).k || "Unknown", Number((r as {c:number}).c)] as [string, number]);
     byMonth    = (monthRows.results ?? []).map(r => [(r as {k:string}).k, Number((r as {c:number}).c)] as [string, number]).slice(-12);
+
+    // Shape month x group into a per-group trend series: top-5 groups by
+    // total (over the full history), everything else folded into "Other",
+    // across the last 12 months. Result: { months: string[], series:
+    // { group, color?, points: number[] }[] } — points aligned to months.
+    {
+      const gm = (groupMonthRows.results ?? []) as { m: string; g: string; c: number }[];
+      // Totals per group to pick the top 5.
+      const groupTotals = new Map<string, number>();
+      const monthsSet = new Set<string>();
+      for (const row of gm) {
+        const g = row.g || "Unknown";
+        groupTotals.set(g, (groupTotals.get(g) ?? 0) + Number(row.c));
+        if (row.m) monthsSet.add(row.m);
+      }
+      const months = [...monthsSet].sort().slice(-12);
+      const monthIdx = new Map(months.map((m, i) => [m, i]));
+      const top5 = [...groupTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
+      const top5Set = new Set(top5);
+
+      // group -> points[] aligned to months; non-top-5 accumulate into Other.
+      const series = new Map<string, number[]>();
+      for (const g of top5) series.set(g, new Array(months.length).fill(0));
+      const other = new Array(months.length).fill(0);
+      let hasOther = false;
+      for (const row of gm) {
+        const i = monthIdx.get(row.m);
+        if (i === undefined) continue; // outside the last-12 window
+        const g = row.g || "Unknown";
+        if (top5Set.has(g)) series.get(g)![i] += Number(row.c);
+        else { other[i] += Number(row.c); hasOther = true; }
+      }
+
+      const seriesArr = top5.map(g => ({ group: g, points: series.get(g)! }));
+      if (hasOther) seriesArr.push({ group: lang === "ja" ? "その他" : "Other", points: other });
+      byGroupMonth = { months, series: seriesArr };
+    }
 
     // Does the table hold ANY rows (regardless of the active filter)? This
     // separates "no data fetched yet" from "no data in this range".
@@ -334,6 +375,7 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         byGroup={byGroup}
         byActivity={byActivity}
         byMonth={byMonth}
+        byGroupMonth={byGroupMonth}
         lang={lang}
         selectedGroup={sp.group ?? ""}
         selectedCountry={countrySel}

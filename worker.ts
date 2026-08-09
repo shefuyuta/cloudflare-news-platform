@@ -14,17 +14,16 @@
 // CPU time per cron event). Calling the pipeline functions directly
 // keeps all the work inside this one invocation.
 //
-// Cadence (three cron schedules, dispatched by event.cron):
-//   "0 */2 * * *"  — fetch: runFetchNews + runRansomwareFetch (every 2h)
+// Cadence (four cron schedules, dispatched by event.cron):
+//   "0 */2 * * *"  — news: runFetchNews (every 2h at :00)
+//   "3 */2 * * *"  — ransomware: runRansomwareFetch (every 2h at :03)
 //   "2 * * * *"    — embed: runEmbedMissing every hour at :02 (steady drain)
 //   "5 */2 * * *"  — embed: runEmbedMissing again at :05 on even hours
-//                    (a second post-fetch pass so nothing is left behind)
-// Splitting fetch and embed into SEPARATE invocations is deliberate: each
-// Worker invocation has its own ~1000-subrequest budget, and running all
-// three pipelines in one invocation exhausted it (fetch + a 20-round embed
-// loop starved each other — observed as "Too many subrequests"). Isolated
-// invocations each get a full budget. No skip/gap logic: fetch-news is
-// idempotent (ON CONFLICT upserts).
+// Each pipeline runs in a SEPARATE invocation with its own ~1000-subrequest
+// budget. Running them together exhausted it: fetch + a 20-round embed loop
+// starved each other ("Too many subrequests"), and ransomware fetched right
+// after fetch-news came back scanned:0. Isolated invocations fix both. No
+// skip/gap logic: fetch-news is idempotent (ON CONFLICT upserts).
 // ---------------------------------------------------------------------
 
 // @ts-expect-error `.open-next/worker.js` is generated at build time
@@ -47,7 +46,9 @@ export default {
     // "5 */2" post-fetch) each run only the embed drain in their own
     // invocation, so they never share a subrequest budget with fetch.
     if (event.cron === "0 */2 * * *") {
-      ctx.waitUntil(runFetchPipelines(env));
+      ctx.waitUntil(runNewsFetch(env));
+    } else if (event.cron === "3 */2 * * *") {
+      ctx.waitUntil(runRansomwarePass(env));
     } else {
       // "2 * * * *" or "5 */2 * * *" — both are embed passes.
       ctx.waitUntil(runEmbedPass(env));
@@ -55,23 +56,29 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-/** Fetch pipelines: news ingest + ransomware victims. No embedding here. */
-async function runFetchPipelines(env: Env): Promise<void> {
+/** News ingest ONLY. Its own invocation: ~30s + ~90 subrequests fetching
+ *  ~45 feeds, kept away from ransomware/embed so nothing shares a budget. */
+async function runNewsFetch(env: Env): Promise<void> {
   try {
-    // 1. Ingest news DIRECTLY (no self-fetch). Writes last_fetch_at.
     console.log("[cron] Running fetch pipeline directly…");
     const result = await runFetchNews(env);
     console.log(`[cron] fetch-news -> ingested ${result.ingested}, errors ${result.errors}, ${result.elapsed}`);
-
-    // 2. Refresh the ransomware victim list DIRECTLY (no self-fetch).
-    try {
-      const rw = await runRansomwareFetch(env, 1);
-      console.log(`[cron] ransomware-fetch -> upserted ${rw.upserted}, total ${rw.total}, scanned ${rw.scanned}`);
-    } catch (e) {
-      console.error("[cron] ransomware-fetch failed:", e);
-    }
   } catch (e) {
-    console.error("[cron] fetch pipelines failed:", e);
+    console.error("[cron] fetch-news failed:", e);
+  }
+}
+
+/** Ransomware victim refresh ONLY, in its own invocation.
+ *  Previously this ran right after fetch-news in the SAME invocation and
+ *  came back scanned:0 — fetch-news' ~30s + in-flight subrequests starved
+ *  the ransomware.live fetches (the same run succeeded when called alone via
+ *  the API route). Isolating it restores the clean single-purpose fetch. */
+async function runRansomwarePass(env: Env): Promise<void> {
+  try {
+    const rw = await runRansomwareFetch(env, 1);
+    console.log(`[cron] ransomware-fetch -> upserted ${rw.upserted}, total ${rw.total}, scanned ${rw.scanned}`);
+  } catch (e) {
+    console.error("[cron] ransomware-fetch failed:", e);
   }
 }
 
