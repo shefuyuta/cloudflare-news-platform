@@ -97,10 +97,32 @@ export async function runRansomwareFetch(env: Env, months = 6): Promise<Ransomwa
   // little value for foreign org names), so we only translate Japanese
   // victims. Non-JP victims keep their English name.
   const jpVictims   = victims.filter(v => isJapan(v.country));
-  const uniqueNames = [...new Set(jpVictims.map(v => v.victim).filter(Boolean))];
+  const allJpNames  = [...new Set(jpVictims.map(v => v.victim).filter(Boolean))];
 
-  // Translate in batches of 10 to stay within token limits
+  // CACHE: skip names we've already translated. victim_ja is stored per
+  // victim id, but the same org name recurs across fetches — re-translating
+  // it every run wastes Workers AI calls. Look up which of these names
+  // already have a non-null victim_ja anywhere in the table and drop them
+  // from the work list (their existing victim_ja is preserved on upsert via
+  // COALESCE(excluded.victim_ja, victim_ja)).
   const jaMap: Record<string, string> = {};
+  let uniqueNames = allJpNames;
+  if (allJpNames.length) {
+    try {
+      const ph = allJpNames.map(() => "?").join(",");
+      const cached = await env.DB.prepare(
+        `SELECT DISTINCT victim, victim_ja FROM ransomware_victims
+         WHERE victim_ja IS NOT NULL AND victim_ja != '' AND victim IN (${ph})`
+      ).bind(...allJpNames).all();
+      for (const row of (cached.results ?? [])) {
+        const r = row as { victim: string; victim_ja: string };
+        jaMap[r.victim] = r.victim_ja;   // reuse existing translation
+      }
+      uniqueNames = allJpNames.filter(n => !(n in jaMap));
+    } catch { /* if the cache lookup fails, fall back to translating all */ }
+  }
+
+  // Translate the remaining (untranslated) names in batches of 10.
   const BATCH = 10;
   for (let i = 0; i < uniqueNames.length; i += BATCH) {
     const chunk = uniqueNames.slice(i, i + BATCH);
@@ -123,40 +145,52 @@ export async function runRansomwareFetch(env: Env, months = 6): Promise<Ransomwa
   //   post_url   ← v2 claim_url (onion leak URL, as before; may be "")
   //   published  ← v2 attackdate
   //   public_url ← v2 url    (public https page, for UI linking)
-  for (const v of victims) {
-    const uid    = extractUid(v);
-    const jaName = jaMap[v.victim] ?? null;
+  //
+  // BATCHED: one prepared statement per victim, executed via env.DB.batch()
+  // in chunks. A per-victim .run() is one subrequest each — with v2 now
+  // returning thousands of victims that blew the ~1000 subrequest/invocation
+  // limit (upserts past 1000 failed, and starved the embed step that runs
+  // later in the same cron). batch() runs a whole chunk in ONE subrequest,
+  // cutting thousands of subrequests down to a few dozen.
+  const DB_BATCH = 50;
+  const stmt = (v: RansomwareVictim) =>
+    env.DB.prepare(`
+      INSERT INTO ransomware_victims
+        (id, victim, victim_ja, group_name, country, activity, website,
+         description, post_url, public_url, discovered, published, fetched_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        victim=excluded.victim,
+        victim_ja=COALESCE(excluded.victim_ja, victim_ja),
+        group_name=excluded.group_name,
+        country=excluded.country,
+        description=excluded.description,
+        public_url=excluded.public_url,
+        fetched_at=excluded.fetched_at
+    `).bind(
+      extractUid(v),
+      v.victim      ?? "",
+      jaMap[v.victim] ?? null,
+      v.group       ?? "",
+      v.country     ?? "",
+      v.activity    ?? "",
+      v.domain      ?? "",
+      v.description ?? "",
+      v.claim_url   ?? "",
+      v.url         ?? "",
+      v.discovered  ?? "",
+      v.attackdate  ?? "",
+      fetchedAt,
+    );
+
+  for (let i = 0; i < victims.length; i += DB_BATCH) {
+    const chunk = victims.slice(i, i + DB_BATCH);
     try {
-      await env.DB.prepare(`
-        INSERT INTO ransomware_victims
-          (id, victim, victim_ja, group_name, country, activity, website,
-           description, post_url, public_url, discovered, published, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          victim=excluded.victim,
-          victim_ja=COALESCE(excluded.victim_ja, victim_ja),
-          group_name=excluded.group_name,
-          country=excluded.country,
-          description=excluded.description,
-          public_url=excluded.public_url,
-          fetched_at=excluded.fetched_at
-      `).bind(
-        uid,
-        v.victim      ?? "",
-        jaName,
-        v.group       ?? "",
-        v.country     ?? "",
-        v.activity    ?? "",
-        v.domain      ?? "",
-        v.description ?? "",
-        v.claim_url   ?? "",
-        v.url         ?? "",
-        v.discovered  ?? "",
-        v.attackdate  ?? "",
-        fetchedAt,
-      ).run();
-      upserted++;
-    } catch (e) { errors.push(`upsert ${uid}: ${e}`); }
+      await env.DB.batch(chunk.map(stmt));
+      upserted += chunk.length;
+    } catch (e) {
+      errors.push(`upsert batch @${i}: ${e}`);
+    }
   }
 
   return {

@@ -14,10 +14,17 @@
 // CPU time per cron event). Calling the pipeline functions directly
 // keeps all the work inside this one invocation.
 //
-// Cadence: cron fires every 2 hours and runs everything each time — no
-// skip/gap logic. fetch-news is idempotent (ON CONFLICT upserts), so a
-// manual refresh landing near a cron just harmlessly re-fetches; that's
-// cheaper than skipping a scheduled run and leaving data stale.
+// Cadence (three cron schedules, dispatched by event.cron):
+//   "0 */2 * * *"  — fetch: runFetchNews + runRansomwareFetch (every 2h)
+//   "2 * * * *"    — embed: runEmbedMissing every hour at :02 (steady drain)
+//   "5 */2 * * *"  — embed: runEmbedMissing again at :05 on even hours
+//                    (a second post-fetch pass so nothing is left behind)
+// Splitting fetch and embed into SEPARATE invocations is deliberate: each
+// Worker invocation has its own ~1000-subrequest budget, and running all
+// three pipelines in one invocation exhausted it (fetch + a 20-round embed
+// loop starved each other — observed as "Too many subrequests"). Isolated
+// invocations each get a full budget. No skip/gap logic: fetch-news is
+// idempotent (ON CONFLICT upserts).
 // ---------------------------------------------------------------------
 
 // @ts-expect-error `.open-next/worker.js` is generated at build time
@@ -31,23 +38,27 @@ export default {
   fetch: handler.fetch,
 
   async scheduled(
-    _event: unknown,
+    event: { cron?: string },
     env: Env,
     ctx: { waitUntil: (p: Promise<unknown>) => void },
   ): Promise<void> {
-    ctx.waitUntil(runScheduledFetch(env));
+    // Dispatch by which schedule fired. The fetch schedule ("0 */2") runs
+    // the ingest pipelines; the two embed schedules ("2 * * * *" hourly and
+    // "5 */2" post-fetch) each run only the embed drain in their own
+    // invocation, so they never share a subrequest budget with fetch.
+    if (event.cron === "0 */2 * * *") {
+      ctx.waitUntil(runFetchPipelines(env));
+    } else {
+      // "2 * * * *" or "5 */2 * * *" — both are embed passes.
+      ctx.waitUntil(runEmbedPass(env));
+    }
   },
 } satisfies ExportedHandler<Env>;
 
-async function runScheduledFetch(env: Env): Promise<void> {
+/** Fetch pipelines: news ingest + ransomware victims. No embedding here. */
+async function runFetchPipelines(env: Env): Promise<void> {
   try {
-    // No skip / gap logic: the cron cadence (every 2h) IS the fetch cadence.
-    // fetch-news is idempotent (ON CONFLICT(url) upserts), so even a manual
-    // refresh landing right before a cron just re-fetches the same feeds
-    // harmlessly — cheaper to accept that than to skip a scheduled run.
-
-    // 1. Run the fetch pipeline DIRECTLY (no self-fetch). This writes
-    //    last_fetch_at and ingests all sources in this same invocation.
+    // 1. Ingest news DIRECTLY (no self-fetch). Writes last_fetch_at.
     console.log("[cron] Running fetch pipeline directly…");
     const result = await runFetchNews(env);
     console.log(`[cron] fetch-news -> ingested ${result.ingested}, errors ${result.errors}, ${result.elapsed}`);
@@ -59,23 +70,28 @@ async function runScheduledFetch(env: Env): Promise<void> {
     } catch (e) {
       console.error("[cron] ransomware-fetch failed:", e);
     }
-
-    // 3. Drain the embedding backlog DIRECTLY (no self-fetch), looping
-    //    until nothing remains. Each call embeds up to MAX_PER_RUN; if
-    //    there's nothing to do it returns almost immediately (remaining=0).
-    try {
-      const MAX_ROUNDS = 20;
-      let totalEmbedded = 0;
-      for (let i = 0; i < MAX_ROUNDS; i++) {
-        const data = await runEmbedMissing(env);
-        totalEmbedded += data.embedded ?? 0;
-        if ((data.remaining ?? 0) <= 0) break;
-      }
-      console.log(`[cron] embed-missing done -> embedded ${totalEmbedded}`);
-    } catch (e) {
-      console.error("[cron] embed-missing failed:", e);
-    }
   } catch (e) {
-    console.error("[cron] scheduled run failed:", e);
+    console.error("[cron] fetch pipelines failed:", e);
+  }
+}
+
+/** Embed pass: drain the embedding backlog in its own invocation. */
+async function runEmbedPass(env: Env): Promise<void> {
+  try {
+    // MAX_ROUNDS bounds one invocation's work. At ~200 articles/round and
+    // ~17 subrequests/round, 8 rounds = up to 1600 articles for ~136
+    // subrequests — comfortably inside the ~1000 budget with headroom, and
+    // more than enough for a normal backlog. Anything beyond is picked up
+    // by the next hourly embed pass.
+    const MAX_ROUNDS = 8;
+    let totalEmbedded = 0;
+    for (let i = 0; i < MAX_ROUNDS; i++) {
+      const data = await runEmbedMissing(env);
+      totalEmbedded += data.embedded ?? 0;
+      if ((data.remaining ?? 0) <= 0) break;
+    }
+    console.log(`[cron] embed-missing done -> embedded ${totalEmbedded}`);
+  } catch (e) {
+    console.error("[cron] embed-missing failed:", e);
   }
 }

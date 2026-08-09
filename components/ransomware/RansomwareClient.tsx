@@ -8,6 +8,29 @@ import type { VictimWithNews } from "@/lib/ransomware";
 import { RansomwareStats } from "./RansomwareStats";
 import { WorldMap } from "./WorldMap";
 
+/**
+ * Country flag as an image (not an emoji). Windows browsers don't render
+ * Regional Indicator emoji flags — they show the two letters instead (e.g.
+ * "NG NG") — so we use flagcdn.com PNGs, which render everywhere. Falls back
+ * to a 🌐 glyph for unknown / non-2-letter codes. Renders inline, sized to
+ * sit next to the country code text.
+ */
+function CountryFlag({ code }: { code: string }) {
+  const c = (code || "").trim().toLowerCase();
+  if (!/^[a-z]{2}$/.test(c)) return <span aria-hidden>🌐</span>;
+  return (
+    <img
+      src={`https://flagcdn.com/20x15/${c}.png`}
+      srcSet={`https://flagcdn.com/40x30/${c}.png 2x`}
+      width={14}
+      height={11}
+      alt={code.toUpperCase()}
+      className="inline-block align-[-1px] rounded-[1px]"
+      loading="lazy"
+    />
+  );
+}
+
 const GROUP_COLORS: Record<string, string> = {
   lockbit3:   "#dc2626", lockbit: "#dc2626",
   alphv:      "#7c3aed", blackcat: "#7c3aed",
@@ -331,7 +354,9 @@ export function RansomwareClient({
                         : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
                     ].join(" ")}
                   >
-                    {code === "??" ? (lang === "ja" ? "国不明" : "Unknown") : code} ({count})
+                    {code === "??"
+                      ? (lang === "ja" ? "国不明" : "Unknown")
+                      : <><CountryFlag code={code} /> {code}</>} ({count})
                   </button>
                 ))}
               </div>
@@ -521,13 +546,12 @@ function VictimRow({ victim: v, isOpen, onToggle, lang }: {
             >
               {v.groupDisplay}
             </span>
-            {/* Country tag (?? / 🌐 when unknown) */}
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-medium">
+            {/* Country tag (🌐 when unknown) */}
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-medium inline-flex items-center gap-1">
               {(() => {
                 const c = (v.country || "").trim();
-                if (!c) return lang === "ja" ? "🌐 国不明" : "🌐 Unknown";
-                if (c === "Japan" || c === "日本") return "🇯🇵 JP";
-                return c;
+                if (!c) return <>🌐 {lang === "ja" ? "国不明" : "Unknown"}</>;
+                return <><CountryFlag code={c} /> {c.toUpperCase()}</>;
               })()}
             </span>
             {/* Industry */}
