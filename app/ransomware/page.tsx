@@ -85,15 +85,25 @@ export default async function RansomwarePage({
     // ── Build WHERE clause for country + group ────────────────────────
     const where: string[] = [];
     const binds: unknown[] = [];
+    // Country condition kept separate so the per-group trend chart can honor
+    // the country filter WITHOUT also inheriting the group/range filters
+    // (a group filter would collapse the trend to one line; the trend is
+    // deliberately full-history regardless of the range toggle).
+    const countryWhere: string[] = ["discovered != ''"];
+    const countryBinds: unknown[] = [];
     if (countrySel && countrySel !== "all") {
       if (countrySel === "JP") {
         where.push("country IN ('JP', 'Japan', '日本')");
+        countryWhere.push("country IN ('JP', 'Japan', '日本')");
       } else if (countrySel === "??") {
         // Unknown-country bucket: empty string or NULL.
         where.push("(country IS NULL OR TRIM(country) = '')");
+        countryWhere.push("(country IS NULL OR TRIM(country) = '')");
       } else {
         where.push("country = ?");
         binds.push(countrySel);
+        countryWhere.push("country = ?");
+        countryBinds.push(countrySel);
       }
     }
     if (sp.group) {
@@ -128,9 +138,10 @@ export default async function RansomwarePage({
       // Monthly trend is a full-history view (ignores range) so the line
       // chart always shows the trend; the client only renders it for "all".
       env.DB.prepare(`SELECT substr(discovered,1,7) AS k, COUNT(*) AS c FROM ransomware_victims WHERE discovered != '' GROUP BY k ORDER BY k ASC`).all(),
-      // Month x group breakdown (full history) — powers the per-group trend
-      // lines. Aggregated to top-5 groups + "Other" on the server below.
-      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, group_name AS g, COUNT(*) AS c FROM ransomware_victims WHERE discovered != '' GROUP BY m, g`).all(),
+      // Month x group breakdown — powers the per-group trend lines. Honors
+      // the COUNTRY filter (so a selected country shows only its groups) but
+      // not group/range. Aggregated to top-5 groups on the server below.
+      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, group_name AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${countryWhere.join(" AND ")} GROUP BY m, g`).bind(...countryBinds).all(),
     ]);
     statTotal  = totalRow?.c ?? 0;
     byGroup    = (groupRows.results ?? []).map(r => [(r as {k:string}).k || "Unknown", Number((r as {c:number}).c)] as [string, number]);
@@ -138,9 +149,9 @@ export default async function RansomwarePage({
     byMonth    = (monthRows.results ?? []).map(r => [(r as {k:string}).k, Number((r as {c:number}).c)] as [string, number]).slice(-12);
 
     // Shape month x group into a per-group trend series: top-5 groups by
-    // total (over the full history), everything else folded into "Other",
-    // across the last 12 months. Result: { months: string[], series:
-    // { group, color?, points: number[] }[] } — points aligned to months.
+    // total, across the last 12 months. Result: { months: string[], series:
+    // { group, points: number[] }[] } — points aligned to months. (Groups
+    // outside the top 5 are simply omitted — no "Other" rollup.)
     {
       const gm = (groupMonthRows.results ?? []) as { m: string; g: string; c: number }[];
       // Totals per group to pick the top 5.
@@ -156,21 +167,17 @@ export default async function RansomwarePage({
       const top5 = [...groupTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
       const top5Set = new Set(top5);
 
-      // group -> points[] aligned to months; non-top-5 accumulate into Other.
+      // group -> points[] aligned to months (top-5 only).
       const series = new Map<string, number[]>();
       for (const g of top5) series.set(g, new Array(months.length).fill(0));
-      const other = new Array(months.length).fill(0);
-      let hasOther = false;
       for (const row of gm) {
         const i = monthIdx.get(row.m);
-        if (i === undefined) continue; // outside the last-12 window
+        if (i === undefined) continue;      // outside the last-12 window
         const g = row.g || "Unknown";
         if (top5Set.has(g)) series.get(g)![i] += Number(row.c);
-        else { other[i] += Number(row.c); hasOther = true; }
       }
 
       const seriesArr = top5.map(g => ({ group: g, points: series.get(g)! }));
-      if (hasOther) seriesArr.push({ group: lang === "ja" ? "その他" : "Other", points: other });
       byGroupMonth = { months, series: seriesArr };
     }
 
