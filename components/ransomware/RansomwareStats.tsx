@@ -34,20 +34,32 @@ export function RansomwareStats({
   const maxG = topGroups[0]?.[1] ?? 1;
   const maxA = topActs[0]?.[1]   ?? 1;
 
+  // Keys are the raw group_name values (lowercase) as stored by
+  // ransomware.live v2, e.g. "qilin", "lockbit5". Lookups normalize to
+  // lowercase so this matches regardless of casing. Covers the common /
+  // high-volume groups; anything else falls back to a palette color.
   const GROUP_COLORS: Record<string, string> = {
-    "LockBit 3.0":           "#dc2626",
-    "LockBit":               "#dc2626",
-    "ALPHV/BlackCat":        "#7c3aed",
-    "Cl0p":                  "#d97706",
-    "Play":                  "#0284c7",
-    "Akira":                 "#059669",
-    "8Base":                 "#db2777",
-    "RansomHub":             "#ea580c",
-    "Rhysida":               "#4f46e5",
-    "Medusa":                "#0891b2",
-    "Qilin":                 "#65a30d",
-    "DragonForce":           "#dc2626",
-    "Hunters International": "#6366f1",
+    qilin:        "#65a30d",
+    thegentlemen: "#be123c",
+    dragonforce:  "#dc2626",
+    incransom:    "#0891b2",
+    akira:        "#059669",
+    lockbit5:     "#b91c1c",
+    lockbit:      "#b91c1c",
+    lockbit3:     "#b91c1c",
+    nightspire:   "#7c3aed",
+    safepay:      "#0284c7",
+    ransomhub:    "#ea580c",
+    play:         "#2563eb",
+    medusa:       "#0e7490",
+    rhysida:      "#4f46e5",
+    cl0p:         "#d97706",
+    clop:         "#d97706",
+    alphv:        "#7c3aed",
+    blackcat:     "#7c3aed",
+    "8base":      "#db2777",
+    hunters:      "#6366f1",
+    inc:          "#0891b2",
   };
 
   const months = byMonth;
@@ -110,7 +122,7 @@ export function RansomwareStats({
           <div className="space-y-2">
             {topGroups.map(([group, cnt]) => {
               const pct     = cnt / maxG;
-              const color   = GROUP_COLORS[group] ?? "#6b7280";
+              const color   = GROUP_COLORS[group.toLowerCase()] ?? "#6b7280";
               const isActive = activeGroup === group;
               return (
                 <button
@@ -271,8 +283,8 @@ function GroupTrendChart({
   const x = (i: number) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
   const y = (v: number) => padT + plotH - (v / maxY) * plotH;
 
-  const fallback = ["#6b7280", "#9ca3af", "#4b5563", "#374151", "#d1d5db", "#a1a1aa"];
-  const colorFor = (group: string, idx: number) => colors[group] ?? fallback[idx % fallback.length];
+  const fallback = ["#0284c7", "#7c3aed", "#059669", "#dc2626", "#d97706", "#0891b2"];
+  const colorFor = (group: string, idx: number) => colors[group.toLowerCase()] ?? fallback[idx % fallback.length];
 
   // Show at most ~6 month labels to avoid crowding.
   const labelStep = Math.ceil(n / 6);
@@ -301,9 +313,9 @@ function GroupTrendChart({
           const color = colorFor(s.group, idx);
           return (
             <g key={s.group}>
-              <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+              <path d={d} fill="none" stroke={color} strokeWidth="1" strokeOpacity="0.85" strokeLinejoin="round" strokeLinecap="round" />
               {s.points.map((v, i) => (
-                <circle key={i} cx={x(i)} cy={y(v)} r="1.5" fill={color} />
+                <circle key={i} cx={x(i)} cy={y(v)} r="1" fill={color} fillOpacity="0.9" />
               ))}
             </g>
           );
