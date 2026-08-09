@@ -155,5 +155,29 @@ a, button, [role="button"], [onclick], summary, label[for] {
   from { transform: translateX(-100%); }
   to   { transform: translateX(0); }
 }
-.animate-fadeIn  { animation: fadeIn  150ms ease-out both; }
-.animate-slideIn { animation: slideIn 200ms ease-out both; }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn   { animation: fadeIn   150ms ease-out both; }
+.animate-slideIn  { animation: slideIn  200ms ease-out both; }
+.animate-fadeInUp { animation: fadeInUp 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Staggered list entrance: each item starts slightly after the previous,
+   so a re-rendered list "flows" in instead of snapping. Capped so long
+   lists don't wait too long. Respects reduced-motion. */
+.stagger > * { animation: fadeInUp 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger > *:nth-child(1)  { animation-delay: 0ms;   }
+.stagger > *:nth-child(2)  { animation-delay: 25ms;  }
+.stagger > *:nth-child(3)  { animation-delay: 50ms;  }
+.stagger > *:nth-child(4)  { animation-delay: 75ms;  }
+.stagger > *:nth-child(5)  { animation-delay: 100ms; }
+.stagger > *:nth-child(6)  { animation-delay: 125ms; }
+.stagger > *:nth-child(7)  { animation-delay: 150ms; }
+.stagger > *:nth-child(8)  { animation-delay: 175ms; }
+.stagger > *:nth-child(n+9) { animation-delay: 200ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeInUp,
+  .stagger > * { animation: none; }
+}

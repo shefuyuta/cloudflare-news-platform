@@ -428,7 +428,12 @@ export function RansomwareClient({
           </div>
 
           {/* ── Victim list ───────────────────────────────────────────── */}
-          <div className="space-y-0 divide-y divide-[var(--line)]">
+          {/* key reflects the active filter/page so React remounts the list
+             on change, replaying the staggered entrance animation. */}
+          <div
+            key={`${selectedCountry}|${selectedGroup}|${selectedRange}|${page}`}
+            className="space-y-0 divide-y divide-[var(--line)] stagger"
+          >
             {victims.map(v => (
               <VictimRow
                 key={v.uid}
