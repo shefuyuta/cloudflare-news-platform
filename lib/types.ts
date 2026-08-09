@@ -62,6 +62,7 @@ export interface ChatRequest {
     subcategory?: string;
     tags?: string[];
     hoursAgo?: number;   // ← match the news display window
+    noTimeLimit?: boolean; // bypass hoursAgo — RAG chat answers knowledge Qs across all history
   };
   history?: { role: "user" | "assistant"; content: string }[];
 }

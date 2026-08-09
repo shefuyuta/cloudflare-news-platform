@@ -26,10 +26,12 @@ export async function retrieve(
 
   const vec = await embed(env, query, cfg);
 
-  // Fetch more candidates than topK so we still have enough after date filtering.
-  // Cap at 50: with returnMetadata:"all", Vectorize rejects topK > 50 (err 40025).
+  // Over-fetch well beyond topK so enough survive the score floor + date
+  // filter + dedupe. Cap at 50: with returnMetadata:"all", Vectorize rejects
+  // topK > 50 (err 40025). (Was topK*3 ≈ 18, which under-fetched and, combined
+  // with a tight time window, left the chat retriever returning 0 results.)
   const search = await env.VECTORIZE.query(vec, {
-    topK: Math.min(cfg.topK * 3, 50),   // over-fetch, but stay within the 50 cap
+    topK: Math.min(Math.max(cfg.topK * 6, 30), 50),
     filter: buildFilter(ctx),
     returnValues: false,
     returnMetadata: "all",
@@ -53,11 +55,17 @@ export async function retrieve(
   const ids = [...byArticle.keys()];
   if (!ids.length) return [];
 
-  // ── D1 fetch with published_at filter ────────────────────────────────
-  // This is the critical gate: even if old vectors exist in Vectorize,
-  // we only return articles that fall within the user's display window.
-  const hoursAgo = ctx?.hoursAgo ?? 24;
-  const cutoff   = new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
+  // ── D1 fetch, optionally with a published_at filter ──────────────────
+  // The chat retriever answers knowledge questions ("about Qilin", "last
+  // week's attacks"), so by default it searches ALL history — a 24h gate
+  // made it return nothing whenever no matching article was that recent.
+  // A caller can still pass a window via ctx.hoursAgo (with noTimeLimit
+  // unset) to scope results to the current view.
+  const noTimeLimit = ctx?.noTimeLimit ?? true;   // chat defaults to all-time
+  const useTime = !noTimeLimit && !!ctx?.hoursAgo && ctx.hoursAgo > 0;
+  const cutoff  = useTime
+    ? new Date(Date.now() - (ctx!.hoursAgo as number) * 3_600_000).toISOString()
+    : "";
 
   const ph   = ids.map(() => "?").join(",");
   const rows = await env.DB.prepare(`
@@ -65,9 +73,9 @@ export async function retrieve(
            source, url, published_at
     FROM articles
     WHERE id IN (${ph})
-      AND published_at >= ?
+      ${useTime ? "AND published_at >= ?" : ""}
     ORDER BY published_at DESC
-  `).bind(...ids, cutoff).all();
+  `).bind(...(useTime ? [...ids, cutoff] : ids)).all();
 
   if (!rows.results?.length) return [];
 
