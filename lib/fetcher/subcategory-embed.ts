@@ -105,10 +105,14 @@ export async function loadSubcategoryRefs(
 }
 
 /**
- * Classify subcategories for a cyber article by embedding similarity.
- * Returns every label whose cosine similarity to its reference vector
- * clears `threshold` (multi-label). Returns [] when nothing clears it —
- * the caller then falls back to keywords or "other".
+ * Classify the subcategory for a cyber article by embedding similarity.
+ * Returns the SINGLE best-matching label (highest cosine similarity) as long
+ * as it clears `threshold`; otherwise []. Single-label because vulnerability
+ * and incident overlap heavily in wording (e.g. a "情報漏えいに関する脆弱性"
+ * JVN advisory scores high on both) — multi-label was tagging plain
+ * vulnerability advisories as incidents too, so they leaked into the Incident
+ * tab. Picking the dominant label keeps each article in one bucket; a genuine
+ * vuln advisory lands in vulnerability (its stronger match), not incident.
  *
  * `articleVector` should be the embedding of the article's title+summary
  * (or body). References are pre-normalized, so we normalize the article
@@ -120,12 +124,13 @@ export function classifyByEmbedding(
   threshold = 0.5,
 ): SubLabel[] {
   const a = normalize(articleVector);
-  const labels: SubLabel[] = [];
+  let best: SubLabel | null = null;
+  let bestSim = -Infinity;
   for (const label of SUBCATEGORY_LABELS) {
     const sim = dot(a, refs[label]);
-    if (sim >= threshold) labels.push(label);
+    if (sim > bestSim) { bestSim = sim; best = label; }
   }
-  return labels;
+  return best !== null && bestSim >= threshold ? [best] : [];
 }
 
 /* ---------- vector math (small, dependency-free) ------------------ */
