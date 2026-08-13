@@ -61,6 +61,7 @@ interface Props {
   byActivity:    [string, number][];
   byMonth:       [string, number][];
   byGroupMonth:  { months: string[]; series: { group: string; points: number[] }[] };
+  surgingGroups: { group: string; recent: number; prior: number; growthPct: number | null }[];
   lang:          string;
   selectedGroup: string;
   selectedCountry: string;
@@ -71,7 +72,7 @@ interface Props {
 }
 
 export function RansomwareClient({
-  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, byGroupMonth, lang, selectedGroup, selectedCountry, selectedRange, mapCounts, page, perPage,
+  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, byGroupMonth, surgingGroups, lang, selectedGroup, selectedCountry, selectedRange, mapCounts, page, perPage,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -275,6 +276,34 @@ export function RansomwareClient({
               >
                 {ja ? "全世界に戻す" : "Back to global"}
               </button>
+            </div>
+          )}
+
+          {/* ── Surge alert: groups whose 7-day victim count jumped ──────── */}
+          {surgingGroups.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {surgingGroups.map(s => {
+                const color = groupColor(s.group);
+                return (
+                  <button
+                    key={s.group}
+                    onClick={() => setGroup(s.group)}
+                    className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full ring-1 ring-inset text-[11px] font-medium transition-colors hover:brightness-95"
+                    style={{ background: `${color}14`, borderColor: color, color }}
+                  >
+                    <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: color }} />
+                    <span className="uppercase tracking-wide">
+                      {ja ? "急増" : "Surging"}
+                    </span>
+                    <span className="font-mono">{s.group}</span>
+                    <span className="opacity-70">
+                      {s.growthPct !== null
+                        ? `+${s.growthPct}%`
+                        : (ja ? `新規 ${s.recent}件` : `new ×${s.recent}`)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
 

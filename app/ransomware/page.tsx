@@ -77,6 +77,7 @@ export default async function RansomwarePage({
   let byActivity: [string, number][] = [];
   let byMonth:    [string, number][] = [];
   let byGroupMonth: { months: string[]; series: { group: string; points: number[] }[] } = { months: [], series: [] };
+  let surgingGroups: { group: string; recent: number; prior: number; growthPct: number | null }[] = [];
   let hasAnyData  = false;   // true if the table has ANY rows (ignores filters)
   let dbError: string | null     = null;
   let latestFetched              = "";  // Last ransomware.live sync
@@ -131,7 +132,7 @@ export default async function RansomwarePage({
     // ── Server-side aggregates over the FULL filtered set ─────────────
     // These power the stat charts (group / activity / monthly) so they
     // reflect every matching victim, not just the LIMIT-200 list.
-    const [totalRow, groupRows, actRows, monthRows, groupMonthRows] = await Promise.all([
+    const [totalRow, groupRows, actRows, monthRows, groupMonthRows, surgeRows] = await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) AS c FROM ransomware_victims ${whereSql}`).bind(...binds).first() as Promise<{ c: number } | null>,
       env.DB.prepare(`SELECT group_name AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY group_name ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
       env.DB.prepare(`SELECT activity AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY activity ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
@@ -142,6 +143,17 @@ export default async function RansomwarePage({
       // the COUNTRY filter (so a selected country shows only its groups) but
       // not group/range. Aggregated to top-5 groups on the server below.
       env.DB.prepare(`SELECT substr(discovered,1,7) AS m, group_name AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${countryWhere.join(" AND ")} GROUP BY m, g`).bind(...countryBinds).all(),
+      // Surge detection: group_name + which 7-day bucket (recent vs prior)
+      // each victim falls into, over the last 14 days. Honors the COUNTRY
+      // filter like the trend query. Shaped into a surge list server-side.
+      env.DB.prepare(`
+        SELECT group_name AS g,
+               CASE WHEN julianday('now') - julianday(discovered) < 7 THEN 'recent' ELSE 'prior' END AS bucket,
+               COUNT(*) AS c
+        FROM ransomware_victims
+        WHERE ${countryWhere.join(" AND ")} AND discovered != '' AND julianday('now') - julianday(discovered) < 14
+        GROUP BY g, bucket
+      `).bind(...countryBinds).all(),
     ]);
     statTotal  = totalRow?.c ?? 0;
     byGroup    = (groupRows.results ?? []).map(r => [(r as {k:string}).k || "Unknown", Number((r as {c:number}).c)] as [string, number]);
@@ -179,6 +191,32 @@ export default async function RansomwarePage({
 
       const seriesArr = top5.map(g => ({ group: g, points: series.get(g)! }));
       byGroupMonth = { months, series: seriesArr };
+    }
+
+    // Shape surge detection: recent-7d vs prior-7d per group. A minimum
+    // recent-count floor (3) avoids flagging noise like "1 -> 2 victims"
+    // as a 100% surge. growthPct is null when prior=0 (can't divide) but
+    // recent clears the floor — treated as "new/reactivated" rather than
+    // a numeric percentage.
+    {
+      const sr = (surgeRows.results ?? []) as { g: string; bucket: string; c: number }[];
+      const byG = new Map<string, { recent: number; prior: number }>();
+      for (const row of sr) {
+        const g = row.g || "Unknown";
+        const entry = byG.get(g) ?? { recent: 0, prior: 0 };
+        if (row.bucket === "recent") entry.recent += Number(row.c);
+        else entry.prior += Number(row.c);
+        byG.set(g, entry);
+      }
+      const MIN_RECENT = 3;
+      surgingGroups = [...byG.entries()]
+        .filter(([, v]) => v.recent >= MIN_RECENT && v.recent > v.prior)
+        .map(([group, v]) => ({
+          group, recent: v.recent, prior: v.prior,
+          growthPct: v.prior > 0 ? Math.round(((v.recent - v.prior) / v.prior) * 100) : null,
+        }))
+        .sort((a, b) => (b.growthPct ?? 9999) - (a.growthPct ?? 9999) || b.recent - a.recent)
+        .slice(0, 3);
     }
 
     // Does the table hold ANY rows (regardless of the active filter)? This
@@ -383,6 +421,7 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         byActivity={byActivity}
         byMonth={byMonth}
         byGroupMonth={byGroupMonth}
+        surgingGroups={surgingGroups}
         lang={lang}
         selectedGroup={sp.group ?? ""}
         selectedCountry={countrySel}

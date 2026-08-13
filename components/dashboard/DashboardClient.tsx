@@ -15,6 +15,11 @@ interface DashStats {
   bySource: { source: string; category: string; cnt: number }[];
   trendingTags: { name: string; cnt: number }[];
   hourly: { hours_ago: number; jst_hour: number; cnt: number }[];
+  ransomware: {
+    last7d: number;
+    topGroups: { g: string; cnt: number }[];
+    surging: { group: string; recent: number; prior: number; growthPct: number | null }[];
+  };
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -119,6 +124,58 @@ export function DashboardClient() {
           </a>
         ))}
       </div>
+
+      {/* ── Ransomware pulse (last 7 days) ─────────────────────────────
+         Independent of the `hours` news window — this is a "this week"
+         snapshot from ransomware_victims, since the article-based stats
+         above don't reflect that data at all. */}
+      {stats.ransomware.last7d > 0 && (
+        <section>
+          <SectionHeading>
+            {lang === "ja" ? "ランサムウェア動向（過去7日間）" : "Ransomware pulse (last 7 days)"}
+          </SectionHeading>
+          <a href="/ransomware" className="block hover:opacity-90 transition-opacity">
+            <div className="border hairline rounded-lg p-4 flex flex-wrap items-center gap-x-8 gap-y-4">
+              <div className="flex items-center gap-3">
+                <Shield size={18} strokeWidth={1.5} className="text-[var(--accent-cyber)]" />
+                <div>
+                  <div className="text-2xl font-bold tabular-nums leading-none">{stats.ransomware.last7d}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-[var(--ink-3)] mt-1">
+                    {lang === "ja" ? "新規被害" : "New victims"}
+                  </div>
+                </div>
+              </div>
+
+              {stats.ransomware.topGroups.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] uppercase tracking-widest text-[var(--ink-3)]">
+                    {lang === "ja" ? "上位グループ" : "Top groups"}
+                  </span>
+                  {stats.ransomware.topGroups.slice(0, 5).map(g => (
+                    <span key={g.g} className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-2)]">
+                      {g.g} <span className="opacity-60">{g.cnt}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {stats.ransomware.surging.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] uppercase tracking-widest text-[var(--ink-3)]">
+                    {lang === "ja" ? "急増中" : "Surging"}
+                  </span>
+                  {stats.ransomware.surging.map(s => (
+                    <span key={s.group} className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                      {s.group} {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </a>
+        </section>
+      )}
 
       {/* ── Hourly activity spark ───────────────────────────────────── */}
       {stats.hourly.length > 0 && (
