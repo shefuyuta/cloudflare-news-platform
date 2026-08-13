@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLang } from "@/components/LangProvider";
 import { MobileDrawer } from "./MobileDrawer";
 import { useAlertKeywords } from "@/hooks/useAlertKeywords";
-import { Bell, RefreshCw, Menu, X, Sun, Moon, Monitor } from "@/components/ui/Icon";
+import { Bell, RefreshCw, Menu, X, Sun, Moon, Monitor, Globe } from "@/components/ui/Icon";
 import { useDarkMode } from "@/hooks/useDarkMode";
 
 const TIME_RANGES = [
@@ -261,12 +261,16 @@ export function Header({ initialLastFetch = "" }: { initialLastFetch?: string })
             </button>
           )}
 
-          {/* Lang toggle */}
+          {/* Lang toggle — shows the CURRENT language with a globe icon,
+             so it reads as a status + switch rather than a cryptic target
+             label. Tooltip states what clicking will do. */}
           <button
             onClick={toggle}
-            className="px-2.5 py-1 text-[11px] font-mono font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
+            title={lang === "ja" ? "English に切り替え" : "Switch to Japanese"}
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-mono font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
           >
-            {lang === "ja" ? "EN" : "JA"}
+            <Globe className="w-3 h-3" />
+            {lang === "ja" ? "JA" : "EN"}
           </button>
 
           <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] hidden lg:block flex-shrink-0">
