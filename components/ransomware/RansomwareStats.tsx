@@ -21,13 +21,27 @@ interface Props {
 export function RansomwareStats({
   statTotal, byGroup, byActivity, byMonth, byGroupMonth, byActivityMonth, showMonthly, lang, onFilterGroup, onFilterAct, activeGroup, activeAct,
 }: Props) {
-  // Group section can show either the total bar chart or a per-group
-  // monthly trend line chart. (Hook must precede any early return.)
+  // Group/industry sections can show either the total bar chart (scoped to
+  // the active range/filters) or a per-label monthly trend line chart
+  // (independent of the range — always last-12-months). When the range
+  // filter yields 0 victims, the bar has nothing to show, but the trend
+  // still can — so we don't hide the whole component, we just force each
+  // section to "line" and disable its "Total" toggle instead.
+  // (Hook must precede any early return.)
   const [groupView, setGroupView] = useState<"bar" | "line">("bar");
   const [activityView, setActivityView] = useState<"bar" | "line">("bar");
 
-  if (statTotal === 0) return null;
+  const hasGroupTrend    = byGroupMonth.series.length > 0;
+  const hasActivityTrend = byActivityMonth.series.length > 0;
+  const noBars           = statTotal === 0;
+
+  // Nothing at all to show — neither bars (range has 0 victims) nor trend
+  // (no history matches the country filter either).
+  if (noBars && !hasGroupTrend && !hasActivityTrend) return null;
+
   const ja = lang === "ja";
+  const effectiveGroupView    = noBars && hasGroupTrend    ? "line" : groupView;
+  const effectiveActivityView = noBars && hasActivityTrend ? "line" : activityView;
 
   // Aggregates are computed server-side over the full filtered set, so
   // these charts agree with the world map (no LIMIT-200 skew).
@@ -97,13 +111,18 @@ export function RansomwareStats({
                   {ja ? "解除" : "Clear"}
                 </button>
               )}
-              {/* Bar / line toggle */}
+              {/* Bar / line toggle — Total is disabled (grayed out) when the
+                 active range has 0 victims, since the bar would be empty;
+                 the trend line doesn't depend on the range so it stays live. */}
               <div className="inline-flex rounded-md border hairline overflow-hidden">
                 <button
                   onClick={() => setGroupView("bar")}
+                  disabled={noBars}
+                  title={noBars ? (ja ? "この期間には件数データがありません" : "No data in this range") : undefined}
                   className={[
                     "px-2 py-0.5 text-[10px] transition-colors",
-                    groupView === "bar" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
+                    noBars ? "text-[var(--ink-4)] cursor-not-allowed opacity-50" :
+                      effectiveGroupView === "bar" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
                   ].join(" ")}
                 >
                   {ja ? "件数" : "Total"}
@@ -112,7 +131,7 @@ export function RansomwareStats({
                   onClick={() => setGroupView("line")}
                   className={[
                     "px-2 py-0.5 text-[10px] transition-colors",
-                    groupView === "line" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
+                    effectiveGroupView === "line" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
                   ].join(" ")}
                 >
                   {ja ? "推移" : "Trend"}
@@ -120,7 +139,7 @@ export function RansomwareStats({
               </div>
             </div>
           </div>
-          {groupView === "bar" ? (
+          {effectiveGroupView === "bar" ? (
           <div className="space-y-2">
             {topGroups.map(([group, cnt]) => {
               const pct     = cnt / maxG;
@@ -177,9 +196,12 @@ export function RansomwareStats({
               <div className="inline-flex rounded-md border hairline overflow-hidden">
                 <button
                   onClick={() => setActivityView("bar")}
+                  disabled={noBars}
+                  title={noBars ? (ja ? "この期間には件数データがありません" : "No data in this range") : undefined}
                   className={[
                     "px-2 py-0.5 text-[10px] transition-colors",
-                    activityView === "bar" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
+                    noBars ? "text-[var(--ink-4)] cursor-not-allowed opacity-50" :
+                      effectiveActivityView === "bar" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
                   ].join(" ")}
                 >
                   {ja ? "件数" : "Total"}
@@ -188,7 +210,7 @@ export function RansomwareStats({
                   onClick={() => setActivityView("line")}
                   className={[
                     "px-2 py-0.5 text-[10px] transition-colors",
-                    activityView === "line" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
+                    effectiveActivityView === "line" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
                   ].join(" ")}
                 >
                   {ja ? "推移" : "Trend"}
@@ -196,7 +218,7 @@ export function RansomwareStats({
               </div>
             </div>
           </div>
-          {activityView === "bar" ? (
+          {effectiveActivityView === "bar" ? (
           <div className="space-y-2">
             {topActs.map(([act, cnt]) => {
               const pct     = cnt / maxA;

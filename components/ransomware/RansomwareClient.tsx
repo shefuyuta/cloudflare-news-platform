@@ -309,17 +309,34 @@ export function RansomwareClient({
           )}
 
           {/* ── Statistics ─────────────────────────────────────────────── */}
-          {statTotal > 0 ? (
-            <RansomwareStats
-              statTotal={statTotal}
-              byGroup={byGroup}
-              byActivity={byActivity}
-              byMonth={byMonth}
-              byGroupMonth={byGroupMonth}
-              byActivityMonth={byActivityMonth}
-              showMonthly={selectedRange === "all"}
-              lang={lang}
-            />
+          {/* RansomwareStats no longer hides itself just because the active
+             range has 0 victims — the group/industry TREND charts are
+             range-independent (last 12 months, country-filtered only), so
+             they should keep showing; only the "Total" bar toggle has
+             nothing to show in that case (RansomwareStats grays it out and
+             forces the trend view itself). The full "no data" placeholder
+             below only appears when there's truly nothing at all — no bars
+             AND no trend — which RansomwareStats signals by rendering null. */}
+          {(byGroupMonth.series.length > 0 || byActivityMonth.series.length > 0 || statTotal > 0) ? (
+            <>
+              {statTotal === 0 && (
+                <p className="text-[11px] text-[var(--ink-3)] mb-2">
+                  {ja
+                    ? "この期間に該当する被害はありません（下のグラフは全期間の推移です）。"
+                    : "No victims in this range (the charts below still show the full-history trend)."}
+                </p>
+              )}
+              <RansomwareStats
+                statTotal={statTotal}
+                byGroup={byGroup}
+                byActivity={byActivity}
+                byMonth={byMonth}
+                byGroupMonth={byGroupMonth}
+                byActivityMonth={byActivityMonth}
+                showMonthly={selectedRange === "all"}
+                lang={lang}
+              />
+            </>
           ) : (
             <div className="py-12 text-center border hairline rounded-lg mb-6">
               <p className="text-sm text-[var(--ink-3)]">
