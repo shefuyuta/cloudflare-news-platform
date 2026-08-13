@@ -77,6 +77,7 @@ export default async function RansomwarePage({
   let byActivity: [string, number][] = [];
   let byMonth:    [string, number][] = [];
   let byGroupMonth: { months: string[]; series: { group: string; points: number[] }[] } = { months: [], series: [] };
+  let byActivityMonth: { months: string[]; series: { group: string; points: number[] }[] } = { months: [], series: [] };
   let surgingGroups: { group: string; recent: number; prior: number; growthPct: number | null }[] = [];
   let hasAnyData  = false;   // true if the table has ANY rows (ignores filters)
   let dbError: string | null     = null;
@@ -132,7 +133,7 @@ export default async function RansomwarePage({
     // ── Server-side aggregates over the FULL filtered set ─────────────
     // These power the stat charts (group / activity / monthly) so they
     // reflect every matching victim, not just the LIMIT-200 list.
-    const [totalRow, groupRows, actRows, monthRows, groupMonthRows, surgeRows] = await Promise.all([
+    const [totalRow, groupRows, actRows, monthRows, groupMonthRows, actMonthRows, surgeRows] = await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) AS c FROM ransomware_victims ${whereSql}`).bind(...binds).first() as Promise<{ c: number } | null>,
       env.DB.prepare(`SELECT group_name AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY group_name ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
       env.DB.prepare(`SELECT activity AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY activity ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
@@ -143,6 +144,9 @@ export default async function RansomwarePage({
       // the COUNTRY filter (so a selected country shows only its groups) but
       // not group/range. Aggregated to top-5 groups on the server below.
       env.DB.prepare(`SELECT substr(discovered,1,7) AS m, group_name AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${countryWhere.join(" AND ")} GROUP BY m, g`).bind(...countryBinds).all(),
+      // Month x activity (industry) breakdown — same shape/purpose as the
+      // group trend, powers the industry trend lines. Honors country filter.
+      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, activity AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${countryWhere.join(" AND ")} GROUP BY m, g`).bind(...countryBinds).all(),
       // Surge detection: group_name + which 7-day bucket (recent vs prior)
       // each victim falls into, over the last 14 days. Honors the COUNTRY
       // filter like the trend query. Shaped into a surge list server-side.
@@ -160,38 +164,35 @@ export default async function RansomwarePage({
     byActivity = (actRows.results ?? []).map(r => [(r as {k:string}).k || "Unknown", Number((r as {c:number}).c)] as [string, number]);
     byMonth    = (monthRows.results ?? []).map(r => [(r as {k:string}).k, Number((r as {c:number}).c)] as [string, number]).slice(-12);
 
-    // Shape month x group into a per-group trend series: top-5 groups by
-    // total, across the last 12 months. Result: { months: string[], series:
-    // { group, points: number[] }[] } — points aligned to months. (Groups
-    // outside the top 5 are simply omitted — no "Other" rollup.)
-    {
-      const gm = (groupMonthRows.results ?? []) as { m: string; g: string; c: number }[];
-      // Totals per group to pick the top 5.
-      const groupTotals = new Map<string, number>();
+    // Shape a month x label breakdown into a top-5-by-total trend series,
+    // over the last 12 months. Used for both group and activity (industry)
+    // trends — same shape, same "top 5, no Other rollup" rule.
+    function shapeMonthTrend(rows: { m: string; g: string; c: number }[]) {
+      const totals = new Map<string, number>();
       const monthsSet = new Set<string>();
-      for (const row of gm) {
+      for (const row of rows) {
         const g = row.g || "Unknown";
-        groupTotals.set(g, (groupTotals.get(g) ?? 0) + Number(row.c));
+        totals.set(g, (totals.get(g) ?? 0) + Number(row.c));
         if (row.m) monthsSet.add(row.m);
       }
       const months = [...monthsSet].sort().slice(-12);
       const monthIdx = new Map(months.map((m, i) => [m, i]));
-      const top5 = [...groupTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
+      const top5 = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
       const top5Set = new Set(top5);
 
-      // group -> points[] aligned to months (top-5 only).
       const series = new Map<string, number[]>();
       for (const g of top5) series.set(g, new Array(months.length).fill(0));
-      for (const row of gm) {
+      for (const row of rows) {
         const i = monthIdx.get(row.m);
-        if (i === undefined) continue;      // outside the last-12 window
+        if (i === undefined) continue;
         const g = row.g || "Unknown";
         if (top5Set.has(g)) series.get(g)![i] += Number(row.c);
       }
-
-      const seriesArr = top5.map(g => ({ group: g, points: series.get(g)! }));
-      byGroupMonth = { months, series: seriesArr };
+      return { months, series: top5.map(g => ({ group: g, points: series.get(g)! })) };
     }
+
+    byGroupMonth    = shapeMonthTrend((groupMonthRows.results ?? []) as { m: string; g: string; c: number }[]);
+    byActivityMonth = shapeMonthTrend((actMonthRows.results ?? []) as { m: string; g: string; c: number }[]);
 
     // Shape surge detection: recent-7d vs prior-7d per group. A minimum
     // recent-count floor (3) avoids flagging noise like "1 -> 2 victims"
@@ -421,6 +422,7 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         byActivity={byActivity}
         byMonth={byMonth}
         byGroupMonth={byGroupMonth}
+        byActivityMonth={byActivityMonth}
         surgingGroups={surgingGroups}
         lang={lang}
         selectedGroup={sp.group ?? ""}

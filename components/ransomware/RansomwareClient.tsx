@@ -61,6 +61,7 @@ interface Props {
   byActivity:    [string, number][];
   byMonth:       [string, number][];
   byGroupMonth:  { months: string[]; series: { group: string; points: number[] }[] };
+  byActivityMonth: { months: string[]; series: { group: string; points: number[] }[] };
   surgingGroups: { group: string; recent: number; prior: number; growthPct: number | null }[];
   lang:          string;
   selectedGroup: string;
@@ -72,7 +73,7 @@ interface Props {
 }
 
 export function RansomwareClient({
-  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, byGroupMonth, surgingGroups, lang, selectedGroup, selectedCountry, selectedRange, mapCounts, page, perPage,
+  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, byGroupMonth, byActivityMonth, surgingGroups, lang, selectedGroup, selectedCountry, selectedRange, mapCounts, page, perPage,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -315,6 +316,7 @@ export function RansomwareClient({
               byActivity={byActivity}
               byMonth={byMonth}
               byGroupMonth={byGroupMonth}
+              byActivityMonth={byActivityMonth}
               showMonthly={selectedRange === "all"}
               lang={lang}
             />

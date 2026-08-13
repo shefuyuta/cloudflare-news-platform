@@ -23,7 +23,7 @@ export async function GET(req: Request): Promise<Response> {
   const [
     totalRow, byCategoryRows, bySourceRows, trendingTagsRows,
     hourlyRows, dbTotalRow,
-    rwRecentRow, rwTopGroupRows, rwSurgeRows,
+    rwRecentRow, rwTopGroupRows, rwSurgeRows, tagSurgeRows,
   ] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) as cnt FROM articles WHERE published_at >= ?").bind(cutoff).first(),
     env.DB.prepare("SELECT category, COUNT(*) as cnt FROM articles WHERE published_at >= ? GROUP BY category ORDER BY cnt DESC").bind(cutoff).all(),
@@ -43,27 +43,46 @@ export async function GET(req: Request): Promise<Response> {
       WHERE discovered != '' AND julianday('now') - julianday(discovered) < 14
       GROUP BY g, bucket
     `).all(),
+    // Surging tags: same recent-7d vs prior-7d bucket comparison, but on
+    // article tags. Excludes control tags (sub:*, AI, Cyber) — those drive
+    // routing, not user-facing keywords, and would swamp the real signal.
+    env.DB.prepare(`
+      SELECT t.name AS g,
+             CASE WHEN julianday('now') - julianday(a.published_at) < 7 THEN 'recent' ELSE 'prior' END AS bucket,
+             COUNT(*) AS cnt
+      FROM tags t
+      JOIN article_tags at ON t.id = at.tag_id
+      JOIN articles a ON at.article_id = a.id
+      WHERE julianday('now') - julianday(a.published_at) < 14
+        AND t.name NOT LIKE 'sub:%' AND t.name NOT IN ('AI', 'Cyber')
+      GROUP BY g, bucket
+    `).all(),
   ]);
 
-  // Same surge logic as the ransomware page: recent-7d vs prior-7d, min 3
-  // recent victims to avoid flagging noise, top 3 by growth.
-  const rwSurgeRaw = (rwSurgeRows.results ?? []) as { g: string; bucket: string; cnt: number }[];
-  const rwByGroup = new Map<string, { recent: number; prior: number }>();
-  for (const row of rwSurgeRaw) {
-    const g = row.g || "Unknown";
-    const entry = rwByGroup.get(g) ?? { recent: 0, prior: 0 };
-    if (row.bucket === "recent") entry.recent += Number(row.cnt);
-    else entry.prior += Number(row.cnt);
-    rwByGroup.set(g, entry);
+  // Shared recent-7d vs prior-7d surge shaping: min 3 recent occurrences to
+  // clear the floor (avoids "1 -> 2" reading as a 100% spike), top N by
+  // growth. growthPct is null when prior=0 (shown as "new" by the caller).
+  function shapeSurge(rows: { g: string; bucket: string; cnt: number }[], minRecent: number, topN: number) {
+    const byG = new Map<string, { recent: number; prior: number }>();
+    for (const row of rows) {
+      const g = row.g || "Unknown";
+      const entry = byG.get(g) ?? { recent: 0, prior: 0 };
+      if (row.bucket === "recent") entry.recent += Number(row.cnt);
+      else entry.prior += Number(row.cnt);
+      byG.set(g, entry);
+    }
+    return [...byG.entries()]
+      .filter(([, v]) => v.recent >= minRecent && v.recent > v.prior)
+      .map(([group, v]) => ({
+        group, recent: v.recent, prior: v.prior,
+        growthPct: v.prior > 0 ? Math.round(((v.recent - v.prior) / v.prior) * 100) : null,
+      }))
+      .sort((a, b) => (b.growthPct ?? 9999) - (a.growthPct ?? 9999) || b.recent - a.recent)
+      .slice(0, topN);
   }
-  const rwSurging = [...rwByGroup.entries()]
-    .filter(([, v]) => v.recent >= 3 && v.recent > v.prior)
-    .map(([group, v]) => ({
-      group, recent: v.recent, prior: v.prior,
-      growthPct: v.prior > 0 ? Math.round(((v.recent - v.prior) / v.prior) * 100) : null,
-    }))
-    .sort((a, b) => (b.growthPct ?? 9999) - (a.growthPct ?? 9999) || b.recent - a.recent)
-    .slice(0, 3);
+
+  const rwSurging  = shapeSurge((rwSurgeRows.results  ?? []) as { g: string; bucket: string; cnt: number }[], 3, 3);
+  const tagSurging = shapeSurge((tagSurgeRows.results ?? []) as { g: string; bucket: string; cnt: number }[], 3, 5);
 
   const data = {
     hours,
@@ -72,6 +91,7 @@ export async function GET(req: Request): Promise<Response> {
     byCategory:     (byCategoryRows.results  ?? []).map(r => r as { category: string; cnt: number }),
     bySource:       (bySourceRows.results    ?? []).map(r => r as { source: string; category: string; cnt: number }),
     trendingTags:   (trendingTagsRows.results ?? []).map(r => r as { name: string; cnt: number }),
+    surgingTags:    tagSurging,
     hourly:         (hourlyRows.results      ?? []).map(r => r as { hours_ago: number; jst_hour: number; cnt: number }),
     ransomware: {
       last7d:    (rwRecentRow as { cnt: number } | null)?.cnt ?? 0,

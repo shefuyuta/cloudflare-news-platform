@@ -14,6 +14,7 @@ interface DashStats {
   byCategory: { category: string; cnt: number }[];
   bySource: { source: string; category: string; cnt: number }[];
   trendingTags: { name: string; cnt: number }[];
+  surgingTags: { group: string; recent: number; prior: number; growthPct: number | null }[];
   hourly: { hours_ago: number; jst_hour: number; cnt: number }[];
   ransomware: {
     last7d: number;
@@ -293,6 +294,19 @@ export function DashboardClient() {
       {stats.trendingTags.length > 0 && (
         <section>
           <SectionHeading>{t("trendingTags")}</SectionHeading>
+          {stats.surgingTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {stats.surgingTags.map(s => (
+                <span key={s.group} className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  {s.group}
+                  <span className="opacity-70">
+                    {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             {stats.trendingTags.map((tag) => {
               const max = stats.trendingTags[0].cnt;

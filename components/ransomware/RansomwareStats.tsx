@@ -9,6 +9,7 @@ interface Props {
   byActivity:     [string, number][];
   byMonth:        [string, number][];
   byGroupMonth:   { months: string[]; series: { group: string; points: number[] }[] };
+  byActivityMonth: { months: string[]; series: { group: string; points: number[] }[] };
   showMonthly:    boolean;
   lang:           string;
   onFilterGroup?: (group: string | null) => void;
@@ -18,11 +19,12 @@ interface Props {
 }
 
 export function RansomwareStats({
-  statTotal, byGroup, byActivity, byMonth, byGroupMonth, showMonthly, lang, onFilterGroup, onFilterAct, activeGroup, activeAct,
+  statTotal, byGroup, byActivity, byMonth, byGroupMonth, byActivityMonth, showMonthly, lang, onFilterGroup, onFilterAct, activeGroup, activeAct,
 }: Props) {
   // Group section can show either the total bar chart or a per-group
   // monthly trend line chart. (Hook must precede any early return.)
   const [groupView, setGroupView] = useState<"bar" | "line">("bar");
+  const [activityView, setActivityView] = useState<"bar" | "line">("bar");
 
   if (statTotal === 0) return null;
   const ja = lang === "ja";
@@ -163,15 +165,38 @@ export function RansomwareStats({
             <h3 className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">
               {ja ? "業界別" : "By Industry"}
             </h3>
-            {activeAct && (
-              <button
-                onClick={() => onFilterAct?.(null)}
-                className="text-[10px] text-[var(--ink-3)] hover:text-[var(--ink)] underline underline-offset-2"
-              >
-                {ja ? "解除" : "Clear"}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {activeAct && (
+                <button
+                  onClick={() => onFilterAct?.(null)}
+                  className="text-[10px] text-[var(--ink-3)] hover:text-[var(--ink)] underline underline-offset-2"
+                >
+                  {ja ? "解除" : "Clear"}
+                </button>
+              )}
+              <div className="inline-flex rounded-md border hairline overflow-hidden">
+                <button
+                  onClick={() => setActivityView("bar")}
+                  className={[
+                    "px-2 py-0.5 text-[10px] transition-colors",
+                    activityView === "bar" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
+                  ].join(" ")}
+                >
+                  {ja ? "件数" : "Total"}
+                </button>
+                <button
+                  onClick={() => setActivityView("line")}
+                  className={[
+                    "px-2 py-0.5 text-[10px] transition-colors",
+                    activityView === "line" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
+                  ].join(" ")}
+                >
+                  {ja ? "推移" : "Trend"}
+                </button>
+              </div>
+            </div>
           </div>
+          {activityView === "bar" ? (
           <div className="space-y-2">
             {topActs.map(([act, cnt]) => {
               const pct     = cnt / maxA;
@@ -204,6 +229,9 @@ export function RansomwareStats({
               );
             })}
           </div>
+          ) : (
+            <GroupTrendChart data={byActivityMonth} colors={{}} ja={ja} />
+          )}
         </section>
       </div>
 
