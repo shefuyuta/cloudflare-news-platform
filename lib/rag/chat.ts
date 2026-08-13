@@ -3,6 +3,7 @@ import type { Env, NewsArticle, ChatRequest, Citation } from "../types";
 import { loadRuntimeConfig, type RagConfig } from "./config";
 import { retrieve, toCitations } from "./retriever";
 import { scrapeMultiple } from "./scraper";
+import { looksRansomwareRelated, buildRansomwareStats } from "./ransomware-tool";
 
 /**
  * Run one chat turn:
@@ -21,7 +22,13 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
     //    history). No keyword-stats side-channel — it fed the model a "0
     //    matches" count for the literal query string and made it answer
     //    "0 articles found" even when semantic search returned sources.
-    const hits = await retrieve(env, req.message, req.context, cfg);
+    const ransomwareCheck = looksRansomwareRelated(req.message)
+      ? buildRansomwareStats(env, req.message)
+      : Promise.resolve({ block: "", empty: true });
+    const [hits, ransomwareStats] = await Promise.all([
+      retrieve(env, req.message, req.context, cfg),
+      ransomwareCheck,
+    ]);
 
     const citations = toCitations(hits);
 
@@ -37,7 +44,7 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
       article: h.article,
       text: h.chunkText,
       liveContent: liveContent.get(h.article.url) ?? null,
-    })));
+    })), ransomwareStats.empty ? "" : ransomwareStats.block);
 
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
       { role: "system", content: systemMsg },
@@ -73,6 +80,7 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
 function buildSystemPrompt(
   cfg: RagConfig,
   sources: { article: NewsArticle; text?: string; liveContent?: string | null }[],
+  ransomwareStats: string,
 ): string {
   const today = new Date().toISOString().slice(0, 10);
 
@@ -85,9 +93,17 @@ function buildSystemPrompt(
       }).join("\n\n")
     : "(no sources matched the user's filters)";
 
+  // Ransomware activity numbers, when present, are a real SQL aggregate —
+  // not something to cite with [n] or blend with the article sources above.
+  const ransomwareBlock = ransomwareStats
+    ? `\n\n<ransomware_stats>\nThe following are exact counts from the ransomware tracking database. Use ` +
+      `these numbers directly for any question about ransomware group activity, victim counts, or trends. ` +
+      `Do not cite this block with [n] — just state the numbers plainly.\n${ransomwareStats}</ransomware_stats>`
+    : "";
+
   return cfg.systemPrompt
     .replace("{{date}}", today)
-    .replace("{{context}}", block);
+    .replace("{{context}}", block + ransomwareBlock);
 }
 
 export type { Citation };

@@ -23,7 +23,9 @@ export async function GET(req: Request): Promise<Response> {
   const [
     totalRow, byCategoryRows, bySourceRows, trendingTagsRows,
     hourlyRows, dbTotalRow,
-    rwRecentRow, rwTopGroupRows, rwSurgeRows, tagSurgeRows,
+    rwRecentRow, rwTopGroupRows, rwSurgeRows,
+    rwRecentJpRow, rwTopGroupJpRows, rwSurgeJpRows,
+    tagSurgeRows,
   ] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) as cnt FROM articles WHERE published_at >= ?").bind(cutoff).first(),
     env.DB.prepare("SELECT category, COUNT(*) as cnt FROM articles WHERE published_at >= ? GROUP BY category ORDER BY cnt DESC").bind(cutoff).all(),
@@ -41,6 +43,18 @@ export async function GET(req: Request): Promise<Response> {
              COUNT(*) AS cnt
       FROM ransomware_victims
       WHERE discovered != '' AND julianday('now') - julianday(discovered) < 14
+      GROUP BY g, bucket
+    `).all(),
+    // Japan-only variants of the three ransomware queries above, so the
+    // dashboard card can toggle Global/Japan without a second round trip.
+    env.DB.prepare(`SELECT COUNT(*) AS cnt FROM ransomware_victims WHERE country IN ('JP','Japan','日本') AND discovered != '' AND julianday('now') - julianday(discovered) < 7`).first(),
+    env.DB.prepare(`SELECT group_name AS g, COUNT(*) AS cnt FROM ransomware_victims WHERE country IN ('JP','Japan','日本') AND discovered != '' AND julianday('now') - julianday(discovered) < 7 GROUP BY g ORDER BY cnt DESC LIMIT 5`).all(),
+    env.DB.prepare(`
+      SELECT group_name AS g,
+             CASE WHEN julianday('now') - julianday(discovered) < 7 THEN 'recent' ELSE 'prior' END AS bucket,
+             COUNT(*) AS cnt
+      FROM ransomware_victims
+      WHERE country IN ('JP','Japan','日本') AND discovered != '' AND julianday('now') - julianday(discovered) < 14
       GROUP BY g, bucket
     `).all(),
     // Surging tags: same recent-7d vs prior-7d bucket comparison, but on
@@ -81,8 +95,9 @@ export async function GET(req: Request): Promise<Response> {
       .slice(0, topN);
   }
 
-  const rwSurging  = shapeSurge((rwSurgeRows.results  ?? []) as { g: string; bucket: string; cnt: number }[], 3, 3);
-  const tagSurging = shapeSurge((tagSurgeRows.results ?? []) as { g: string; bucket: string; cnt: number }[], 3, 5);
+  const rwSurging   = shapeSurge((rwSurgeRows.results   ?? []) as { g: string; bucket: string; cnt: number }[], 3, 3);
+  const rwSurgingJp = shapeSurge((rwSurgeJpRows.results ?? []) as { g: string; bucket: string; cnt: number }[], 2, 3); // lower floor: JP volume is much smaller
+  const tagSurging  = shapeSurge((tagSurgeRows.results  ?? []) as { g: string; bucket: string; cnt: number }[], 3, 5);
 
   const data = {
     hours,
@@ -97,6 +112,11 @@ export async function GET(req: Request): Promise<Response> {
       last7d:    (rwRecentRow as { cnt: number } | null)?.cnt ?? 0,
       topGroups: (rwTopGroupRows.results ?? []).map(r => r as { g: string; cnt: number }),
       surging:   rwSurging,
+      jp: {
+        last7d:    (rwRecentJpRow as { cnt: number } | null)?.cnt ?? 0,
+        topGroups: (rwTopGroupJpRows.results ?? []).map(r => r as { g: string; cnt: number }),
+        surging:   rwSurgingJp,
+      },
     },
   };
 

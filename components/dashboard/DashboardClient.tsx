@@ -20,6 +20,11 @@ interface DashStats {
     last7d: number;
     topGroups: { g: string; cnt: number }[];
     surging: { group: string; recent: number; prior: number; growthPct: number | null }[];
+    jp: {
+      last7d: number;
+      topGroups: { g: string; cnt: number }[];
+      surging: { group: string; recent: number; prior: number; growthPct: number | null }[];
+    };
   };
 }
 
@@ -41,6 +46,7 @@ export function DashboardClient() {
   const hours = parseInt(searchParams.get("hours") ?? "24", 10);
 
   const [stats, setStats] = useState<DashStats | null>(null);
+  const [rwScope, setRwScope] = useState<"global" | "jp">("global");
   const [briefing, setBriefing] = useState<string>("");
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -129,30 +135,55 @@ export function DashboardClient() {
       {/* ── Ransomware pulse (last 7 days) ─────────────────────────────
          Independent of the `hours` news window — this is a "this week"
          snapshot from ransomware_victims, since the article-based stats
-         above don't reflect that data at all. */}
-      {stats.ransomware.last7d > 0 && (
+         above don't reflect that data at all. Global/Japan toggle switches
+         between the two pre-fetched scopes without a second request. */}
+      {stats.ransomware.last7d > 0 && (() => {
+        const rw = rwScope === "jp" ? stats.ransomware.jp : stats.ransomware;
+        return (
         <section>
-          <SectionHeading>
-            {lang === "ja" ? "ランサムウェア動向（過去7日間）" : "Ransomware pulse (last 7 days)"}
-          </SectionHeading>
-          <a href="/ransomware" className="block hover:opacity-90 transition-opacity">
+          <div className="flex items-center justify-between mb-2">
+            <SectionHeading as="div">
+              {lang === "ja" ? "ランサムウェア動向（過去7日間）" : "Ransomware pulse (last 7 days)"}
+            </SectionHeading>
+            <div className="inline-flex rounded-md border hairline overflow-hidden flex-shrink-0">
+              <button
+                onClick={() => setRwScope("global")}
+                className={[
+                  "px-2.5 py-1 text-[10px] font-medium transition-colors",
+                  rwScope === "global" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
+                ].join(" ")}
+              >
+                {lang === "ja" ? "全世界" : "Global"}
+              </button>
+              <button
+                onClick={() => setRwScope("jp")}
+                className={[
+                  "px-2.5 py-1 text-[10px] font-medium transition-colors",
+                  rwScope === "jp" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
+                ].join(" ")}
+              >
+                {lang === "ja" ? "日本" : "Japan"}
+              </button>
+            </div>
+          </div>
+          <a href={rwScope === "jp" ? "/ransomware?country=JP" : "/ransomware"} className="block hover:opacity-90 transition-opacity">
             <div className="border hairline rounded-lg p-4 flex flex-wrap items-center gap-x-8 gap-y-4">
               <div className="flex items-center gap-3">
                 <Shield size={18} strokeWidth={1.5} className="text-[var(--accent-cyber)]" />
                 <div>
-                  <div className="text-2xl font-bold tabular-nums leading-none">{stats.ransomware.last7d}</div>
+                  <div className="text-2xl font-bold tabular-nums leading-none">{rw.last7d}</div>
                   <div className="text-[10px] uppercase tracking-widest text-[var(--ink-3)] mt-1">
                     {lang === "ja" ? "新規被害" : "New victims"}
                   </div>
                 </div>
               </div>
 
-              {stats.ransomware.topGroups.length > 0 && (
+              {rw.topGroups.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] uppercase tracking-widest text-[var(--ink-3)]">
                     {lang === "ja" ? "上位グループ" : "Top groups"}
                   </span>
-                  {stats.ransomware.topGroups.slice(0, 5).map(g => (
+                  {rw.topGroups.slice(0, 5).map(g => (
                     <span key={g.g} className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-2)]">
                       {g.g} <span className="opacity-60">{g.cnt}</span>
                     </span>
@@ -160,12 +191,12 @@ export function DashboardClient() {
                 </div>
               )}
 
-              {stats.ransomware.surging.length > 0 && (
+              {rw.surging.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] uppercase tracking-widest text-[var(--ink-3)]">
                     {lang === "ja" ? "急増中" : "Surging"}
                   </span>
-                  {stats.ransomware.surging.map(s => (
+                  {rw.surging.map(s => (
                     <span key={s.group} className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                       {s.group} {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
@@ -173,10 +204,17 @@ export function DashboardClient() {
                   ))}
                 </div>
               )}
+
+              {rwScope === "jp" && rw.last7d === 0 && (
+                <span className="text-[11px] text-[var(--ink-3)]">
+                  {lang === "ja" ? "過去7日間、日本関連の新規被害はありません。" : "No new Japan-related victims in the last 7 days."}
+                </span>
+              )}
             </div>
           </a>
         </section>
-      )}
+        );
+      })()}
 
       {/* ── Hourly activity spark ───────────────────────────────────── */}
       {stats.hourly.length > 0 && (
