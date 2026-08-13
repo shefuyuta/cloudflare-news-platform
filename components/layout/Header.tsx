@@ -250,7 +250,9 @@ export function Header({ initialLastFetch = "" }: { initialLastFetch?: string })
           {themeMounted && (
             <button
               onClick={toggleTheme}
-              title={theme === "dark" ? "ダークモード" : theme === "light" ? "ライトモード" : "システム設定"}
+              title={lang === "ja"
+                ? (theme === "dark" ? "ダークモード" : theme === "light" ? "ライトモード" : "システム設定")
+                : (theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System")}
               className="p-1.5 rounded-md text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
             >
               {theme === "dark"  ? <Moon size={14} strokeWidth={1.5} /> :
