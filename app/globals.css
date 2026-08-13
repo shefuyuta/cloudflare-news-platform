@@ -177,7 +177,52 @@ a, button, [role="button"], [onclick], summary, label[for] {
 .stagger > *:nth-child(8)  { animation-delay: 175ms; }
 .stagger > *:nth-child(n+9) { animation-delay: 200ms; }
 
+/* ── Chart animations ───────────────────────────────────────────────
+   Applied on first paint and replayed on filter change via a React key,
+   so charts feel alive without being noisy. Kept smooth + fairly quick. */
+
+/* Line drawing: the path traces itself left→right. Elements using this must
+   set --dash to their pathLength (we use pathLength="1" on the <path> so the
+   dash math is normalized and length-independent). */
+@keyframes drawLine {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+.animate-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: drawLine 900ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+/* Area fill fades in after the line has mostly drawn. */
+@keyframes areaFade { from { opacity: 0; } to { opacity: 1; } }
+.animate-area { animation: areaFade 600ms ease-out 400ms both; }
+
+/* Dot pop-in: markers scale up from nothing, staggered along the line. */
+@keyframes dotPop {
+  0%   { transform: scale(0); opacity: 0; }
+  70%  { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-dot { transform-box: fill-box; transform-origin: center; animation: dotPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Bar grow: horizontal bars scale out from the left edge. */
+@keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.animate-bar { transform-origin: left center; animation: barGrow 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Map reveal: countries fade/scale in; staggered by group in the component. */
+@keyframes mapReveal {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-map-country { transform-box: fill-box; transform-origin: center; animation: mapReveal 500ms ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fadeInUp,
-  .stagger > * { animation: none; }
+  .stagger > *,
+  .animate-draw,
+  .animate-area,
+  .animate-dot,
+  .animate-bar,
+  .animate-map-country { animation: none; stroke-dashoffset: 0; opacity: 1; transform: none; }
 }

@@ -54,15 +54,20 @@ export function WorldMap({ counts, lang, onSelectCountry, selectedCountry }: Pro
 
       <div className="relative">
         <svg
+          key={`map-${Object.entries(counts).filter(([,c])=>c>0).map(([i,c])=>`${i}:${c}`).join(",")}`}
           viewBox={WORLD_VIEWBOX}
           className="w-full"
           style={{ height: "auto", maxHeight: "420px" }}
           role="img"
           aria-label={ja ? "国別ランサムウェア被害マップ" : "Ransomware victims by country map"}
         >
-          {Object.entries(WORLD_PATHS).map(([iso, d]) => {
+          {Object.entries(WORLD_PATHS).map(([iso, d], idx) => {
             const c = counts[iso] ?? 0;
             const isSel = selectedCountry === iso;
+            // Only animate the countries that actually have victims (the
+            // colored ones) — revealing all ~200 paths would be noisy. They
+            // pop in staggered by their rank so the map "lights up".
+            const hasData = c > 0;
             return (
               <path
                 key={iso}
@@ -70,7 +75,8 @@ export function WorldMap({ counts, lang, onSelectCountry, selectedCountry }: Pro
                 fill={fill(iso)}
                 stroke={isSel ? "var(--ink)" : "var(--surface)"}
                 strokeWidth={isSel ? 1.2 : 0.3}
-                style={{ cursor: c > 0 && onSelectCountry ? "pointer" : "default", transition: "fill .2s" }}
+                className={hasData ? "animate-map-country" : undefined}
+                style={{ cursor: c > 0 && onSelectCountry ? "pointer" : "default", transition: "fill .2s", animationDelay: hasData ? `${Math.min(idx * 8, 600)}ms` : undefined }}
                 onMouseEnter={(e) => {
                   const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
                   setHover({ iso, count: c, x: e.clientX - rect.left, y: e.clientY - rect.top });

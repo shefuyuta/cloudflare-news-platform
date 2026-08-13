@@ -140,7 +140,7 @@ export function RansomwareStats({
                   <div className="flex-1 flex items-center gap-2">
                     <div className="flex-1 h-4 bg-[var(--line-soft)] rounded-sm overflow-hidden">
                       <div
-                        className="h-full rounded-sm transition-all duration-500"
+                        className="h-full rounded-sm transition-all duration-500 animate-bar"
                         style={{ width: `${pct * 100}%`, background: color }}
                       />
                     </div>
@@ -192,7 +192,7 @@ export function RansomwareStats({
                   <div className="flex-1 flex items-center gap-2">
                     <div className="flex-1 h-4 bg-[var(--line-soft)] rounded-sm overflow-hidden">
                       <div
-                        className="h-full rounded-sm bg-[var(--ink)] transition-all duration-500"
+                        className="h-full rounded-sm bg-[var(--ink)] transition-all duration-500 animate-bar"
                         style={{ width: `${pct * 100}%`, opacity: 0.4 + pct * 0.6 }}
                       />
                     </div>
@@ -225,13 +225,13 @@ export function RansomwareStats({
             const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
             const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${H - PAD} L${pts[0].x.toFixed(1)},${H - PAD} Z`;
             return (
-              <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "96px" }} preserveAspectRatio="none">
-                <path d={area} fill="rgb(239 68 68 / 0.10)" />
-                <path d={line} fill="none" stroke="rgb(239 68 68)" strokeWidth={1.5}
+              <svg key={`monthly-${months.map(m=>m[0]).join(",")}`} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "96px" }} preserveAspectRatio="none">
+                <path d={area} fill="rgb(239 68 68 / 0.10)" className="animate-area" />
+                <path d={line} pathLength={1} className="animate-draw" fill="none" stroke="rgb(239 68 68)" strokeWidth={1.5}
                       strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                 {pts.map((p, i) => (
                   <g key={i}>
-                    <circle cx={p.x} cy={p.y} r={2.5} fill="rgb(239 68 68)" />
+                    <circle cx={p.x} cy={p.y} r={2.5} fill="rgb(239 68 68)" className="animate-dot" style={{ animationDelay: `${700 + i * 40}ms` }} />
                     <title>{`${months[i][0]} · ${months[i][1]}${ja ? "件" : ""}`}</title>
                   </g>
                 ))}
@@ -291,7 +291,7 @@ function GroupTrendChart({
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "140px" }}>
+      <svg key={`trend-${months.join(",")}-${series.map(s=>s.group).join(",")}`} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "140px" }}>
         {/* Y grid: 0 and max */}
         <line x1={padL} y1={y(0)} x2={W - padR} y2={y(0)} stroke="var(--line)" strokeWidth="0.5" />
         <line x1={padL} y1={y(maxY)} x2={W - padR} y2={y(maxY)} stroke="var(--line)" strokeWidth="0.5" strokeDasharray="2 2" />
@@ -313,9 +313,18 @@ function GroupTrendChart({
           const color = colorFor(s.group, idx);
           return (
             <g key={s.group}>
-              <path d={d} fill="none" stroke={color} strokeWidth="1" strokeOpacity="0.85" strokeLinejoin="round" strokeLinecap="round" />
+              <path
+                d={d} pathLength={1} fill="none" stroke={color} strokeWidth="1"
+                strokeOpacity="0.85" strokeLinejoin="round" strokeLinecap="round"
+                className="animate-draw"
+                style={{ animationDelay: `${idx * 120}ms` }}
+              />
               {s.points.map((v, i) => (
-                <circle key={i} cx={x(i)} cy={y(v)} r="1" fill={color} fillOpacity="0.9" />
+                <circle
+                  key={i} cx={x(i)} cy={y(v)} r="1" fill={color} fillOpacity="0.9"
+                  className="animate-dot"
+                  style={{ animationDelay: `${900 + idx * 120 + i * 30}ms` }}
+                />
               ))}
             </g>
           );
