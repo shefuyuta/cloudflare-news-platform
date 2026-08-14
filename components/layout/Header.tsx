@@ -270,7 +270,7 @@ export function Header({ initialLastFetch = "" }: { initialLastFetch?: string })
             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-mono font-medium rounded-md ring-1 ring-inset ring-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)] transition-colors"
           >
             <Globe className="w-3 h-3" />
-            {lang === "ja" ? "JA" : "EN"}
+            {lang === "ja" ? "JP" : "EN"}
           </button>
 
           <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] hidden lg:block flex-shrink-0">

@@ -49,8 +49,8 @@ export function NewsCard({
 
   return (
     <article className={[
-      "border-b hairline py-4 first:pt-0 last:border-b-0 transition-opacity duration-300",
-      read ? "opacity-60" : "",
+      "border-b hairline py-4 first:pt-0 last:border-b-0 transition-all duration-300",
+      read ? "opacity-45 saturate-50" : "",
     ].join(" ")}>
 
       <div className="flex items-start gap-3 cursor-pointer group" onClick={handleHeaderClick}>

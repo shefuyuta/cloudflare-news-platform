@@ -335,13 +335,17 @@ export function DashboardClient() {
           {stats.surgingTags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {stats.surgingTags.map(s => (
-                <span key={s.group} className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200">
+                <a
+                  key={s.group}
+                  href={`/search?tag=${encodeURIComponent(s.group)}`}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors"
+                >
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                   {s.group}
                   <span className="opacity-70">
                     {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
                   </span>
-                </span>
+                </a>
               ))}
             </div>
           )}
