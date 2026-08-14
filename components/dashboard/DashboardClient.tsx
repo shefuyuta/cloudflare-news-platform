@@ -354,7 +354,7 @@ export function DashboardClient() {
                           opacity: 0.4 + pct * 0.6,
                         }}
                       >
-                        {n}
+                        <CountUpNumber value={n} durationMs={400} />
                       </div>
                     ) : (
                       <span className="text-[var(--ink-4)] text-[10px]">—</span>
@@ -362,7 +362,9 @@ export function DashboardClient() {
                   </div>
                 );
               })}
-              <span className="w-12 text-right text-sm font-medium text-[var(--ink)]">{total}</span>
+              <span className="w-12 text-right text-sm font-medium text-[var(--ink)] tabular-nums">
+                <CountUpNumber value={total} durationMs={500} />
+              </span>
             </a>
           ))}
         </div>
@@ -475,8 +477,8 @@ function StatCard({ label, value, countTo, icon, color, sub }: {
 /** Small wrapper so a count-up can be dropped in anywhere (including
  *  inside an IIFE/conditional render block) without violating the Rules
  *  of Hooks — the hook lives inside this dedicated component instead. */
-function CountUpNumber({ value, className }: { value: number; className?: string }) {
-  const display = useCountUp(value);
+function CountUpNumber({ value, className, durationMs }: { value: number; className?: string; durationMs?: number }) {
+  const display = useCountUp(value, durationMs);
   return <span className={className}>{display}</span>;
 }
 
