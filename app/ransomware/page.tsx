@@ -112,6 +112,17 @@ export default async function RansomwarePage({
       where.push("LOWER(group_name) = LOWER(?)");
       binds.push(sp.group);
     }
+    // Country + group, but NOT range: for trend charts that should narrow
+    // to a selected group (monthly total, industry trend) while staying
+    // full-history. The per-GROUP trend chart deliberately does NOT use
+    // this — filtering it by group would collapse its whole point (compare
+    // groups) down to one line.
+    const trendWhere  = [...countryWhere];
+    const trendBinds  = [...countryBinds];
+    if (sp.group) {
+      trendWhere.push("LOWER(group_name) = LOWER(?)");
+      trendBinds.push(sp.group);
+    }
     if (rangeCutoff) {
       // discovered is ISO-ish ("YYYY-MM-DD HH:MM:SS" or ISO). datetime()
       // normalizes both sides for a correct comparison.
@@ -137,16 +148,18 @@ export default async function RansomwarePage({
       env.DB.prepare(`SELECT COUNT(*) AS c FROM ransomware_victims ${whereSql}`).bind(...binds).first() as Promise<{ c: number } | null>,
       env.DB.prepare(`SELECT group_name AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY group_name ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
       env.DB.prepare(`SELECT activity AS k, COUNT(*) AS c FROM ransomware_victims ${whereSql} GROUP BY activity ORDER BY c DESC LIMIT 8`).bind(...binds).all(),
-      // Monthly trend is a full-history view (ignores range) so the line
-      // chart always shows the trend; the client only renders it for "all".
-      env.DB.prepare(`SELECT substr(discovered,1,7) AS k, COUNT(*) AS c FROM ransomware_victims WHERE discovered != '' GROUP BY k ORDER BY k ASC`).all(),
+      // Monthly trend is full-history (ignores range) so the line chart
+      // always shows the trend, but DOES honor country + group filters —
+      // a selected group narrows this to that group's monthly trend.
+      env.DB.prepare(`SELECT substr(discovered,1,7) AS k, COUNT(*) AS c FROM ransomware_victims WHERE ${trendWhere.join(" AND ")} GROUP BY k ORDER BY k ASC`).bind(...trendBinds).all(),
       // Month x group breakdown — powers the per-group trend lines. Honors
       // the COUNTRY filter (so a selected country shows only its groups) but
       // not group/range. Aggregated to top-5 groups on the server below.
       env.DB.prepare(`SELECT substr(discovered,1,7) AS m, group_name AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${countryWhere.join(" AND ")} GROUP BY m, g`).bind(...countryBinds).all(),
-      // Month x activity (industry) breakdown — same shape/purpose as the
-      // group trend, powers the industry trend lines. Honors country filter.
-      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, activity AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${countryWhere.join(" AND ")} GROUP BY m, g`).bind(...countryBinds).all(),
+      // Month x activity (industry) breakdown — powers the industry trend
+      // lines. Honors country + group (a selected group narrows this to
+      // which industries THAT group targets over time).
+      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, activity AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${trendWhere.join(" AND ")} GROUP BY m, g`).bind(...trendBinds).all(),
       // Surge detection: group_name + which 7-day bucket (recent vs prior)
       // each victim falls into, over the last 14 days. Honors the COUNTRY
       // filter like the trend query. Shaped into a surge list server-side.
