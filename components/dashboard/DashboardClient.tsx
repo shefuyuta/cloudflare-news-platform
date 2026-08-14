@@ -118,6 +118,7 @@ export function DashboardClient() {
         <StatCard
           label={lang === "ja" ? `過去${stats.hours}h の記事数` : `Articles (last ${stats.hours}h)`}
           value={stats.total.toLocaleString()}
+          countTo={stats.total}
           icon={<Newspaper size={15} strokeWidth={1.5} />}
           sub={lang === "ja" ? `DB合計: ${stats.dbTotal}件` : `DB total: ${stats.dbTotal}`}
         />
@@ -126,6 +127,7 @@ export function DashboardClient() {
             <StatCard
               label={catLabel(c.category, lang)}
               value={c.cnt.toLocaleString()}
+              countTo={c.cnt}
               icon={catLucideIcon(c.category)}
               color={CATEGORY_COLORS[c.category]}
               sub={lang === "ja" ? "クリックで一覧" : "Click to browse"}
@@ -173,7 +175,9 @@ export function DashboardClient() {
               <div className="flex items-center gap-3">
                 <Shield size={18} strokeWidth={1.5} className="text-[var(--accent-cyber)]" />
                 <div>
-                  <div className="text-2xl font-bold tabular-nums leading-none">{rw.last7d}</div>
+                  <div className="text-2xl font-bold tabular-nums leading-none">
+                    <CountUpNumber key={rwScope} value={rw.last7d} />
+                  </div>
                   <div className="text-[10px] uppercase tracking-widest text-[var(--ink-3)] mt-1">
                     {lang === "ja" ? "新規被害" : "New victims"}
                   </div>
@@ -259,15 +263,15 @@ export function DashboardClient() {
                 <>
                   {/* Bar row */}
                   <div className="flex items-end gap-1" style={{ height: "80px" }}>
-                    {slots.map(({ hoursAgo, cnt, label }) => (
+                    {slots.map(({ hoursAgo, cnt, label }, i) => (
                       <div
                         key={hoursAgo}
                         className="flex-1 group relative flex items-end"
                         style={{ height: "100%" }}
                       >
                         <div
-                          className="w-full rounded-sm bg-[var(--ink)] transition-all duration-300"
-                          style={{ height: `${Math.max(2, (cnt / maxCnt) * 76)}px`, opacity: cnt ? 0.8 : 0.1 }}
+                          className="w-full rounded-sm bg-[var(--ink)] transition-all duration-300 animate-bar-y"
+                          style={{ height: `${Math.max(2, (cnt / maxCnt) * 76)}px`, opacity: cnt ? 0.8 : 0.1, animationDelay: `${i * 15}ms` }}
                         />
                         <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--ink)] text-ink-contrast text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10 leading-tight text-center">
                           <div className="font-medium">{label} JST</div>
@@ -446,19 +450,55 @@ export function DashboardClient() {
 
 // ── Sub-components ────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon, color, sub }: {
-  label: string; value: string; icon: ReactNode; color?: string; sub?: string;
+function StatCard({ label, value, countTo, icon, color, sub }: {
+  label: string; value: string; countTo?: number; icon: ReactNode; color?: string; sub?: string;
 }) {
+  const display = useCountUp(countTo);
   return (
     <div className="border hairline rounded-lg p-4">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[var(--ink-3)]">{icon}</span>
         <span className="text-[11px] uppercase tracking-widest text-[var(--ink-3)]">{label}</span>
       </div>
-      <div className="text-2xl font-semibold" style={color ? { color } : undefined}>{value}</div>
+      <div className="text-2xl font-semibold tabular-nums" style={color ? { color } : undefined}>
+        {countTo !== undefined ? display : value}
+      </div>
       {sub && <div className="text-[11px] text-[var(--ink-4)] mt-1">{sub}</div>}
     </div>
   );
+}
+
+/** Counts up from 0 to `target` over ~700ms using requestAnimationFrame,
+ *  formatted with toLocaleString() (matching how these values were shown
+ *  statically before). Returns "0" and skips the animation entirely when
+ *  target is undefined, so callers that don't opt in render unchanged. */
+/** Small wrapper so a count-up can be dropped in anywhere (including
+ *  inside an IIFE/conditional render block) without violating the Rules
+ *  of Hooks — the hook lives inside this dedicated component instead. */
+function CountUpNumber({ value, className }: { value: number; className?: string }) {
+  const display = useCountUp(value);
+  return <span className={className}>{display}</span>;
+}
+
+function useCountUp(target: number | undefined, durationMs = 700): string {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (target === undefined) return;
+    let raf: number;
+    const start = performance.now();
+    const from = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      // ease-out cubic — fast start, gentle settle, matches the rest of
+      // the site's animation feel (cubic-bezier(0.22,1,0.36,1) family).
+      const eased = 1 - Math.pow(1 - t, 3);
+      setN(Math.round(from + (target - from) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, durationMs]);
+  return n.toLocaleString();
 }
 
 function SectionHeading({ children, as: Tag = "h2" }: { children: React.ReactNode; as?: React.ElementType }) {

@@ -210,6 +210,11 @@ a, button, [role="button"], [onclick], summary, label[for] {
 @keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .animate-bar { transform-origin: left center; animation: barGrow 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* Vertical variant for column charts (grows up from the baseline instead
+   of out from the left) — same grow feel, opposite axis. */
+@keyframes barGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.animate-bar-y { transform-origin: bottom center; animation: barGrowY 500ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 /* Left-to-right clip-path reveal for line charts that use
    preserveAspectRatio="none" (non-uniform scaling), where a stroke-dash
    line-draw animation distorts. Same scaleX approach as .animate-bar, but
@@ -231,6 +236,7 @@ a, button, [role="button"], [onclick], summary, label[for] {
   .animate-area,
   .animate-dot,
   .animate-bar,
+  .animate-bar-y,
   .animate-reveal-x,
   .animate-map-country { animation: none; stroke-dashoffset: 0; opacity: 1; transform: none; }
 }
