@@ -65,6 +65,7 @@ interface Props {
   surgingGroups: { group: string; recent: number; prior: number; growthPct: number | null }[];
   lang:          string;
   selectedGroup: string;
+  selectedActivity: string;
   selectedCountry: string;
   selectedRange: string;
   mapCounts: Record<string, number>;
@@ -73,7 +74,7 @@ interface Props {
 }
 
 export function RansomwareClient({
-  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, byGroupMonth, byActivityMonth, surgingGroups, lang, selectedGroup, selectedCountry, selectedRange, mapCounts, page, perPage,
+  victims, groups, countries, totalCount, latestDate, hasCache, statTotal, byGroup, byActivity, byMonth, byGroupMonth, byActivityMonth, surgingGroups, lang, selectedGroup, selectedActivity, selectedCountry, selectedRange, mapCounts, page, perPage,
 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -115,6 +116,13 @@ export function RansomwareClient({
   function setGroup(g: string) {
     const sp = new URLSearchParams(params);
     if (g) sp.set("group", g); else sp.delete("group");
+    sp.delete("page");
+    startTransition(() => router.push(`${pathname}?${sp.toString()}`));
+  }
+
+  function setActivity(a: string) {
+    const sp = new URLSearchParams(params);
+    if (a) sp.set("activity", a); else sp.delete("activity");
     sp.delete("page");
     startTransition(() => router.push(`${pathname}?${sp.toString()}`));
   }
@@ -335,6 +343,10 @@ export function RansomwareClient({
                 byActivityMonth={byActivityMonth}
                 showMonthly={selectedRange === "all"}
                 lang={lang}
+                onFilterGroup={(g) => setGroup(g ?? "")}
+                activeGroup={selectedGroup || null}
+                onFilterAct={(a) => setActivity(a ?? "")}
+                activeAct={selectedActivity || null}
               />
             </>
           ) : (
@@ -447,6 +459,28 @@ export function RansomwareClient({
             </div>
           )}
 
+          {/* ── Activity (industry) filter — set from the "By industry"
+             chart in RansomwareStats; shown here as a clearable badge since
+             the industry list can be long (unlike the group chip row above,
+             this isn't a full chip list). ─────────────────────────────── */}
+          {selectedActivity && (
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-[11px] text-[var(--ink-3)]">
+                {ja ? "業界で絞り込み中:" : "Filtered by industry:"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full bg-[var(--ink)] text-ink-contrast">
+                {selectedActivity}
+                <button
+                  onClick={() => setActivity("")}
+                  aria-label={ja ? "業界フィルタを解除" : "Clear industry filter"}
+                  className="hover:opacity-70"
+                >
+                  ×
+                </button>
+              </span>
+            </div>
+          )}
+
           {/* ── List controls: count summary + per-page selector ───────── */}
           <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
             <span className="text-[11px] text-[var(--ink-3)]">
@@ -479,7 +513,7 @@ export function RansomwareClient({
           {/* key reflects the active filter/page so React remounts the list
              on change, replaying the staggered entrance animation. */}
           <div
-            key={`${selectedCountry}|${selectedGroup}|${selectedRange}|${page}`}
+            key={`${selectedCountry}|${selectedGroup}|${selectedActivity}|${selectedRange}|${page}`}
             className="space-y-0 divide-y divide-[var(--line)] stagger"
           >
             {victims.map(v => (

@@ -35,7 +35,7 @@ type RawNews = {
 export default async function RansomwarePage({
   searchParams,
 }: {
-  searchParams: Promise<{ group?: string; country?: string; range?: string; page?: string; per?: string }>;
+  searchParams: Promise<{ group?: string; activity?: string; country?: string; range?: string; page?: string; per?: string }>;
 }) {
   const sp          = await searchParams;
   const env         = (await getCloudflareContext()).env as unknown as Env;
@@ -45,6 +45,7 @@ export default async function RansomwarePage({
   // Country filter: "" or "all" = every country; "JP" = Japan; else the
   // given ISO code. Japan matches the historical JP/Japan/日本 variants.
   const countrySel  = (sp.country ?? "").trim();
+  const activitySel = (sp.activity ?? "").trim();
 
   // Pagination. per ∈ {20,50,100} (default 20); page is 1-based.
   const perRaw  = parseInt(sp.per ?? "20", 10);
@@ -112,16 +113,43 @@ export default async function RansomwarePage({
       where.push("LOWER(group_name) = LOWER(?)");
       binds.push(sp.group);
     }
-    // Country + group, but NOT range: for trend charts that should narrow
-    // to a selected group (monthly total, industry trend) while staying
-    // full-history. The per-GROUP trend chart deliberately does NOT use
-    // this — filtering it by group would collapse its whole point (compare
-    // groups) down to one line.
+    if (sp.activity) {
+      where.push("LOWER(activity) = LOWER(?)");
+      binds.push(sp.activity);
+    }
+    // Country + group + activity, but NOT range: for trend charts that
+    // should narrow to the selected group/industry while staying
+    // full-history. Two exclusions, mirrored:
+    //  - the per-GROUP trend chart does NOT apply the group filter to
+    //    itself (would collapse the group comparison to one line)
+    //  - the per-INDUSTRY trend chart does NOT apply the activity filter
+    //    to itself, for the same reason
+    // Both charts DO still pick up country/group/activity filters that
+    // aren't "about themselves" (e.g. industry trend narrows by group).
     const trendWhere  = [...countryWhere];
     const trendBinds  = [...countryBinds];
     if (sp.group) {
       trendWhere.push("LOWER(group_name) = LOWER(?)");
       trendBinds.push(sp.group);
+    }
+    if (sp.activity) {
+      trendWhere.push("LOWER(activity) = LOWER(?)");
+      trendBinds.push(sp.activity);
+    }
+    // Group trend: country + activity, but never group (see above).
+    const groupTrendWhere = [...countryWhere];
+    const groupTrendBinds = [...countryBinds];
+    if (sp.activity) {
+      groupTrendWhere.push("LOWER(activity) = LOWER(?)");
+      groupTrendBinds.push(sp.activity);
+    }
+    // Industry trend: country + group, but never activity (see above) —
+    // built independently from trendWhere, which includes activity.
+    const actTrendWhere = [...countryWhere];
+    const actTrendBinds = [...countryBinds];
+    if (sp.group) {
+      actTrendWhere.push("LOWER(group_name) = LOWER(?)");
+      actTrendBinds.push(sp.group);
     }
     if (rangeCutoff) {
       // discovered is ISO-ish ("YYYY-MM-DD HH:MM:SS" or ISO). datetime()
@@ -155,11 +183,11 @@ export default async function RansomwarePage({
       // Month x group breakdown — powers the per-group trend lines. Honors
       // the COUNTRY filter (so a selected country shows only its groups) but
       // not group/range. Aggregated to top-5 groups on the server below.
-      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, group_name AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${countryWhere.join(" AND ")} GROUP BY m, g`).bind(...countryBinds).all(),
+      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, group_name AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${groupTrendWhere.join(" AND ")} GROUP BY m, g`).bind(...groupTrendBinds).all(),
       // Month x activity (industry) breakdown — powers the industry trend
       // lines. Honors country + group (a selected group narrows this to
       // which industries THAT group targets over time).
-      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, activity AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${trendWhere.join(" AND ")} GROUP BY m, g`).bind(...trendBinds).all(),
+      env.DB.prepare(`SELECT substr(discovered,1,7) AS m, activity AS g, COUNT(*) AS c FROM ransomware_victims WHERE ${actTrendWhere.join(" AND ")} GROUP BY m, g`).bind(...actTrendBinds).all(),
       // Surge detection: group_name + which 7-day bucket (recent vs prior)
       // each victim falls into, over the last 14 days. Honors the COUNTRY
       // filter like the trend query. Shaped into a surge list server-side.
@@ -168,9 +196,9 @@ export default async function RansomwarePage({
                CASE WHEN julianday('now') - julianday(discovered) < 7 THEN 'recent' ELSE 'prior' END AS bucket,
                COUNT(*) AS c
         FROM ransomware_victims
-        WHERE ${countryWhere.join(" AND ")} AND discovered != '' AND julianday('now') - julianday(discovered) < 14
+        WHERE ${groupTrendWhere.join(" AND ")} AND discovered != '' AND julianday('now') - julianday(discovered) < 14
         GROUP BY g, bucket
-      `).bind(...countryBinds).all(),
+      `).bind(...groupTrendBinds).all(),
     ]);
     statTotal  = totalRow?.c ?? 0;
     byGroup    = (groupRows.results ?? []).map(r => [(r as {k:string}).k || "Unknown", Number((r as {c:number}).c)] as [string, number]);
@@ -439,6 +467,7 @@ CREATE INDEX IF NOT EXISTS idx_rw_country
         surgingGroups={surgingGroups}
         lang={lang}
         selectedGroup={sp.group ?? ""}
+        selectedActivity={activitySel}
         selectedCountry={countrySel}
         selectedRange={rangeSel}
         mapCounts={mapCounts}
