@@ -274,6 +274,7 @@ export function RansomwareStats({
             });
             const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
             const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${H - PAD} L${pts[0].x.toFixed(1)},${H - PAD} Z`;
+            const clipId = `monthly-reveal-${months.map(m=>m[0]).join("-")}`;
             return (
               <div className="relative">
                 {/* Y-axis min/max — plain HTML overlay, not SVG text, since
@@ -282,16 +283,23 @@ export function RansomwareStats({
                 <div className="absolute left-0 top-0 text-[9px] text-[var(--ink-4)] tabular-nums leading-none">{maxM}</div>
                 <div className="absolute left-0 bottom-0 text-[9px] text-[var(--ink-4)] tabular-nums leading-none">0</div>
                 <svg key={`monthly-${months.map(m=>m[0]).join(",")}`} viewBox={`0 0 ${W} ${H}`} className="w-full pl-5" style={{ height: "96px" }} preserveAspectRatio="none">
-                  <path d={area} fill="rgb(239 68 68 / 0.10)" className="animate-area" />
-                  {/* No stroke-dash line-draw here: this chart's non-uniform
-                     scaling (preserveAspectRatio="none") distorts dash
-                     spacing on a short, steep polyline, making the line look
-                     broken. A plain fade avoids that. */}
-                  <path d={line} className="animate-area" fill="none" stroke="rgb(239 68 68)" strokeWidth={1.5}
-                        strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                  {/* Left-to-right reveal via a clipPath rect instead of a
+                     stroke-dash line-draw: dash spacing distorts under this
+                     chart's non-uniform scaling (preserveAspectRatio="none")
+                     on a short, steep polyline, making the line look broken.
+                     A clip rect's edges stay axis-aligned regardless of
+                     scaling, so this reveals cleanly without distortion. */}
+                  <clipPath id={clipId}>
+                    <rect x="0" y="0" width={W} height={H} className="animate-reveal-x" />
+                  </clipPath>
+                  <g clipPath={`url(#${clipId})`}>
+                    <path d={area} fill="rgb(239 68 68 / 0.10)" />
+                    <path d={line} fill="none" stroke="rgb(239 68 68)" strokeWidth={1.5}
+                          strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                  </g>
                   {pts.map((p, i) => (
                     <g key={i}>
-                      <circle cx={p.x} cy={p.y} r={2.5} fill="rgb(239 68 68)" className="animate-dot" style={{ animationDelay: `${400 + i * 40}ms` }} />
+                      <circle cx={p.x} cy={p.y} r={2.5} fill="rgb(239 68 68)" className="animate-dot" style={{ animationDelay: `${700 + i * 40}ms` }} />
                       <title>{`${months[i][0]} · ${months[i][1]}${ja ? "件" : ""}`}</title>
                     </g>
                   ))}
