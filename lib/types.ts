@@ -14,6 +14,7 @@ export type NewsArticle = {
   source: string;
   url: string;
   publishedAt: string;            // ISO 8601 string
+  relatedCount?: number;          // how many other recent same-story articles exist (see related_articles table)
 };
 
 /** Cloudflare bindings exposed via getCloudflareContext().env */

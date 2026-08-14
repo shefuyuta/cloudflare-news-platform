@@ -177,6 +177,37 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
     }
   }
 
+  // Related-article (duplicate/same-story) detection: for each newly
+  // embedded article, search Vectorize for similar articles and record the
+  // ones that are recent + high-scoring. One row per (new article, older
+  // match) pair; the UI joins both directions so either side shows the link.
+  const relatedInserts: ReturnType<typeof env.DB.prepare>[] = [];
+  for (let wi = 0; wi < work.length; wi++) {
+    if (Date.now() - startTime > BATCH_TIMEOUT_MS) break;
+    const w = work[wi];
+    const vec0 = vecByWork[wi][0];
+    if (!vec0 || !vec0.length) continue;
+    try {
+      const matches = await findRelatedArticles(env, w.id, vec0, w.category);
+      for (const m of matches) {
+        relatedInserts.push(
+          env.DB.prepare(
+            "INSERT OR IGNORE INTO related_articles (article_id, related_id, score) VALUES (?, ?, ?)"
+          ).bind(w.id, m.id, m.score)
+        );
+      }
+    } catch (e) {
+      console.warn(`[embed-missing] related-article search failed for ${w.id}:`, e);
+    }
+  }
+  for (let i = 0; i < relatedInserts.length; i += DB_BATCH) {
+    try {
+      await env.DB.batch(relatedInserts.slice(i, i + DB_BATCH));
+    } catch (e) {
+      console.warn("[embed-missing] related_articles insert batch failed", e);
+    }
+  }
+
   // Check remaining
   const remaining = await env.DB.prepare(
     "SELECT COUNT(*) as cnt FROM articles WHERE vector_id IS NULL"
@@ -189,6 +220,49 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
     remaining: remaining?.cnt ?? 0,
     elapsed: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
   };
+}
+
+/**
+ * Search Vectorize for articles similar to a just-embedded one, restricted
+ * to the same category and to articles published within the last 72
+ * hours (checked against D1, since Vectorize's metadata filter doesn't
+ * carry publish time) — this is meant to catch different sources covering
+ * the SAME recent story, not a topically-similar article from months ago.
+ * Score threshold 0.85 is deliberately high (vs. the RAG chat's 0.35): the
+ * chat wants "relevant", this wants "almost certainly the same event".
+ */
+const RELATED_SCORE_THRESHOLD = 0.85;
+const RELATED_WINDOW_HOURS = 72;
+
+async function findRelatedArticles(
+  env: Env, articleId: string, vec0: number[], category: string,
+): Promise<{ id: string; score: number }[]> {
+  const search = await env.VECTORIZE.query(vec0, {
+    topK: 6,
+    filter: { category },
+    returnValues: false,
+    returnMetadata: "none",
+  });
+
+  const candidates = (search.matches ?? [])
+    .filter(m => m.score >= RELATED_SCORE_THRESHOLD)
+    .map(m => ({ id: (m.id as string).split("#")[0], score: m.score }))
+    .filter(m => m.id !== articleId);
+  if (!candidates.length) return [];
+
+  // Dedupe (a match can appear via multiple chunks) and keep the best score.
+  const bestById = new Map<string, number>();
+  for (const c of candidates) bestById.set(c.id, Math.max(bestById.get(c.id) ?? 0, c.score));
+
+  const ids = [...bestById.keys()];
+  const ph  = ids.map(() => "?").join(",");
+  const cutoff = new Date(Date.now() - RELATED_WINDOW_HOURS * 3_600_000).toISOString();
+  const rows = await env.DB.prepare(
+    `SELECT id FROM articles WHERE id IN (${ph}) AND published_at >= ?`
+  ).bind(...ids, cutoff).all();
+  const recentIds = new Set((rows.results ?? []).map(r => (r as { id: string }).id));
+
+  return ids.filter(id => recentIds.has(id)).map(id => ({ id, score: bestById.get(id)! }));
 }
 
 /** Load the subcategory similarity threshold from rag_config (default 0.5). */

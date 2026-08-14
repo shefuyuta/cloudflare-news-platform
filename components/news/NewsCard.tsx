@@ -1,7 +1,7 @@
 // components/news/NewsCard.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { NewsArticle } from "@/lib/types";
 import { CategoryBadge, SubBadge, CrossBadge, TagChip } from "./TagBadge";
@@ -35,6 +35,23 @@ export function NewsCard({
     : "—";
 
   const bookmarked = mounted && isBookmarked(article.id);
+
+  // Related (same-story) articles: the count comes with the list query,
+  // but the actual titles/URLs are fetched lazily only when the card is
+  // opened and has a related count, so collapsed lists stay cheap.
+  type RelatedItem = { id: string; title: string; source: string; url: string; publishedAt: string };
+  const [related, setRelated] = useState<RelatedItem[] | null>(null);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  useEffect(() => {
+    if (!isOpen || !article.relatedCount || related !== null || relatedLoading) return;
+    setRelatedLoading(true);
+    fetch(`/api/related?id=${encodeURIComponent(article.id)}`)
+      .then(r => r.json() as Promise<{ related?: RelatedItem[] }>)
+      .then(data => setRelated(data.related ?? []))
+      .catch(() => setRelated([]))
+      .finally(() => setRelatedLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, article.id, article.relatedCount]);
   // Use prop if provided (from NewsList), fallback to false
   const read = isReadProp ?? false;
 
@@ -78,7 +95,14 @@ export function NewsCard({
           <h2 className="font-display text-lg md:text-xl font-medium leading-snug text-[var(--ink)] group-hover:text-[var(--ink-2)] transition-colors">
             {article.title}
           </h2>
-          <span className="text-[11px] text-[var(--ink-3)] font-mono mt-0.5 inline-block">{article.source}</span>
+          <span className="text-[11px] text-[var(--ink-3)] font-mono mt-0.5 inline-flex items-center gap-1.5">
+            {article.source}
+            {!!article.relatedCount && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-sans">
+                +{article.relatedCount} {lang === "ja" ? "件" : "more"}
+              </span>
+            )}
+          </span>
         </div>
 
         {mounted && (
@@ -107,6 +131,32 @@ export function NewsCard({
             <p className="text-sm text-[var(--ink-4)] italic mb-3">
               {lang === "ja" ? "本文取得中…次回更新時に表示されます。" : "Content will appear after the next refresh."}
             </p>
+          )}
+
+          {!!article.relatedCount && (
+            <div className="mb-3">
+              <p className="text-[11px] uppercase tracking-widest text-[var(--ink-3)] mb-1.5">
+                {lang === "ja" ? `関連記事 ${article.relatedCount}件` : `Related coverage (${article.relatedCount})`}
+              </p>
+              {relatedLoading ? (
+                <p className="text-[12px] text-[var(--ink-4)]">{lang === "ja" ? "読み込み中…" : "Loading…"}</p>
+              ) : (
+                <ul className="space-y-1">
+                  {(related ?? []).map(r => (
+                    <li key={r.id}>
+                      <Link
+                        href={r.url} target="_blank" rel="noopener noreferrer"
+                        className="text-[12px] text-[var(--ink-2)] hover:text-[var(--ink)] hover:underline flex items-baseline gap-1.5"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <span className="font-mono text-[10px] text-[var(--ink-4)] flex-shrink-0">{r.source}</span>
+                        <span className="truncate">{r.title}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
 
           <div className="flex items-center gap-3 flex-wrap text-[12px]">

@@ -80,3 +80,18 @@ CREATE TABLE IF NOT EXISTS ransomware_victims (
 );
 CREATE INDEX IF NOT EXISTS idx_rw_country   ON ransomware_victims(country);
 CREATE INDEX IF NOT EXISTS idx_rw_published ON ransomware_victims(published);
+
+-- ---- 7. Related articles (duplicate/same-story detection) -----------
+-- Populated by the embed pipeline: after embedding a new article, it
+-- searches Vectorize for recent (<=72h), same-category articles above a
+-- similarity threshold and records them here. One-directional (newer ->
+-- older); the UI joins both directions so either article shows the link.
+CREATE TABLE IF NOT EXISTS related_articles (
+  article_id  TEXT NOT NULL,   -- the newer article that triggered the match
+  related_id  TEXT NOT NULL,   -- the earlier, similar article
+  score       REAL NOT NULL,
+  created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (article_id, related_id)
+);
+CREATE INDEX IF NOT EXISTS idx_related_article ON related_articles(article_id);
+CREATE INDEX IF NOT EXISTS idx_related_related ON related_articles(related_id);

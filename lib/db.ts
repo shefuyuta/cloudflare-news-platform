@@ -3,7 +3,7 @@ import type { NewsArticle, ArticleQuery, Env } from "./types";
 
 /* ---------- Row → NewsArticle ------------------------------------ */
 
-function rowToArticle(row: Record<string, unknown>, tags: string[]): NewsArticle {
+function rowToArticle(row: Record<string, unknown>, tags: string[], relatedCount = 0): NewsArticle {
   return {
     id:              row.id    as string,
     title:           row.title as string,
@@ -16,6 +16,7 @@ function rowToArticle(row: Record<string, unknown>, tags: string[]): NewsArticle
     source:          (row.source ?? "") as string,
     url:             (row.url    ?? "") as string,
     publishedAt:     (row.published_at ?? "") as string,
+    relatedCount,
   };
 }
 
@@ -44,6 +45,34 @@ async function fetchTagsFor(env: Env, articleIds: string[]): Promise<Map<string,
       const arr  = map.get(aid) ?? [];
       arr.push(name);
       map.set(aid, arr);
+    }
+  }
+  return map;
+}
+
+/** Bulk-load related-article counts for a set of article IDs (bidirectional:
+ *  counts both rows where this article is the newer trigger AND rows where
+ *  it's the older match, since related_articles is stored one-directionally). */
+async function fetchRelatedCountsFor(env: Env, articleIds: string[]): Promise<Map<string, number>> {
+  if (!articleIds.length) return new Map();
+  const map = new Map<string, number>();
+
+  const CHUNK = 80;
+  for (let i = 0; i < articleIds.length; i += CHUNK) {
+    const chunk = articleIds.slice(i, i + CHUNK);
+    const placeholders = chunk.map(() => "?").join(",");
+    const res = await env.DB.prepare(`
+      SELECT id, COUNT(*) AS cnt FROM (
+        SELECT article_id AS id FROM related_articles WHERE article_id IN (${placeholders})
+        UNION ALL
+        SELECT related_id AS id FROM related_articles WHERE related_id IN (${placeholders})
+      )
+      GROUP BY id
+    `).bind(...chunk, ...chunk).all();
+
+    for (const r of res.results ?? []) {
+      const row = r as { id: string; cnt: number };
+      map.set(row.id, Number(row.cnt));
     }
   }
   return map;
@@ -127,10 +156,12 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
   const rows = await env.DB.prepare(sql).bind(...binds).all();
   const ids  = (rows.results ?? []).map(r => (r as { id: string }).id);
   const tags = await fetchTagsFor(env, ids);
+  const relatedCounts = await fetchRelatedCountsFor(env, ids);
 
-  return (rows.results ?? []).map(r =>
-    rowToArticle(r as Record<string, unknown>, tags.get((r as { id: string }).id) ?? []),
-  );
+  return (rows.results ?? []).map(r => {
+    const id = (r as { id: string }).id;
+    return rowToArticle(r as Record<string, unknown>, tags.get(id) ?? [], relatedCounts.get(id) ?? 0);
+  });
 }
 
 /* ---------- byIds (used by RAG to hydrate citations) -------------- */
