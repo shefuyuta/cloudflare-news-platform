@@ -57,7 +57,12 @@ async function fetchRelatedCountsFor(env: Env, articleIds: string[]): Promise<Ma
   if (!articleIds.length) return new Map();
   const map = new Map<string, number>();
 
-  const CHUNK = 80;
+  // Smaller chunk than fetchTagsFor's 80: this query binds the SAME chunk
+  // TWICE (article_id IN (...) UNION ALL related_id IN (...)), so the
+  // bind-param count is 2x the chunk size. Production hit "too many SQL
+  // variables" at 80 (offset 410), so this drops to 30 for real headroom
+  // rather than chasing the exact ceiling.
+  const CHUNK = 30;
   for (let i = 0; i < articleIds.length; i += CHUNK) {
     const chunk = articleIds.slice(i, i + CHUNK);
     const placeholders = chunk.map(() => "?").join(",");
