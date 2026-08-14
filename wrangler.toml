@@ -24,4 +24,4 @@ binding = "AI"
 
 # ----- Cron: fetch every 2 hours (skips if <2h since last fetch) -----
 [triggers]
-crons = ["0 */2 * * *", "3 */2 * * *", "2 * * * *", "5 */2 * * *"]
+crons = ["0 */2 * * *", "3 */2 * * *", "2 * * * *", "5 */2 * * *", "0 0 * * *"]

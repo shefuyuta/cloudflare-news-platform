@@ -24,6 +24,7 @@ function useNavItems() {
   ];
   const CROSSCUT: NavEntry[] = [
     { href: "/ransomware",  label: t("navRansomware"),  sub: t("navRansomwareSub") },
+    { href: "/digest",      label: t("navDigest"),      sub: t("navDigestSub") },
   ];
   return { NAV, CROSSCUT, t };
 }

@@ -14,11 +14,20 @@
 // CPU time per cron event). Calling the pipeline functions directly
 // keeps all the work inside this one invocation.
 //
-// Cadence (four cron schedules, dispatched by event.cron):
+// Cadence (five cron schedules, dispatched by event.cron):
 //   "0 */2 * * *"  — news: runFetchNews (every 2h at :00)
 //   "3 */2 * * *"  — ransomware: runRansomwareFetch (every 2h at :03)
 //   "2 * * * *"    — embed: runEmbedMissing every hour at :02 (steady drain)
 //   "5 */2 * * *"  — embed: runEmbedMissing again at :05 on even hours
+//   "0 0 * * *"    — digest: runDigestPass, once daily at 09:00 JST (00:00
+//                    UTC). ALWAYS generates the daily digest; additionally
+//                    generates weekly on Fridays and monthly on the last
+//                    day of the month (both JST-dated), all in one
+//                    invocation. Kept as ONE schedule (not three) because
+//                    Cloudflare's Free plan caps Cron Triggers at 5 per
+//                    account — we're already at 4, so digest gets exactly
+//                    one slot and does its own day-of-week/month-end
+//                    branching in code instead of in wrangler.toml.
 // Each pipeline runs in a SEPARATE invocation with its own ~1000-subrequest
 // budget. Running them together exhausted it: fetch + a 20-round embed loop
 // starved each other ("Too many subrequests"), and ransomware fetched right
@@ -31,6 +40,7 @@ import { default as handler } from "./.open-next/worker.js";
 import { runFetchNews } from "./lib/pipeline/fetch-news";
 import { runRansomwareFetch } from "./lib/pipeline/ransomware-fetch";
 import { runEmbedMissing } from "./lib/pipeline/embed-missing";
+import { generateDigest, jstDateKey } from "./lib/digest/generate";
 import type { Env } from "./lib/types";
 
 export default {
@@ -49,6 +59,8 @@ export default {
       ctx.waitUntil(runNewsFetch(env));
     } else if (event.cron === "3 */2 * * *") {
       ctx.waitUntil(runRansomwarePass(env));
+    } else if (event.cron === "0 0 * * *") {
+      ctx.waitUntil(runDigestPass(env));
     } else {
       // "2 * * * *" or "5 */2 * * *" — both are embed passes.
       ctx.waitUntil(runEmbedPass(env));
@@ -100,5 +112,30 @@ async function runEmbedPass(env: Env): Promise<void> {
     console.log(`[cron] embed-missing done -> embedded ${totalEmbedded}`);
   } catch (e) {
     console.error("[cron] embed-missing failed:", e);
+  }
+}
+
+/** Digest generation: always writes 'daily'; additionally 'weekly' on
+ *  Fridays and 'monthly' on the last day of the month (both checked
+ *  against the JST calendar, since that's the digest's stated cadence).
+ *  Three LLM calls at most (one per type), all in this one invocation. */
+async function runDigestPass(env: Env): Promise<void> {
+  const today = jstDateKey();                       // YYYY-MM-DD in JST
+  const [y, m, d] = today.split("-").map(Number);
+  const isFriday = new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 5;
+  const lastDayOfMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();   // days in this month
+  const isMonthEnd = d === lastDayOfMonth;
+
+  const types: ("daily" | "weekly" | "monthly")[] = ["daily"];
+  if (isFriday) types.push("weekly");
+  if (isMonthEnd) types.push("monthly");
+
+  for (const type of types) {
+    try {
+      const digest = await generateDigest(env, type);
+      console.log(`[cron] digest -> ${digest.id} generated`);
+    } catch (e) {
+      console.error(`[cron] digest (${type}) failed:`, e);
+    }
   }
 }

@@ -24,6 +24,8 @@ const T = {
   navAISub:         { en: "AI News",       ja: "人工知能ニュース" },
   navRansomware:    { en: "Ransomware",     ja: "ランサムウェア被害" },
   navRansomwareSub: { en: "Victim tracker",  ja: "被害組織トラッカー" },
+  navDigest:        { en: "Digest",         ja: "ダイジェスト" },
+  navDigestSub:     { en: "AI summaries",   ja: "AI自動要約" },
 
   // ---- Page headings ------------------------------------------------
   todaysEdition:    { en: "The latest News", ja: "最新のニュース" },
