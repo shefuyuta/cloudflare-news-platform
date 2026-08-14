@@ -275,20 +275,31 @@ export function RansomwareStats({
             const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
             const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${H - PAD} L${pts[0].x.toFixed(1)},${H - PAD} Z`;
             return (
-              <svg key={`monthly-${months.map(m=>m[0]).join(",")}`} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "96px" }} preserveAspectRatio="none">
-                <path d={area} fill="rgb(239 68 68 / 0.10)" className="animate-area" />
-                <path d={line} pathLength={1} className="animate-draw" fill="none" stroke="rgb(239 68 68)" strokeWidth={1.5}
-                      strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                {pts.map((p, i) => (
-                  <g key={i}>
-                    <circle cx={p.x} cy={p.y} r={2.5} fill="rgb(239 68 68)" className="animate-dot" style={{ animationDelay: `${700 + i * 40}ms` }} />
-                    <title>{`${months[i][0]} · ${months[i][1]}${ja ? "件" : ""}`}</title>
-                  </g>
-                ))}
-              </svg>
+              <div className="relative">
+                {/* Y-axis min/max — plain HTML overlay, not SVG text, since
+                   the chart uses preserveAspectRatio="none" (non-uniform
+                   scaling) which would distort in-SVG text. */}
+                <div className="absolute left-0 top-0 text-[9px] text-[var(--ink-4)] tabular-nums leading-none">{maxM}</div>
+                <div className="absolute left-0 bottom-0 text-[9px] text-[var(--ink-4)] tabular-nums leading-none">0</div>
+                <svg key={`monthly-${months.map(m=>m[0]).join(",")}`} viewBox={`0 0 ${W} ${H}`} className="w-full pl-5" style={{ height: "96px" }} preserveAspectRatio="none">
+                  <path d={area} fill="rgb(239 68 68 / 0.10)" className="animate-area" />
+                  {/* No stroke-dash line-draw here: this chart's non-uniform
+                     scaling (preserveAspectRatio="none") distorts dash
+                     spacing on a short, steep polyline, making the line look
+                     broken. A plain fade avoids that. */}
+                  <path d={line} className="animate-area" fill="none" stroke="rgb(239 68 68)" strokeWidth={1.5}
+                        strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                  {pts.map((p, i) => (
+                    <g key={i}>
+                      <circle cx={p.x} cy={p.y} r={2.5} fill="rgb(239 68 68)" className="animate-dot" style={{ animationDelay: `${400 + i * 40}ms` }} />
+                      <title>{`${months[i][0]} · ${months[i][1]}${ja ? "件" : ""}`}</title>
+                    </g>
+                  ))}
+                </svg>
+              </div>
             );
           })()}
-          <div className="flex gap-2 mt-1.5">
+          <div className="flex gap-2 mt-1.5 pl-5">
             {months.map(([month], i) => (
               <div key={month} className="flex-1 text-center">
                 {(i === 0 || i === months.length - 1 || i % 3 === 0) && (
