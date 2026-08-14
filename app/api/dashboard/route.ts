@@ -22,8 +22,8 @@ export async function GET(req: Request): Promise<Response> {
 
   const [
     totalRow, byCategoryRows, bySourceRows, trendingTagsRows,
-    hourlyRows, dbTotalRow,
-    rwRecentRow, rwTopGroupRows, rwSurgeRows,
+    hourlyRows, dbTotalRow, sourceHealthRows,
+    rwRecentRow, rwTopGroupRows, rwSurgeRows, dormantGroupRows,
     rwRecentJpRow, rwTopGroupJpRows, rwSurgeJpRows,
     tagSurgeRows,
   ] = await Promise.all([
@@ -33,6 +33,10 @@ export async function GET(req: Request): Promise<Response> {
     env.DB.prepare(`SELECT t.name, COUNT(*) as cnt FROM tags t JOIN article_tags at ON t.id = at.tag_id JOIN articles a ON at.article_id = a.id WHERE a.published_at >= ? GROUP BY t.name ORDER BY cnt DESC LIMIT 20`).bind(cutoff).all(),
     env.DB.prepare(`SELECT CAST((strftime('%s','now') - strftime('%s', published_at)) / 3600 AS INTEGER) as hours_ago, CAST((strftime('%H', published_at, '+9 hours')) AS INTEGER) as jst_hour, COUNT(*) as cnt FROM articles WHERE published_at >= datetime('now','-24 hours') GROUP BY hours_ago ORDER BY hours_ago DESC`).all(),
     env.DB.prepare("SELECT COUNT(*) as cnt FROM articles").first(),
+    // Source health: most recent article per source, regardless of the
+    // `hours` window — a source that hasn't produced anything in a long
+    // time (relative to its own typical cadence) is a sign the feed broke.
+    env.DB.prepare(`SELECT source, MAX(published_at) AS latest, COUNT(*) AS total FROM articles GROUP BY source ORDER BY latest DESC`).all(),
     // Ransomware summary (independent of the `hours` window — always last 7d,
     // this is a "this week" pulse, not tied to the news display window).
     env.DB.prepare(`SELECT COUNT(*) AS cnt FROM ransomware_victims WHERE discovered != '' AND julianday('now') - julianday(discovered) < 7`).first(),
@@ -44,6 +48,23 @@ export async function GET(req: Request): Promise<Response> {
       FROM ransomware_victims
       WHERE discovered != '' AND julianday('now') - julianday(discovered) < 14
       GROUP BY g, bucket
+    `).all(),
+    // Dormant groups: had meaningful activity in the 60-120 day window but
+    // NOTHING in the last 60 days. Limited to groups with >=5 victims in
+    // that prior window so one-off/inactive-from-the-start groups don't
+    // clutter this (a group with 1 victim ever "going dormant" isn't a
+    // signal). This is a plain point-in-time query (not a range comparison
+    // like surge), so no "recent-vs-prior bucket" shaping is needed.
+    env.DB.prepare(`
+      SELECT group_name AS g, COUNT(*) AS cnt, MAX(discovered) AS last_seen
+      FROM ransomware_victims
+      WHERE discovered != ''
+      GROUP BY g
+      HAVING COUNT(*) >= 5
+         AND julianday('now') - julianday(MAX(discovered)) >= 60
+         AND julianday('now') - julianday(MAX(discovered)) < 120
+      ORDER BY julianday('now') - julianday(MAX(discovered)) ASC
+      LIMIT 5
     `).all(),
     // Japan-only variants of the three ransomware queries above, so the
     // dashboard card can toggle Global/Japan without a second round trip.
@@ -107,11 +128,24 @@ export async function GET(req: Request): Promise<Response> {
     bySource:       (bySourceRows.results    ?? []).map(r => r as { source: string; category: string; cnt: number }),
     trendingTags:   (trendingTagsRows.results ?? []).map(r => r as { name: string; cnt: number }),
     surgingTags:    tagSurging,
+    sourceHealth:   (sourceHealthRows.results ?? []).map(r => {
+      const row = r as { source: string; latest: string; total: number };
+      const hoursSince = row.latest ? (Date.now() - new Date(row.latest).getTime()) / 3_600_000 : Infinity;
+      // Fetch cron runs every 2h, so: <6h = normal (allows for a missed
+      // cycle or two), 6-24h = delayed, >24h = likely broken.
+      const status: "ok" | "delayed" | "stale" = hoursSince < 6 ? "ok" : hoursSince < 24 ? "delayed" : "stale";
+      return { source: row.source, latest: row.latest, total: row.total, hoursSince: Math.round(hoursSince), status };
+    }),
     hourly:         (hourlyRows.results      ?? []).map(r => r as { hours_ago: number; jst_hour: number; cnt: number }),
     ransomware: {
       last7d:    (rwRecentRow as { cnt: number } | null)?.cnt ?? 0,
       topGroups: (rwTopGroupRows.results ?? []).map(r => r as { g: string; cnt: number }),
       surging:   rwSurging,
+      dormant:   (dormantGroupRows.results ?? []).map(r => {
+        const row = r as { g: string; cnt: number; last_seen: string };
+        const daysSince = Math.round((Date.now() - new Date(row.last_seen).getTime()) / 86_400_000);
+        return { group: row.g, totalVictims: row.cnt, lastSeen: row.last_seen, daysSince };
+      }),
       jp: {
         last7d:    (rwRecentJpRow as { cnt: number } | null)?.cnt ?? 0,
         topGroups: (rwTopGroupJpRows.results ?? []).map(r => r as { g: string; cnt: number }),

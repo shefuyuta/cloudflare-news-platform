@@ -16,10 +16,12 @@ interface DashStats {
   trendingTags: { name: string; cnt: number }[];
   surgingTags: { group: string; recent: number; prior: number; growthPct: number | null }[];
   hourly: { hours_ago: number; jst_hour: number; cnt: number }[];
+  sourceHealth: { source: string; latest: string; total: number; hoursSince: number; status: "ok" | "delayed" | "stale" }[];
   ransomware: {
     last7d: number;
     topGroups: { g: string; cnt: number }[];
     surging: { group: string; recent: number; prior: number; growthPct: number | null }[];
+    dormant: { group: string; totalVictims: number; lastSeen: string; daysSince: number }[];
     jp: {
       last7d: number;
       topGroups: { g: string; cnt: number }[];
@@ -205,6 +207,22 @@ export function DashboardClient() {
                 </div>
               )}
 
+              {stats.ransomware.dormant.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] uppercase tracking-widest text-[var(--ink-3)]">
+                    {lang === "ja" ? "活動休止中" : "Gone quiet"}
+                  </span>
+                  {stats.ransomware.dormant.map(d => (
+                    <span key={d.group} className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)]">
+                      {d.group}
+                      <span className="opacity-70">
+                        {lang === "ja" ? `${d.daysSince}日間新規被害なし` : `quiet ${d.daysSince}d`}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {rwScope === "jp" && rw.last7d === 0 && (
                 <span className="text-[11px] text-[var(--ink-3)]">
                   {lang === "ja" ? "過去7日間、日本関連の新規被害はありません。" : "No new Japan-related victims in the last 7 days."}
@@ -299,7 +317,25 @@ export function DashboardClient() {
               href={`/search?source=${encodeURIComponent(source)}`}
               className="grid grid-cols-[1fr_auto_auto_auto_auto] px-4 py-2.5 border-t hairline hover:bg-[var(--line-soft)] transition-colors items-center"
             >
-              <span className="text-sm font-mono text-[var(--ink-2)] truncate pr-2">{source}</span>
+              <span className="flex items-center gap-1.5 min-w-0 pr-2">
+                {(() => {
+                  const health = stats.sourceHealth.find(h => h.source === source);
+                  if (!health) return null;
+                  const color = health.status === "ok" ? "bg-emerald-500" : health.status === "delayed" ? "bg-amber-500" : "bg-red-500";
+                  const label = health.status === "ok"
+                    ? (lang === "ja" ? "正常" : "OK")
+                    : health.status === "delayed"
+                    ? (lang === "ja" ? "遅延" : "Delayed")
+                    : (lang === "ja" ? "停止の疑い" : "Possibly stale");
+                  return (
+                    <span
+                      className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${color}`}
+                      title={`${label} — ${lang === "ja" ? "最終記事" : "last article"}: ${health.hoursSince < 48 ? `${health.hoursSince}h ago` : `${Math.round(health.hoursSince / 24)}d ago`}`}
+                    />
+                  );
+                })()}
+                <span className="text-sm font-mono text-[var(--ink-2)] truncate">{source}</span>
+              </span>
               {(["general", "cybersecurity", "ai"] as const).map((cat) => {
                 const n = cats[cat] ?? 0;
                 const pct = n / maxSource;
