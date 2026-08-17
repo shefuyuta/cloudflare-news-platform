@@ -208,7 +208,7 @@ export function isControlTag(name: string): boolean {
 export async function listAllTags(
   env: Env,
   category?: string,
-  opts?: { hoursAgo?: number; region?: string },
+  opts?: { hoursAgo?: number; region?: string; subcategory?: string },
 ): Promise<{ name: string; count: number }[]> {
   const where: string[] = [];
   const binds: unknown[] = [];
@@ -219,6 +219,19 @@ export async function listAllTags(
     binds.push(cutoff);
   }
   if (opts?.region) { where.push("a.region = ?"); binds.push(opts.region); }
+  if (opts?.subcategory) {
+    // Same convention as listArticles: subcategory is a sub:* TAG, not the
+    // `subcategory` column (multi-label history — see the single-label
+    // classifier fix). Matches so the tag list only shows tags that appear
+    // on articles actually in the currently selected tab (Vulnerability /
+    // Incident / Other), not the whole category regardless of tab.
+    where.push(`EXISTS (
+      SELECT 1 FROM article_tags at3
+      JOIN tags t3 ON at3.tag_id = t3.id
+      WHERE at3.article_id = a.id AND t3.name = ?
+    )`);
+    binds.push(`sub:${opts.subcategory}`);
+  }
 
   const sql = `
     SELECT t.name, COUNT(DISTINCT a.id) AS cnt
