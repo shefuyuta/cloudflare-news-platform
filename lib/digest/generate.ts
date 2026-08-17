@@ -39,7 +39,8 @@ export async function generateDigest(env: Env, type: DigestType): Promise<Digest
   const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
 
   const stats = await gatherStats(env, cutoff);
-  const { ja, en } = await summarize(env, type, stats);
+  const previous = await fetchPreviousDigestStats(env, type, periodEnd);
+  const { ja, en } = await summarize(env, type, stats, previous);
 
   const id = `${type}-${periodEnd}`;
   await env.DB.prepare(`
@@ -50,13 +51,28 @@ export async function generateDigest(env: Env, type: DigestType): Promise<Digest
   return { id, type, periodStart, periodEnd, contentJa: ja, contentEn: en };
 }
 
+/** Load the immediately preceding digest of the same type (by period_end,
+ *  excluding today's) so the LLM can note trend continuation/reversal
+ *  instead of only reporting a snapshot. Returns null for the very first
+ *  digest of a given type, or if the stored stats can't be parsed. */
+async function fetchPreviousDigestStats(env: Env, type: DigestType, periodEnd: string): Promise<DigestStats | null> {
+  const row = await env.DB.prepare(`
+    SELECT stats FROM digests
+    WHERE type = ? AND period_end < ?
+    ORDER BY period_end DESC
+    LIMIT 1
+  `).bind(type, periodEnd).first() as { stats: string } | null;
+  if (!row?.stats) return null;
+  try { return JSON.parse(row.stats) as DigestStats; } catch { return null; }
+}
+
 /* ---------- Aggregation ------------------------------------------- */
 
 interface DigestStats {
   totalArticles: number;
   byCategory: { category: string; cnt: number }[];
   topSources: { source: string; cnt: number }[];
-  notableStories: { title: string; source: string; relatedCount: number }[];  // multi-source coverage = notable
+  notableStories: { title: string; source: string; summary: string; relatedCount: number }[];  // multi-source coverage = notable
   surgingTags: { tag: string; growthPct: number | null; recent: number }[];
   ransomware: {
     newVictims: number;
@@ -77,7 +93,7 @@ async function gatherStats(env: Env, cutoff: string): Promise<DigestStats> {
     // "Notable" = multiple sources covered it (has related_articles links),
     // most-linked first. This is the same signal the "+N more" badge uses.
     env.DB.prepare(`
-      SELECT a.title, a.source, r.cnt AS related_count
+      SELECT a.title, a.source, a.summary, r.cnt AS related_count
       FROM articles a
       JOIN (
         SELECT id, COUNT(*) AS cnt FROM (
@@ -138,8 +154,12 @@ async function gatherStats(env: Env, cutoff: string): Promise<DigestStats> {
     byCategory: (byCategoryRows.results ?? []).map(r => r as { category: string; cnt: number }),
     topSources: (sourceRows.results ?? []).map(r => r as { source: string; cnt: number }),
     notableStories: (notableRows.results ?? []).map(r => {
-      const row = r as { title: string; source: string; related_count: number };
-      return { title: row.title, source: row.source, relatedCount: row.related_count };
+      const row = r as { title: string; source: string; summary: string | null; related_count: number };
+      // Cap length so 6 story summaries don't balloon the prompt — this is
+      // meant to give the LLM enough to say WHY it's notable, not a full
+      // rewrite of the article.
+      const summary = (row.summary ?? "").slice(0, 200);
+      return { title: row.title, source: row.source, summary, relatedCount: row.related_count };
     }),
     surgingTags,
     ransomware: {
@@ -175,7 +195,33 @@ function shapeSurge(rows: { g: string; bucket: string; cnt: number }[], minRecen
 
 /* ---------- LLM summarization -------------------------------------- */
 
-async function summarize(env: Env, type: DigestType, stats: DigestStats): Promise<{ ja: string; en: string }> {
+/** Builds a "PREVIOUS PERIOD" facts block for the prompt: raw numbers plus
+ *  the delta, so the LLM can characterize direction/magnitude of change
+ *  without doing its own arithmetic (which it'd sometimes get wrong).
+ *  Returns "" when there's no previous digest to compare against. */
+function buildComparisonFacts(type: DigestType, stats: DigestStats, previous: DigestStats | null): string {
+  if (!previous) return "";
+
+  const articleDelta = stats.totalArticles - previous.totalArticles;
+  const victimDelta = stats.ransomware.newVictims - previous.ransomware.newVictims;
+  const prevTopGroup = previous.ransomware.topGroups[0]?.group ?? null;
+  const currTopGroup = stats.ransomware.topGroups[0]?.group ?? null;
+  const topGroupChanged = prevTopGroup && currTopGroup && prevTopGroup !== currTopGroup;
+
+  // Groups that were surging last period too — a continuing trend, not new.
+  const prevSurgingGroups = new Set(previous.ransomware.surging.map(g => g.group));
+  const stillSurging = stats.ransomware.surging.filter(g => prevSurgingGroups.has(g.group)).map(g => g.group);
+
+  return `
+PREVIOUS PERIOD (immediately preceding ${PERIOD_LABEL_EN[type].toLowerCase()}):
+Total articles: ${previous.totalArticles} (change: ${articleDelta >= 0 ? "+" : ""}${articleDelta})
+New ransomware victims: ${previous.ransomware.newVictims} (change: ${victimDelta >= 0 ? "+" : ""}${victimDelta})
+Top group then: ${prevTopGroup ?? "none"}${topGroupChanged ? ` -> now: ${currTopGroup} (changed)` : currTopGroup ? " (unchanged)" : ""}
+Groups surging in BOTH this period and the previous one (continuing trend): ${stillSurging.join(", ") || "none"}
+`.trim();
+}
+
+async function summarize(env: Env, type: DigestType, stats: DigestStats, previous: DigestStats | null): Promise<{ ja: string; en: string }> {
   const cfg = await loadRuntimeConfig(env);
 
   const facts = `
@@ -183,7 +229,8 @@ Period: ${PERIOD_LABEL_EN[type]}
 Total articles: ${stats.totalArticles}
 By category: ${stats.byCategory.map(c => `${c.category}=${c.cnt}`).join(", ") || "none"}
 Top sources: ${stats.topSources.map(s => `${s.source} (${s.cnt})`).join(", ") || "none"}
-Notable multi-source stories: ${stats.notableStories.map(s => `"${s.title}" (${s.source}, +${s.relatedCount} more sources)`).join("; ") || "none"}
+Notable multi-source stories (covered by multiple outlets):
+${stats.notableStories.map(s => `- "${s.title}" (${s.source}, +${s.relatedCount} more sources): ${s.summary || "(no summary available)"}`).join("\n") || "none"}
 Surging tags/keywords: ${stats.surgingTags.map(s => `${s.tag} (${s.growthPct !== null ? `+${s.growthPct}%` : "new"})`).join(", ") || "none"}
 
 Ransomware activity:
@@ -191,11 +238,17 @@ New victims: ${stats.ransomware.newVictims}
 Top groups: ${stats.ransomware.topGroups.map(g => `${g.group} (${g.cnt})`).join(", ") || "none"}
 Surging groups: ${stats.ransomware.surging.map(g => `${g.group} (${g.growthPct !== null ? `+${g.growthPct}%` : "new"})`).join(", ") || "none"}
 Groups gone quiet (60+ days no new victims): ${stats.ransomware.dormant.map(g => `${g.group} (${g.daysSince}d)`).join(", ") || "none"}
+${buildComparisonFacts(type, stats, previous)}
 `.trim();
+
+  const comparisonInstruction = previous
+    ? "A PREVIOUS PERIOD comparison is included below the current facts — use it to note whether trends are continuing, reversing, or new (e.g. \"unlike last week, X has now overtaken Y\" or \"the surge in X continued for a second period\"). Don't just restate both numbers side by side; say what changed and whether that's a continuation or a reversal."
+    : "This is the first digest of this type, so there's no prior period to compare against — just report the current period.";
 
   const systemPrompt = `You are writing a ${PERIOD_LABEL_EN[type]} cybersecurity news digest for a security engineer.
 Use ONLY the facts given below — do not invent article titles, numbers, or events not listed.
-Write 3-6 short sentences: lead with the most notable development, then key numbers/trends, then anything unusual (surges, dormant groups).
+Write 3-6 short sentences: lead with the most notable development — use its summary to say WHAT actually happened and why it matters, not just that it was covered by multiple outlets — then key numbers/trends, then anything unusual (surges, dormant groups).
+${comparisonInstruction}
 Keep it dense and factual, not fluffy. No headers, no bullet points — plain prose paragraph(s).
 
 Respond with ONLY a JSON object, no markdown fences, no other text:
