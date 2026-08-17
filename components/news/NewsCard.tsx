@@ -67,7 +67,7 @@ export function NewsCard({
   return (
     <article className={[
       "border-b hairline py-4 first:pt-0 last:border-b-0 transition-all duration-300",
-      read ? "opacity-45 saturate-50" : "",
+      read ? "opacity-60 saturate-50 bg-[var(--line-soft)]" : "",
     ].join(" ")}>
 
       <div className="flex items-start gap-3 cursor-pointer group" onClick={handleHeaderClick}>
@@ -92,7 +92,10 @@ export function NewsCard({
             )}
             <span className="text-[11px] text-[var(--ink-3)] ml-auto font-mono tracking-wider flex-shrink-0">{date}</span>
           </div>
-          <h2 className="font-display text-lg md:text-xl font-medium leading-snug text-[var(--ink)] group-hover:text-[var(--ink-2)] transition-colors">
+          <h2 className={[
+            "font-display text-lg md:text-xl font-medium leading-snug transition-colors",
+            read ? "text-[var(--ink-3)]" : "text-[var(--ink)] group-hover:text-[var(--ink-2)]",
+          ].join(" ")}>
             {article.title}
           </h2>
           <span className="text-[11px] text-[var(--ink-3)] font-mono mt-0.5 inline-flex items-center gap-1.5">
