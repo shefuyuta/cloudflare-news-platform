@@ -181,8 +181,21 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
   // embedded article, search Vectorize for similar articles and record the
   // ones that are recent + high-scoring. One row per (new article, older
   // match) pair; the UI joins both directions so either side shows the link.
+  //
+  // HARD CAP: this loop adds ONE extra Vectorize query (+ a D1 lookup) per
+  // article on top of embed-missing's normal ~17 subrequests/round. Running
+  // it over the full `work` array (up to ~200/round x up to 8 rounds) blew
+  // through the ~1000-subrequest budget and crashed the whole cron
+  // invocation ("Exceeded Resources" on every scheduled job, not just this
+  // one, since Workers kills the invocation outright when it hits the
+  // limit). Capping to a small slice per pass keeps this well within
+  // budget; articles beyond the cap simply don't get related-article
+  // detection that round (no retry tracking yet — acceptable trade-off:
+  // a few articles missing a "+N more" badge is far better than the whole
+  // site's cron jobs dying).
+  const RELATED_DETECTION_CAP = 15;
   const relatedInserts: ReturnType<typeof env.DB.prepare>[] = [];
-  for (let wi = 0; wi < work.length; wi++) {
+  for (let wi = 0; wi < Math.min(work.length, RELATED_DETECTION_CAP); wi++) {
     if (Date.now() - startTime > BATCH_TIMEOUT_MS) break;
     const w = work[wi];
     const vec0 = vecByWork[wi][0];
