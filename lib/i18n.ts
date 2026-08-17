@@ -48,6 +48,8 @@ const T = {
   // ---- Filters ------------------------------------------------------
   all:              { en: "All",           ja: "すべて" },
   tags:             { en: "Tags",          ja: "タグ" },
+  tagsAndCondition: { en: "all selected",  ja: "すべて含む" },
+  clearTags:        { en: "Clear",         ja: "解除" },
   searchPlaceholder:{ en: "Search headlines, tags, sources…",
                       ja: "見出し・タグ・ソースを検索…" },
 

@@ -49,7 +49,7 @@ export function CrossBadge({ label, primary }: { label: string; primary: Categor
   );
 }
 
-export function TagChip({ tag, onClick, active }: { tag: string; onClick?: () => void; active?: boolean }) {
+export function TagChip({ tag, count, onClick, active }: { tag: string; count?: number; onClick?: () => void; active?: boolean }) {
   return (
     <button
       onClick={onClick}
@@ -61,6 +61,7 @@ export function TagChip({ tag, onClick, active }: { tag: string; onClick?: () =>
       ].join(" ")}
     >
       #{tag}
+      {count !== undefined && <span className="opacity-60 ml-1">{count}</span>}
     </button>
   );
 }

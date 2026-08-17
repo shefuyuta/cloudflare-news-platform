@@ -133,15 +133,20 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
     binds.push(cutoff);
   }
 
-  // tag ANY-of filter via EXISTS subquery — does not affect the SELECT shape
+  // tag ALL-of filter: one EXISTS per selected tag, ANDed together, so an
+  // article must have every selected tag (not just at least one). Was
+  // previously a single EXISTS with `t2.name IN (...)` (OR/any-of) — that
+  // meant adding more tag filters only ever widened results, which read as
+  // "add a filter, get MORE articles" and confused the person filtering.
   if (q.tags?.length) {
-    const ph = q.tags.map(() => "?").join(",");
-    where.push(`EXISTS (
-      SELECT 1 FROM article_tags at2
-      JOIN tags t2 ON at2.tag_id = t2.id
-      WHERE at2.article_id = a.id AND t2.name IN (${ph})
-    )`);
-    binds.push(...q.tags);
+    for (const tag of q.tags) {
+      where.push(`EXISTS (
+        SELECT 1 FROM article_tags at2
+        JOIN tags t2 ON at2.tag_id = t2.id
+        WHERE at2.article_id = a.id AND t2.name = ?
+      )`);
+      binds.push(tag);
+    }
   }
 
   const sql = `
@@ -194,19 +199,40 @@ export function isControlTag(name: string): boolean {
   return name.startsWith("sub:") || name === "AI" || name === "Cyber";
 }
 
-export async function listAllTags(env: Env, category?: string): Promise<string[]> {
-  const sql = category
-    ? `SELECT DISTINCT t.name FROM tags t
-         JOIN article_tags at ON t.id = at.tag_id
-         JOIN articles    a  ON at.article_id = a.id
-         WHERE a.category = ?
-         ORDER BY t.name`
-    : `SELECT DISTINCT name FROM tags ORDER BY name`;
-  const stmt = category ? env.DB.prepare(sql).bind(category) : env.DB.prepare(sql);
-  const res  = await stmt.all();
+/**
+ * Distinct tags for a category, scoped to the SAME time window + region
+ * the person is currently viewing (not all-time) — so counts reflect what
+ * clicking that tag will actually show, and the list doesn't include tags
+ * that have zero articles in view.
+ */
+export async function listAllTags(
+  env: Env,
+  category?: string,
+  opts?: { hoursAgo?: number; region?: string },
+): Promise<{ name: string; count: number }[]> {
+  const where: string[] = [];
+  const binds: unknown[] = [];
+  if (category) { where.push("a.category = ?"); binds.push(category); }
+  if (opts?.hoursAgo && opts.hoursAgo > 0) {
+    const cutoff = new Date(Date.now() - opts.hoursAgo * 3600_000).toISOString();
+    where.push("a.published_at >= ?");
+    binds.push(cutoff);
+  }
+  if (opts?.region) { where.push("a.region = ?"); binds.push(opts.region); }
+
+  const sql = `
+    SELECT t.name, COUNT(DISTINCT a.id) AS cnt
+    FROM tags t
+    JOIN article_tags at ON t.id = at.tag_id
+    JOIN articles    a  ON at.article_id = a.id
+    ${where.length ? "WHERE " + where.join(" AND ") : ""}
+    GROUP BY t.name
+    ORDER BY t.name
+  `;
+  const res = await env.DB.prepare(sql).bind(...binds).all();
   return (res.results ?? [])
-    .map(r => (r as { name: string }).name)
-    .filter(name => !isControlTag(name));
+    .map(r => ({ name: (r as { name: string }).name, count: Number((r as { cnt: number }).cnt) }))
+    .filter(t => !isControlTag(t.name));
 }
 
 /* ---------- Tag upsert (used by ingest) --------------------------- */

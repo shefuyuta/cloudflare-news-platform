@@ -20,7 +20,7 @@ export default async function AiPage({ searchParams }: {
 
   const [items, available] = await Promise.all([
     listArticles(env, { category: "ai", crossLabel: "AI", q: sp.q, tags, hoursAgo, limit: 200 }),
-    listAllTags(env, "ai"),
+    listAllTags(env, "ai", { hoursAgo }),
   ]);
 
   return (

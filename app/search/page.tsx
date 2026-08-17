@@ -87,7 +87,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     mode  = "keyword";
   }
 
-  const allTags = await listAllTags(env);
+  const allTags = (await listAllTags(env)).map(t => t.name);
 
   // Semantic results arrive similarity-ranked, which is the natural order
   // for a meaning-based query, so we keep it by default. Only when the

@@ -20,7 +20,7 @@ export default async function GeneralPage({ searchParams }: {
 
   const [items, available] = await Promise.all([
     listArticles(env, { category: "general", region: sp.region, q: sp.q, tags, hoursAgo, limit: 200 }),
-    listAllTags(env, "general"),
+    listAllTags(env, "general", { hoursAgo, region: sp.region }),
   ]);
 
   return (

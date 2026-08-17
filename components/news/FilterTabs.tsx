@@ -9,7 +9,7 @@ import type { TKey } from "@/lib/i18n";
 
 interface Props {
   category: Category;
-  availableTags?: string[];
+  availableTags?: { name: string; count: number }[];
 }
 
 const REGION_TABS: { key: string; tKey: TKey }[] = [
@@ -54,6 +54,12 @@ export function FilterTabs({ category, availableTags = [] }: Props) {
     router.push(`${pathname}?${sp.toString()}`);
   }
 
+  function clearTags() {
+    const sp = new URLSearchParams(params);
+    sp.delete("tag");
+    router.push(`${pathname}?${sp.toString()}`);
+  }
+
   const subTabs =
     category === "general"       ? REGION_TABS :
     category === "cybersecurity" ? SUBCATEGORY_TABS : [];
@@ -86,10 +92,31 @@ export function FilterTabs({ category, availableTags = [] }: Props) {
 
       {availableTags.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap mt-4">
-          <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] mr-1">{t("tags")}</span>
+          <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--ink-3)] mr-1">
+            {t("tags")}
+            {active.tags.length > 1 && (
+              <span className="normal-case tracking-normal opacity-70 ml-1">
+                ({t("tagsAndCondition")})
+              </span>
+            )}
+          </span>
           {availableTags.slice(0, 20).map(tag => (
-            <TagChip key={tag} tag={tag} active={active.tags.includes(tag)} onClick={() => toggleTag(tag)} />
+            <TagChip
+              key={tag.name}
+              tag={tag.name}
+              count={tag.count}
+              active={active.tags.includes(tag.name)}
+              onClick={() => toggleTag(tag.name)}
+            />
           ))}
+          {active.tags.length > 1 && (
+            <button
+              onClick={clearTags}
+              className="text-[11px] text-[var(--ink-3)] hover:text-[var(--ink)] underline underline-offset-2 ml-1"
+            >
+              {t("clearTags")}
+            </button>
+          )}
         </div>
       )}
     </div>
