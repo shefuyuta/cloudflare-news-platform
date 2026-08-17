@@ -116,7 +116,18 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
   // Subcategory is multi-label: match against the sub:* tag rather than
   // the single `subcategory` column, so an article that is both a
   // vulnerability and an incident shows on either tab.
-  if (q.subcategory) {
+  // "other" is NOT a real tag — the classifier only ever produces
+  // sub:vulnerability or sub:incident (see SUBCATEGORY_LABELS), and leaves
+  // an article with NEITHER when neither clears the similarity threshold.
+  // So "other" means "has neither sub:* tag", not "has a tag named other" —
+  // matching on a literal sub:other tag (which is never created) silently
+  // returned zero results for that tab.
+  if (q.subcategory === "other") {
+    where.push(`NOT EXISTS (
+      SELECT 1 FROM article_tags ato JOIN tags to2 ON ato.tag_id = to2.id
+      WHERE ato.article_id = a.id AND to2.name IN ('sub:vulnerability', 'sub:incident')
+    )`);
+  } else if (q.subcategory) {
     where.push(`EXISTS (
       SELECT 1 FROM article_tags ats JOIN tags ts ON ats.tag_id = ts.id
       WHERE ats.article_id = a.id AND ts.name = ?
@@ -219,7 +230,14 @@ export async function listAllTags(
     binds.push(cutoff);
   }
   if (opts?.region) { where.push("a.region = ?"); binds.push(opts.region); }
-  if (opts?.subcategory) {
+  if (opts?.subcategory === "other") {
+    // "other" = neither sub:vulnerability nor sub:incident (see the same
+    // fix in listArticles above — sub:other is never a real tag).
+    where.push(`NOT EXISTS (
+      SELECT 1 FROM article_tags at3o JOIN tags t3o ON at3o.tag_id = t3o.id
+      WHERE at3o.article_id = a.id AND t3o.name IN ('sub:vulnerability', 'sub:incident')
+    )`);
+  } else if (opts?.subcategory) {
     // Same convention as listArticles: subcategory is a sub:* TAG, not the
     // `subcategory` column (multi-label history — see the single-label
     // classifier fix). Matches so the tag list only shows tags that appear
