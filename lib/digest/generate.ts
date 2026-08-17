@@ -77,7 +77,7 @@ interface DigestStats {
   ransomware: {
     newVictims: number;
     topGroups: { group: string; cnt: number }[];
-    surging: { group: string; growthPct: number | null }[];
+    surging: { group: string; growthPct: number | null; targetIndustries: string[] }[];
     dormant: { group: string; daysSince: number }[];
   };
 }
@@ -134,8 +134,22 @@ async function gatherStats(env: Env, cutoff: string): Promise<DigestStats> {
     WHERE discovered >= ?
     GROUP BY g, bucket
   `).bind(cutoff, priorCutoff).all();
-  const rwSurging = shapeSurge((rwSurgeRows.results ?? []) as { g: string; bucket: string; cnt: number }[], 3, 5)
+  const rwSurgingBase = shapeSurge((rwSurgeRows.results ?? []) as { g: string; bucket: string; cnt: number }[], 3, 5)
     .map(s => ({ group: s.group, growthPct: s.growthPct }));
+
+  // For each surging group, what industries has it hit THIS period? Gives
+  // the digest something concrete to point at ("X is currently focused on
+  // healthcare") instead of just a growth percentage. Capped to top 2 per
+  // group so this stays a quick pointer, not a full breakdown.
+  const rwSurging = await Promise.all(rwSurgingBase.map(async s => {
+    const rows = await env.DB.prepare(`
+      SELECT activity, COUNT(*) AS cnt FROM ransomware_victims
+      WHERE group_name = ? AND discovered >= ? AND activity IS NOT NULL AND activity NOT IN ('', 'Not Found')
+      GROUP BY activity ORDER BY cnt DESC LIMIT 2
+    `).bind(s.group, cutoff).all();
+    const targetIndustries = (rows.results ?? []).map(r => (r as { activity: string }).activity);
+    return { ...s, targetIndustries };
+  }));
 
   const dormantRows = await env.DB.prepare(`
     SELECT group_name AS g, COUNT(*) AS cnt, MAX(discovered) AS last_seen
@@ -236,7 +250,7 @@ Surging tags/keywords: ${stats.surgingTags.map(s => `${s.tag} (${s.growthPct !==
 Ransomware activity:
 New victims: ${stats.ransomware.newVictims}
 Top groups: ${stats.ransomware.topGroups.map(g => `${g.group} (${g.cnt})`).join(", ") || "none"}
-Surging groups: ${stats.ransomware.surging.map(g => `${g.group} (${g.growthPct !== null ? `+${g.growthPct}%` : "new"})`).join(", ") || "none"}
+Surging groups: ${stats.ransomware.surging.map(g => `${g.group} (${g.growthPct !== null ? `+${g.growthPct}%` : "new"}${g.targetIndustries.length ? `, hitting: ${g.targetIndustries.join("/")}` : ""})`).join(", ") || "none"}
 Groups gone quiet (60+ days no new victims): ${stats.ransomware.dormant.map(g => `${g.group} (${g.daysSince}d)`).join(", ") || "none"}
 ${buildComparisonFacts(type, stats, previous)}
 `.trim();
@@ -250,6 +264,7 @@ Use ONLY the facts given below — do not invent article titles, numbers, or eve
 Write 3-6 short sentences: lead with the most notable development — use its summary to say WHAT actually happened and why it matters, not just that it was covered by multiple outlets — then key numbers/trends, then anything unusual (surges, dormant groups).
 ${comparisonInstruction}
 Keep it dense and factual, not fluffy. No headers, no bullet points — plain prose paragraph(s).
+If a surging group has listed target industries, you may add ONE brief, hedged observation tied directly to that data (e.g. "healthcare organizations may want to note X's current focus there") — never a general security recommendation, never phrased as certain or prescriptive, and only when the underlying data (industries hit) is actually present. Skip this entirely if there's nothing concrete to point at.
 
 Respond with ONLY a JSON object, no markdown fences, no other text:
 {"ja": "<Japanese version>", "en": "<English version>"}
