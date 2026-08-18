@@ -17,7 +17,7 @@
 import { loadRuntimeConfig } from "../rag/config";
 import { embedBatch, chunk } from "../rag/embeddings";
 import { loadSubcategoryRefs, classifyByEmbedding } from "../fetcher/subcategory-embed";
-import { loadTechniqueRefs, classifyTechnique } from "../fetcher/technique-embed";
+import { loadTechniqueRefs, classifyTechnique, looksTechniqueRelated } from "../fetcher/technique-embed";
 import { upsertTags, setArticleTags } from "../db";
 import type { Env } from "../types";
 
@@ -45,6 +45,30 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
   // Similarity threshold for subcategory assignment. Tune in rag_config
   // via key "subcategory_threshold" if needed; default 0.5.
   const subThreshold = await loadSubThreshold(env);
+
+  // Technique classification should only run on the AI×Security
+  // intersection (category='ai' AND has 'Cyber' tag, OR category=
+  // 'cybersecurity' AND has 'AI' tag) — NOT every ai/cybersecurity
+  // article. Scoping to the whole category let embedding similarity alone
+  // decide relevance, and it was matching plain AI-business-news articles
+  // (funding rounds, market analysis) that just happen to say "AI" a lot.
+  // Fetched as a Set up front so the per-article loop below is a cheap
+  // membership check rather than a query per article.
+  let aiSecurityIds: Set<string> | null = null;
+  if (techRefs) {
+    const rows = await env.DB.prepare(`
+      SELECT a.id FROM articles a
+      WHERE (a.category = 'ai' AND EXISTS (
+        SELECT 1 FROM article_tags atx JOIN tags tx ON atx.tag_id = tx.id
+        WHERE atx.article_id = a.id AND tx.name = 'Cyber'
+      ))
+      OR (a.category = 'cybersecurity' AND EXISTS (
+        SELECT 1 FROM article_tags aty JOIN tags ty ON aty.tag_id = ty.id
+        WHERE aty.article_id = a.id AND ty.name = 'AI'
+      ))
+    `).all();
+    aiSecurityIds = new Set((rows.results ?? []).map(r => (r as { id: string }).id));
+  }
 
   // Fetch articles without embeddings.
   // Prefer articles that have scraped content (richer embeddings).
@@ -148,12 +172,14 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
             .bind(`${w.id}#0`, nowIso, w.id),
     );
     if (subRefs && w.category === "cybersecurity") refineList.push({ id: w.id, vec0: vecs[0] });
-    // Technique classification is scoped to ai/cybersecurity articles (not
-    // just the exact AI×Security intersection, which would need a tag JOIN
-    // this pipeline doesn't otherwise do) — off-topic articles naturally
-    // fall below the similarity threshold and get no technique tag, same
-    // self-selecting behavior as vulnerability/incident classification.
-    if (techRefs && (w.category === "cybersecurity" || w.category === "ai")) {
+    // Technique classification is now scoped to the actual AI×Security
+    // intersection (see aiSecurityIds above), not the whole ai/cybersecurity
+    // category — fixes plain AI-business-news articles getting misclassified.
+    // ALSO requires a keyword pre-filter (looksTechniqueRelated) so
+    // embedding similarity only picks WHICH technique among articles that
+    // already look attack/threat-related, rather than deciding WHETHER an
+    // article is technique-related at all (which it was doing badly).
+    if (techRefs && aiSecurityIds?.has(w.id) && looksTechniqueRelated(w.chunks[0] ?? "", "")) {
       techniqueRefineList.push({ id: w.id, vec0: vecs[0] });
     }
     embedded++;

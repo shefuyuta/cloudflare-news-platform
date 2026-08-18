@@ -17,6 +17,17 @@ export function TechniqueTrendChart({
   const { months, series } = data;
   const ja = lang === "ja";
 
+  /** "2026-08-01" -> "8/1", "2026-08-16" -> "8/16" — no year, since the
+     chart only spans about a year and the year number added noise without
+     adding information at this scale. */
+  function formatBucketLabel(bucket: string): string {
+    const parts = bucket.split("-");
+    if (parts.length !== 3) return bucket;
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    return `${month}/${day}`;
+  }
+
   if (!months.length) {
     return (
       <div className="text-[11px] text-[var(--ink-3)] py-8 text-center">
@@ -50,7 +61,7 @@ export function TechniqueTrendChart({
         {months.map((m, i) =>
           i % labelStep === 0 ? (
             <text key={m} x={x(i)} y={H - 6} textAnchor="middle" fontSize="7" fill="var(--ink-4)">
-              {m.slice(2)}
+              {formatBucketLabel(m)}
             </text>
           ) : null
         )}

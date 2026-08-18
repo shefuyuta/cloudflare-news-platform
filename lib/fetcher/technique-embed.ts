@@ -154,3 +154,26 @@ export async function embedForTechnique(
   const text = (title + " " + (summary || "")).trim();
   return embed(env, text, cfg);
 }
+
+/**
+ * Cheap keyword pre-filter: does this article even mention an attack/fraud/
+ * threat concept? Embedding similarity alone was matching plain AI-business
+ * news (funding rounds, market analysis, product launches) because "AI" +
+ * generic security-adjacent vocabulary was enough to clear the 0.5
+ * threshold against the technique prototypes. Requiring at least one of
+ * these terms first means classification only runs on articles already in
+ * attack/threat territory — embedding similarity then decides WHICH
+ * technique, not WHETHER this is a technique article at all.
+ */
+const TECHNIQUE_TRIGGER_WORDS = [
+  "phishing", "scam", "fraud", "deepfake", "impersonat", "malware", "exploit",
+  "attack", "hack", "breach", "vulnerab", "prompt injection", "jailbreak",
+  "poison", "steal", "theft", "compromis", "unauthorized access",
+  "フィッシング", "詐欺", "なりすまし", "ディープフェイク", "マルウェア",
+  "脆弱性", "攻撃", "不正アクセス", "侵害", "悪用", "漏えい", "漏洩",
+];
+
+export function looksTechniqueRelated(title: string, summary: string): boolean {
+  const text = `${title} ${summary || ""}`.toLowerCase();
+  return TECHNIQUE_TRIGGER_WORDS.some(w => text.includes(w.toLowerCase()));
+}

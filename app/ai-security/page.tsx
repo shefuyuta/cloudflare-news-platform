@@ -76,7 +76,10 @@ export default async function AiSecurityPage({ searchParams }: {
     // are only ever assigned within ai/cybersecurity articles (see
     // embed-missing.ts), so no need to re-apply AI_SECURITY_WHERE here.
     env.DB.prepare(`
-      SELECT substr(a.published_at,1,7) AS m, t.name AS g, COUNT(*) AS c
+      SELECT
+        substr(a.published_at,1,7) || '-' ||
+        (CASE WHEN CAST(strftime('%d', a.published_at) AS INTEGER) <= 15 THEN '01' ELSE '16' END) AS m,
+        t.name AS g, COUNT(*) AS c
       FROM articles a
       JOIN article_tags at ON at.article_id = a.id
       JOIN tags t ON t.id = at.tag_id
@@ -94,7 +97,11 @@ export default async function AiSecurityPage({ searchParams }: {
   const techRows = (techniqueMonthRows.results ?? []) as { m: string; g: string; c: number }[];
   const techMonthsSet = new Set<string>();
   for (const row of techRows) if (row.m) techMonthsSet.add(row.m);
-  const techMonths = [...techMonthsSet].sort().slice(-12);
+  // Half-month buckets now (see the query above), so 24 buckets ≈ 12 months
+  // of history — same real-world span as before, just finer-grained, which
+  // matters early on when only a few weeks of data exist (one monthly point
+  // isn't a "trend"; two half-month points at least draw a line).
+  const techMonths = [...techMonthsSet].sort().slice(-24);
   const techMonthIdx = new Map(techMonths.map((m, i) => [m, i]));
   const techLabels = ["tech:phishing-genai", "tech:deepfake", "tech:model-attack", "tech:ai-automation"];
   const techSeriesMap = new Map<string, number[]>();
