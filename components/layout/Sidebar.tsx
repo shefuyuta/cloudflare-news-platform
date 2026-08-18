@@ -21,6 +21,7 @@ function useNavItems() {
     { href: "/general",       label: t("navGeneral"),   sub: t("navGeneralSub") },
     { href: "/cybersecurity", label: t("navCyber"),     sub: t("navCyberSub") },
     { href: "/ai",            label: t("navAI"),        sub: t("navAISub") },
+    { href: "/ai-security",   label: t("navAISecurity"), sub: t("navAISecuritySub") },
   ];
   const CROSSCUT: NavEntry[] = [
     { href: "/ransomware",  label: t("navRansomware"),  sub: t("navRansomwareSub") },

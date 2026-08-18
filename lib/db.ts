@@ -100,7 +100,26 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
   // "Cyber" for /cybersecurity), an article matches if it is EITHER the
   // primary category OR carries the cross-cut tag — this is what makes a
   // story appear on both desks (multi-label, design "X + A").
-  if (q.category) {
+  // AI × Security intersection, takes priority over category/crossLabel:
+  // an article's cross-cut tag is only recorded for the desk OTHER than
+  // its primary category (see classifier.ts), so an ai-category article
+  // carries a "Cyber" tag (not "AI"), and a cybersecurity-category article
+  // carries an "AI" tag (not "Cyber"). There's no single tag combination
+  // that captures "belongs to both desks" — it has to be expressed as
+  // this OR of two (category + tag) pairs.
+  if (q.aiSecurityOnly) {
+    where.push(`(
+      (a.category = 'ai' AND EXISTS (
+        SELECT 1 FROM article_tags atx JOIN tags tx ON atx.tag_id = tx.id
+        WHERE atx.article_id = a.id AND tx.name = 'Cyber'
+      ))
+      OR
+      (a.category = 'cybersecurity' AND EXISTS (
+        SELECT 1 FROM article_tags aty JOIN tags ty ON aty.tag_id = ty.id
+        WHERE aty.article_id = a.id AND ty.name = 'AI'
+      ))
+    )`);
+  } else if (q.category) {
     if (q.crossLabel) {
       where.push(`(a.category = ? OR EXISTS (
         SELECT 1 FROM article_tags atc JOIN tags tc ON atc.tag_id = tc.id
@@ -219,11 +238,27 @@ export function isControlTag(name: string): boolean {
 export async function listAllTags(
   env: Env,
   category?: string,
-  opts?: { hoursAgo?: number; region?: string; subcategory?: string },
+  opts?: { hoursAgo?: number; region?: string; subcategory?: string; aiSecurityOnly?: boolean },
 ): Promise<{ name: string; count: number }[]> {
   const where: string[] = [];
   const binds: unknown[] = [];
-  if (category) { where.push("a.category = ?"); binds.push(category); }
+  if (opts?.aiSecurityOnly) {
+    // Same AI×Security intersection condition as listArticles — see the
+    // comment there for why this can't be expressed as a simple tag match.
+    where.push(`(
+      (a.category = 'ai' AND EXISTS (
+        SELECT 1 FROM article_tags atx JOIN tags tx ON atx.tag_id = tx.id
+        WHERE atx.article_id = a.id AND tx.name = 'Cyber'
+      ))
+      OR
+      (a.category = 'cybersecurity' AND EXISTS (
+        SELECT 1 FROM article_tags aty JOIN tags ty ON aty.tag_id = ty.id
+        WHERE aty.article_id = a.id AND ty.name = 'AI'
+      ))
+    )`);
+  } else if (category) {
+    where.push("a.category = ?"); binds.push(category);
+  }
   if (opts?.hoursAgo && opts.hoursAgo > 0) {
     const cutoff = new Date(Date.now() - opts.hoursAgo * 3600_000).toISOString();
     where.push("a.published_at >= ?");

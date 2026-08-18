@@ -35,6 +35,11 @@ export interface ArticleQuery {
    *  cross-cut tag (e.g. "AI" on the /ai desk). Enables multi-label
    *  articles to appear on more than one desk. */
   crossLabel?: string;
+  /** AI × Security intersection: matches articles that appear on BOTH the
+   *  /ai and /cybersecurity desks — i.e. (category=ai AND has Cyber tag)
+   *  OR (category=cybersecurity AND has AI tag). Ignores `category` and
+   *  `crossLabel` when set (this defines its own category condition). */
+  aiSecurityOnly?: boolean;
   region?: string;
   subcategory?: string;
   tags?: string[];

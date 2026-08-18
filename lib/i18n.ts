@@ -22,6 +22,8 @@ const T = {
   navCyberSub:      { en: "Security News", ja: "脆弱性・インシデント" },
   navAI:            { en: "AI",            ja: "AI" },
   navAISub:         { en: "AI News",       ja: "人工知能ニュース" },
+  navAISecurity:    { en: "AI × Security", ja: "AI × セキュリティ" },
+  navAISecuritySub: { en: "Where they intersect", ja: "交差する領域" },
   navRansomware:    { en: "Ransomware",     ja: "ランサムウェア被害" },
   navRansomwareSub: { en: "Victim tracker",  ja: "被害組織トラッカー" },
   navDigest:        { en: "Digest",         ja: "ダイジェスト" },
@@ -44,6 +46,11 @@ const T = {
   aiTitle:          { en: "AI",            ja: "AI" },
   aiSub:            { en: "Model releases, research, deployments, and policy.",
                       ja: "モデルリリース、研究、デプロイ、政策。" },
+  aiSecurityTitle:  { en: "AI × Security", ja: "AI × セキュリティ" },
+  aiSecuritySub:    { en: "Where AI and cybersecurity intersect: threats, defenses, vendor moves.",
+                      ja: "AIとサイバーセキュリティの交差点：脅威、防御、ベンダーの動向。" },
+  aiSecuritySurging: { en: "Surging in AI × Security", ja: "AI×セキュリティで急上昇" },
+  aiSecurityVendors: { en: "Vendor activity",           ja: "ベンダー動向" },
 
   // ---- Filters ------------------------------------------------------
   all:              { en: "All",           ja: "すべて" },

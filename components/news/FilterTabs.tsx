@@ -8,7 +8,10 @@ import { useLang } from "@/components/LangProvider";
 import type { TKey } from "@/lib/i18n";
 
 interface Props {
-  category: Category;
+  /** A Category ("general"/"cybersecurity"/"ai") drives the region/subcategory
+   *  sub-tabs. Any other string (e.g. "ai-security" for the AI×Security
+   *  cross-view) just gets no sub-tabs — same as "ai" today. */
+  category: Category | string;
   availableTags?: { name: string; count: number }[];
 }
 
