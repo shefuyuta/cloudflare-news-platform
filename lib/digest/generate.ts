@@ -283,6 +283,12 @@ ${facts}`;
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
     if (parsed?.ja && parsed?.en) return { ja: parsed.ja, en: parsed.en };
+    // Parsing "succeeded" (or found nothing to parse) but didn't produce
+    // usable ja/en fields — this previously fell through to the fallback
+    // SILENTLY (no catch triggered, no log), making it invisible which
+    // digests were LLM-generated vs. fallback. Log the raw response so a
+    // format-deviation (extra prose, wrong keys, truncation) is diagnosable.
+    console.warn(`[digest] LLM response for ${type} didn't yield usable ja/en. Raw response:`, raw.slice(0, 1000));
   } catch (e) {
     console.warn(`[digest] LLM summarization failed for ${type}:`, e);
   }
