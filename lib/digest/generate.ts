@@ -277,9 +277,19 @@ ${facts}`;
       messages: [{ role: "system", content: systemPrompt }, { role: "user", content: "Write the digest." }],
       temperature: 0.4,
       max_tokens: 700,
-    }) as { response?: string };
+    });
 
-    const raw = (result?.response ?? "").trim();
+    // Defensive: `result.response` is USUALLY a string, but some Workers AI
+    // models/configs can return it as something else (an object, or the
+    // response text nested elsewhere), which crashed `.trim()` with
+    // "not a function" in production. Log the full result shape once so
+    // that's diagnosable, then coerce to a string rather than assuming.
+    const resultObj = result as { response?: unknown } | null;
+    const responseValue = resultObj?.response;
+    if (typeof responseValue !== "string") {
+      console.warn(`[digest] LLM result.response for ${type} was not a string (got ${typeof responseValue}). Full result:`, JSON.stringify(result).slice(0, 1500));
+    }
+    const raw = (typeof responseValue === "string" ? responseValue : JSON.stringify(responseValue ?? "")).trim();
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
     if (parsed?.ja && parsed?.en) return { ja: parsed.ja, en: parsed.en };
