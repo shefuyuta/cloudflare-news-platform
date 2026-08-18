@@ -279,26 +279,40 @@ ${facts}`;
       max_tokens: 700,
     });
 
-    // Defensive: `result.response` is USUALLY a string, but some Workers AI
-    // models/configs can return it as something else (an object, or the
-    // response text nested elsewhere), which crashed `.trim()` with
-    // "not a function" in production. Log the full result shape once so
-    // that's diagnosable, then coerce to a string rather than assuming.
-    const resultObj = result as { response?: unknown } | null;
-    const responseValue = resultObj?.response;
-    if (typeof responseValue !== "string") {
-      console.warn(`[digest] LLM result.response for ${type} was not a string (got ${typeof responseValue}). Full result:`, JSON.stringify(result).slice(0, 1500));
+    // Workers AI has returned THREE different shapes in practice for this
+    // model/prompt combo (confirmed via production logs):
+    //   1. { response: { ja, en } }              — already-parsed object
+    //   2. { response: "<json string>" }         — plain string (the shape
+    //      this code originally assumed, and what the RAG chat call gets)
+    //   3. { choices: [{ message: { content: "<json string>" } }], ... }
+    //      — OpenAI-style chat completion, with response possibly absent
+    //        or holding something else entirely
+    // Try each in order rather than assuming one.
+    const r = result as {
+      response?: unknown;
+      choices?: { message?: { content?: string } }[];
+    } | null;
+
+    let parsed: { ja?: string; en?: string } | null = null;
+
+    if (r?.response && typeof r.response === "object" && "ja" in r.response && "en" in r.response) {
+      parsed = r.response as { ja: string; en: string };
+    } else {
+      const raw = typeof r?.response === "string"
+        ? r.response
+        : r?.choices?.[0]?.message?.content ?? "";
+      const jsonMatch = raw.trim().match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch { /* fall through to warning below */ }
+      }
     }
-    const raw = (typeof responseValue === "string" ? responseValue : JSON.stringify(responseValue ?? "")).trim();
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+
     if (parsed?.ja && parsed?.en) return { ja: parsed.ja, en: parsed.en };
-    // Parsing "succeeded" (or found nothing to parse) but didn't produce
-    // usable ja/en fields — this previously fell through to the fallback
-    // SILENTLY (no catch triggered, no log), making it invisible which
-    // digests were LLM-generated vs. fallback. Log the raw response so a
-    // format-deviation (extra prose, wrong keys, truncation) is diagnosable.
-    console.warn(`[digest] LLM response for ${type} didn't yield usable ja/en. Raw response:`, raw.slice(0, 1000));
+
+    // None of the three shapes yielded usable ja/en — this previously fell
+    // through to the fallback SILENTLY (no exception, no log). Log the full
+    // result so a new/fourth shape is diagnosable instead of guessed at.
+    console.warn(`[digest] LLM response for ${type} didn't yield usable ja/en. Full result:`, JSON.stringify(result).slice(0, 1500));
   } catch (e) {
     console.warn(`[digest] LLM summarization failed for ${type}:`, e);
   }
