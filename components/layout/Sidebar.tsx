@@ -99,7 +99,11 @@ function NavItem({
   pathname: string;
   onClick?: () => void;
 }) {
-  const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+  // Exact match, or match followed by a path boundary (/) — a plain
+  // startsWith made "/ai-security" also light up "/ai" (since
+  // "/ai-security".startsWith("/ai") is true), highlighting two nav items
+  // at once for any href that's a prefix of another route.
+  const active = pathname === item.href || pathname.startsWith(item.href + "/");
   return (
     <li>
       <Link

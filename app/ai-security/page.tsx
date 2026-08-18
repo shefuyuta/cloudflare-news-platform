@@ -54,7 +54,7 @@ export default async function AiSecurityPage({ searchParams }: {
   const cutoff = new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
   const priorCutoff = new Date(Date.now() - hoursAgo * 2 * 3_600_000).toISOString();
 
-  const [items, available, tagSurgeRows, sourceRows, techniqueMonthRows] = await Promise.all([
+  const [items, available, tagSurgeRows, techniqueMonthRows] = await Promise.all([
     listArticles(env, { aiSecurityOnly: true, q: sp.q, tags, hoursAgo, limit: 200 }),
     listAllTags(env, undefined, { hoursAgo, aiSecurityOnly: true }),
     // Surging tags/keywords, scoped to the AI×Security intersection only —
@@ -71,15 +71,6 @@ export default async function AiSecurityPage({ searchParams }: {
         AND ${AI_SECURITY_WHERE}
       GROUP BY g, bucket
     `).bind(cutoff, priorCutoff).all(),
-    // "Vendor activity" = which sources are covering this intersection, and
-    // how much — a quick read on who's publishing about AI security right
-    // now (useful for competitive/partner awareness).
-    env.DB.prepare(`
-      SELECT a.source, COUNT(*) AS cnt
-      FROM articles a
-      WHERE a.published_at >= ? AND ${AI_SECURITY_WHERE}
-      GROUP BY a.source ORDER BY cnt DESC LIMIT 10
-    `).bind(cutoff).all(),
     // Month x AI-attack-technique breakdown, full history (not scoped by
     // the range filter) — powers the technique trend chart. tech:* tags
     // are only ever assigned within ai/cybersecurity articles (see
@@ -95,8 +86,6 @@ export default async function AiSecurityPage({ searchParams }: {
   ]);
 
   const surgingTags = shapeSurge((tagSurgeRows.results ?? []) as { g: string; bucket: string; cnt: number }[], 2, 6);
-  const vendors = (sourceRows.results ?? []).map(r => r as { source: string; cnt: number });
-  const maxVendor = Math.max(...vendors.map(v => v.cnt), 1);
 
   // Shape technique trend: unlike the ransomware group trend (top-5 by
   // volume), there are only 4 fixed technique labels, so show all of them
@@ -159,28 +148,6 @@ export default async function AiSecurityPage({ searchParams }: {
                   {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
                 </span>
               </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {vendors.length > 0 && (
-        <div className="mb-6 border hairline rounded-lg p-4">
-          <p className="text-[11px] uppercase tracking-widest text-[var(--ink-3)] mb-3">
-            {t("aiSecurityVendors", lang)}
-          </p>
-          <div className="space-y-1.5">
-            {vendors.map(v => (
-              <div key={v.source} className="flex items-center gap-3">
-                <span className="text-[12px] font-mono text-[var(--ink-2)] w-32 truncate flex-shrink-0">{v.source}</span>
-                <div className="flex-1 h-3 bg-[var(--line-soft)] rounded-sm overflow-hidden">
-                  <div
-                    className="h-full rounded-sm bg-[var(--ink)] animate-bar"
-                    style={{ width: `${(v.cnt / maxVendor) * 100}%`, opacity: 0.4 + (v.cnt / maxVendor) * 0.6 }}
-                  />
-                </div>
-                <span className="text-[11px] font-bold tabular-nums text-[var(--ink-2)] w-6 text-right flex-shrink-0">{v.cnt}</span>
-              </div>
             ))}
           </div>
         </div>

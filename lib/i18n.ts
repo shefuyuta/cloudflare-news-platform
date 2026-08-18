@@ -47,10 +47,9 @@ const T = {
   aiSub:            { en: "Model releases, research, deployments, and policy.",
                       ja: "モデルリリース、研究、デプロイ、政策。" },
   aiSecurityTitle:  { en: "AI × Security", ja: "AI × セキュリティ" },
-  aiSecuritySub:    { en: "Where AI and cybersecurity intersect: threats, defenses, vendor moves.",
-                      ja: "AIとサイバーセキュリティの交差点：脅威、防御、ベンダーの動向。" },
+  aiSecuritySub:    { en: "Where AI and cybersecurity intersect: AI misused for attacks, attacks on AI systems, and AI-driven security products.",
+                      ja: "AIとサイバーセキュリティの交差点：AIの悪用、AIシステムへの攻撃、AI活用のセキュリティ製品動向。" },
   aiSecuritySurging: { en: "Surging in AI × Security", ja: "AI×セキュリティで急上昇" },
-  aiSecurityVendors: { en: "Vendor activity",           ja: "ベンダー動向" },
 
   // ---- Filters ------------------------------------------------------
   all:              { en: "All",           ja: "すべて" },
