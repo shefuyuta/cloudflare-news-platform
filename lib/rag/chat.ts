@@ -57,9 +57,21 @@ export async function runChat(env: Env, req: ChatRequest): Promise<Response> {
       messages,
       temperature: cfg.temperature,
       max_tokens: cfg.maxTokens,
-    } as Record<string, unknown>) as { response?: string };
+    } as Record<string, unknown>);
 
-    const answer = result?.response ?? "No response from AI.";
+    // Defensive extraction: normally result.response is a plain string, but
+    // Workers AI has been observed returning it as an object or nesting the
+    // text in an OpenAI-style choices[0].message.content instead (see the
+    // digest generator's identical issue). Chat expects free-form prose, not
+    // structured JSON, so this just needs a string — no ja/en parsing.
+    const r = result as {
+      response?: unknown;
+      choices?: { message?: { content?: string } }[];
+    } | null;
+    const answer =
+      typeof r?.response === "string" ? r.response :
+      typeof r?.choices?.[0]?.message?.content === "string" ? r.choices[0].message!.content! :
+      "No response from AI.";
 
     return new Response(JSON.stringify({ answer, citations }), {
       headers: { "Content-Type": "application/json" },

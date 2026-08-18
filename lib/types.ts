@@ -22,6 +22,10 @@ export interface Env {
   DB: D1Database;
   VECTORIZE: VectorizeIndex;
   AI: Ai;
+  /** Secret token gating manual/admin endpoints (e.g. POST /api/digests/generate).
+   *  Set via `wrangler secret put ADMIN_TOKEN`. If unset, those endpoints
+   *  refuse all requests rather than silently running unauthenticated. */
+  ADMIN_TOKEN?: string;
 }
 
 /** Filters the UI can send to /api/articles. */
