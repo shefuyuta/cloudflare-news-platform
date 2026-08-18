@@ -17,6 +17,7 @@
 import { loadRuntimeConfig } from "../rag/config";
 import { embedBatch, chunk } from "../rag/embeddings";
 import { loadSubcategoryRefs, classifyByEmbedding } from "../fetcher/subcategory-embed";
+import { loadTechniqueRefs, classifyTechnique } from "../fetcher/technique-embed";
 import { upsertTags, setArticleTags } from "../db";
 import type { Env } from "../types";
 
@@ -40,6 +41,7 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
   // Phase 2-A: if reference vectors are present, refine cyber articles'
   // sub:* tags by embedding similarity. Absent → keyword tags stand.
   const subRefs = await loadSubcategoryRefs(env);
+  const techRefs = await loadTechniqueRefs(env);
   // Similarity threshold for subcategory assignment. Tune in rag_config
   // via key "subcategory_threshold" if needed; default 0.5.
   const subThreshold = await loadSubThreshold(env);
@@ -118,6 +120,7 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
   const vectorRecords: { id: string; values: number[]; metadata: Record<string, string> }[] = [];
   const dbUpdates = [];
   const refineList: { id: string; vec0: number[] }[] = [];
+  const techniqueRefineList: { id: string; vec0: number[] }[] = [];
   const nowIso = new Date().toISOString();
 
   for (let wi = 0; wi < work.length; wi++) {
@@ -145,6 +148,14 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
             .bind(`${w.id}#0`, nowIso, w.id),
     );
     if (subRefs && w.category === "cybersecurity") refineList.push({ id: w.id, vec0: vecs[0] });
+    // Technique classification is scoped to ai/cybersecurity articles (not
+    // just the exact AI×Security intersection, which would need a tag JOIN
+    // this pipeline doesn't otherwise do) — off-topic articles naturally
+    // fall below the similarity threshold and get no technique tag, same
+    // self-selecting behavior as vulnerability/incident classification.
+    if (techRefs && (w.category === "cybersecurity" || w.category === "ai")) {
+      techniqueRefineList.push({ id: w.id, vec0: vecs[0] });
+    }
     embedded++;
   }
 
@@ -174,6 +185,22 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
       if (labels.length) await refineSubTags(env, id, labels);
     } catch (e) {
       console.warn(`[embed-missing] refine failed for ${id}:`, e);
+    }
+  }
+
+  // Classify AI attack techniques (embedding similarity), scoped to
+  // ai/cybersecurity articles. Off-topic articles naturally score below
+  // the threshold and get no tech:* tag.
+  for (const { id, vec0 } of techniqueRefineList) {
+    if (Date.now() - startTime > BATCH_TIMEOUT_MS) break;
+    try {
+      // Reuses the same threshold as subcategory classification (both
+      // default via rag_config) — fine to split into its own config key
+      // later if technique classification needs a different cutoff.
+      const labels = classifyTechnique(vec0, techRefs!, subThreshold);
+      if (labels.length) await refineTechniqueTags(env, id, labels);
+    } catch (e) {
+      console.warn(`[embed-missing] technique classification failed for ${id}:`, e);
     }
   }
 
@@ -309,6 +336,26 @@ async function refineSubTags(env: Env, articleId: string, labels: string[]): Pro
   const newSub = labels.map(l => `sub:${l}`);
 
   const finalNames = [...new Set([...nonSub, ...newSub])];
+  const tagIds = await upsertTags(env, finalNames);
+  await setArticleTags(env, articleId, tagIds);
+}
+
+/** Same pattern as refineSubTags, for the AI attack-technique labels
+ *  (tech:* prefix) instead of sub:* — kept as a separate function since
+ *  the two tag namespaces are unrelated and this makes each easy to
+ *  reason about independently. */
+async function refineTechniqueTags(env: Env, articleId: string, labels: string[]): Promise<void> {
+  const existing = await env.DB.prepare(`
+    SELECT t.name AS name
+    FROM article_tags at JOIN tags t ON at.tag_id = t.id
+    WHERE at.article_id = ?
+  `).bind(articleId).all();
+
+  const currentNames = (existing.results ?? []).map(r => (r as { name: string }).name);
+  const nonTech = currentNames.filter(n => !n.startsWith("tech:"));
+  const newTech = labels.map(l => `tech:${l}`);
+
+  const finalNames = [...new Set([...nonTech, ...newTech])];
   const tagIds = await upsertTags(env, finalNames);
   await setArticleTags(env, articleId, tagIds);
 }

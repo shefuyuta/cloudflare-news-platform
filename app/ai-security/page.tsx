@@ -3,6 +3,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { listArticles, listAllTags } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import { FilterTabs } from "@/components/news/FilterTabs";
+import { TechniqueTrendChart } from "@/components/ai-security/TechniqueTrendChart";
 import type { Env } from "@/lib/types";
 import { cookies } from "next/headers";
 import { t, type Lang, DEFAULT_LANG, LANG_COOKIE } from "@/lib/i18n";
@@ -53,7 +54,7 @@ export default async function AiSecurityPage({ searchParams }: {
   const cutoff = new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
   const priorCutoff = new Date(Date.now() - hoursAgo * 2 * 3_600_000).toISOString();
 
-  const [items, available, tagSurgeRows, sourceRows] = await Promise.all([
+  const [items, available, tagSurgeRows, sourceRows, techniqueMonthRows] = await Promise.all([
     listArticles(env, { aiSecurityOnly: true, q: sp.q, tags, hoursAgo, limit: 200 }),
     listAllTags(env, undefined, { hoursAgo, aiSecurityOnly: true }),
     // Surging tags/keywords, scoped to the AI×Security intersection only —
@@ -79,11 +80,57 @@ export default async function AiSecurityPage({ searchParams }: {
       WHERE a.published_at >= ? AND ${AI_SECURITY_WHERE}
       GROUP BY a.source ORDER BY cnt DESC LIMIT 10
     `).bind(cutoff).all(),
+    // Month x AI-attack-technique breakdown, full history (not scoped by
+    // the range filter) — powers the technique trend chart. tech:* tags
+    // are only ever assigned within ai/cybersecurity articles (see
+    // embed-missing.ts), so no need to re-apply AI_SECURITY_WHERE here.
+    env.DB.prepare(`
+      SELECT substr(a.published_at,1,7) AS m, t.name AS g, COUNT(*) AS c
+      FROM articles a
+      JOIN article_tags at ON at.article_id = a.id
+      JOIN tags t ON t.id = at.tag_id
+      WHERE t.name LIKE 'tech:%'
+      GROUP BY m, g
+    `).all(),
   ]);
 
   const surgingTags = shapeSurge((tagSurgeRows.results ?? []) as { g: string; bucket: string; cnt: number }[], 2, 6);
   const vendors = (sourceRows.results ?? []).map(r => r as { source: string; cnt: number });
   const maxVendor = Math.max(...vendors.map(v => v.cnt), 1);
+
+  // Shape technique trend: unlike the ransomware group trend (top-5 by
+  // volume), there are only 4 fixed technique labels, so show all of them
+  // rather than picking a subset — a label with 0 articles still draws a
+  // flat line at 0, which is informative (this technique hasn't shown up).
+  const techRows = (techniqueMonthRows.results ?? []) as { m: string; g: string; c: number }[];
+  const techMonthsSet = new Set<string>();
+  for (const row of techRows) if (row.m) techMonthsSet.add(row.m);
+  const techMonths = [...techMonthsSet].sort().slice(-12);
+  const techMonthIdx = new Map(techMonths.map((m, i) => [m, i]));
+  const techLabels = ["tech:phishing-genai", "tech:deepfake", "tech:model-attack", "tech:ai-automation"];
+  const techSeriesMap = new Map<string, number[]>();
+  for (const label of techLabels) techSeriesMap.set(label, new Array(techMonths.length).fill(0));
+  for (const row of techRows) {
+    const i = techMonthIdx.get(row.m);
+    if (i === undefined) continue;
+    const series = techSeriesMap.get(row.g);
+    if (series) series[i] += Number(row.c);
+  }
+  const TECH_LABEL_TEXT: Record<string, { en: string; ja: string }> = {
+    "tech:phishing-genai": { en: "Generative-AI phishing", ja: "生成AIフィッシング" },
+    "tech:deepfake":       { en: "Deepfake fraud",         ja: "ディープフェイク詐欺" },
+    "tech:model-attack":   { en: "Attacks on AI models",   ja: "AIモデルへの攻撃" },
+    "tech:ai-automation":  { en: "AI-automated attacks",   ja: "AIによる攻撃自動化" },
+  };
+  const techniqueTrend = {
+    months: techMonths,
+    series: techLabels.map((label, idx) => ({
+      label: lang === "ja" ? TECH_LABEL_TEXT[label].ja : TECH_LABEL_TEXT[label].en,
+      points: techSeriesMap.get(label)!,
+      color: ["#dc2626", "#7c3aed", "#0891b2", "#059669"][idx],
+    })),
+  };
+  const hasTechniqueData = techniqueTrend.series.some(s => s.points.some(p => p > 0));
 
   return (
     <>
@@ -136,6 +183,15 @@ export default async function AiSecurityPage({ searchParams }: {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {hasTechniqueData && (
+        <div className="mb-6 border hairline rounded-lg p-5">
+          <p className="text-[11px] uppercase tracking-widest text-[var(--ink-3)] mb-3">
+            {lang === "ja" ? "AI攻撃手法の推移" : "AI Attack Technique Trend"}
+          </p>
+          <TechniqueTrendChart data={techniqueTrend} lang={lang} />
         </div>
       )}
 
