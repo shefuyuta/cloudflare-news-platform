@@ -99,6 +99,21 @@ export const FEEDS: FeedSource[] = [
     ],
   },
   {
+    // piyokango's individual security blog — one of the most-followed
+    // security professionals in Japan, known for detailed, well-sourced
+    // write-ups of domestic and international incidents (and increasingly,
+    // AI-related security topics: prompt injection, AI-generated fake CVEs,
+    // AI agent misbehavior, etc.), each citing its original sources.
+    // Hatena Blog serves a standard RSS feed at /rss (confirmed UTF-8,
+    // no Cloudflare IP blocking observed unlike some other JP sources).
+    name: "piyolog",
+    category: "cybersecurity",
+    regionHint: "japan",
+    urls: [
+      "https://piyolog.hatenadiary.jp/rss",
+    ],
+  },
+  {
     name: "ITmedia Security",
     category: "cybersecurity",
     regionHint: "japan",
