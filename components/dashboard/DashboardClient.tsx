@@ -136,6 +136,53 @@ export function DashboardClient() {
         ))}
       </div>
 
+      {/* ── Trending Tags ───────────────────────────────────────────── */}
+      {/* Moved above Ransomware pulse: this is one of the dashboard's most-
+         used sections (quick jump into what's being talked about right
+         now), so it earns a spot near the top rather than after the
+         hourly chart. */}
+      {stats.trendingTags.length > 0 && (
+        <section>
+          <SectionHeading>{t("trendingTags")}</SectionHeading>
+          {stats.surgingTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {stats.surgingTags.map(s => (
+                <a
+                  key={s.group}
+                  href={`/search?tag=${encodeURIComponent(s.group)}`}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors"
+                >
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  {s.group}
+                  <span className="opacity-70">
+                    {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {stats.trendingTags.map((tag) => {
+              const max = stats.trendingTags[0].cnt;
+              const pct = tag.cnt / max;
+              const size = 11 + Math.round(pct * 6);
+              return (
+                <a
+                  key={tag.name}
+                  href={`/search?tag=${encodeURIComponent(tag.name)}`}
+                  className="px-3 py-1 rounded-full border hairline font-medium transition-colors hover:bg-[var(--ink)] hover:text-ink-contrast hover:border-[var(--ink)]"
+                  style={{ fontSize: `${size}px`, opacity: 0.5 + pct * 0.5 }}
+                  title={`${tag.cnt} ${lang === "ja" ? "件" : "articles"}`}
+                >
+                  {tag.name}
+                  <span className="ml-1.5 text-[10px] opacity-60">{tag.cnt}</span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* ── Ransomware pulse (last 7 days) ─────────────────────────────
          Independent of the `hours` news window — this is a "this week"
          snapshot from ransomware_victims, since the article-based stats
@@ -369,49 +416,6 @@ export function DashboardClient() {
           ))}
         </div>
       </section>
-
-      {/* ── Trending Tags ───────────────────────────────────────────── */}
-      {stats.trendingTags.length > 0 && (
-        <section>
-          <SectionHeading>{t("trendingTags")}</SectionHeading>
-          {stats.surgingTags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {stats.surgingTags.map(s => (
-                <a
-                  key={s.group}
-                  href={`/search?tag=${encodeURIComponent(s.group)}`}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors"
-                >
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  {s.group}
-                  <span className="opacity-70">
-                    {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
-                  </span>
-                </a>
-              ))}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {stats.trendingTags.map((tag) => {
-              const max = stats.trendingTags[0].cnt;
-              const pct = tag.cnt / max;
-              const size = 11 + Math.round(pct * 6);
-              return (
-                <a
-                  key={tag.name}
-                  href={`/search?tag=${encodeURIComponent(tag.name)}`}
-                  className="px-3 py-1 rounded-full border hairline font-medium transition-colors hover:bg-[var(--ink)] hover:text-ink-contrast hover:border-[var(--ink)]"
-                  style={{ fontSize: `${size}px`, opacity: 0.5 + pct * 0.5 }}
-                  title={`${tag.cnt} ${lang === "ja" ? "件" : "articles"}`}
-                >
-                  {tag.name}
-                  <span className="ml-1.5 text-[10px] opacity-60">{tag.cnt}</span>
-                </a>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* ── Today's Briefing ────────────────────────────────────────── */}
       <section>
