@@ -149,7 +149,16 @@ export function DashboardClient() {
               {stats.surgingTags.map(s => (
                 <a
                   key={s.group}
-                  href={`/search?tag=${encodeURIComponent(s.group)}&hours=${stats.hours}`}
+                  // Surging tags are computed server-side as recent-7d vs
+                  // prior-7d (see app/api/dashboard/route.ts's julianday
+                  // comparison) — completely independent of stats.hours
+                  // (the dashboard's 24h/48h/etc display window). Linking
+                  // with hours=${stats.hours} sent people to a 24h search
+                  // for a tag that only cleared the *7-day* surge floor,
+                  // landing on a confusing 0-result page for anything
+                  // published in the last 24-168h. hours=168 (7 days)
+                  // matches what actually made it "surging".
+                  href={`/search?tag=${encodeURIComponent(s.group)}&hours=168`}
                   className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors"
                 >
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
