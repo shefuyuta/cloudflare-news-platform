@@ -149,7 +149,7 @@ export function DashboardClient() {
               {stats.surgingTags.map(s => (
                 <a
                   key={s.group}
-                  href={`/search?tag=${encodeURIComponent(s.group)}`}
+                  href={`/search?tag=${encodeURIComponent(s.group)}&hours=${stats.hours}`}
                   className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors"
                 >
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
@@ -169,7 +169,7 @@ export function DashboardClient() {
               return (
                 <a
                   key={tag.name}
-                  href={`/search?tag=${encodeURIComponent(tag.name)}`}
+                  href={`/search?tag=${encodeURIComponent(tag.name)}&hours=${stats.hours}`}
                   className="px-3 py-1 rounded-full border hairline font-medium transition-colors hover:bg-[var(--ink)] hover:text-ink-contrast hover:border-[var(--ink)]"
                   style={{ fontSize: `${size}px`, opacity: 0.5 + pct * 0.5 }}
                   title={`${tag.cnt} ${lang === "ja" ? "件" : "articles"}`}
