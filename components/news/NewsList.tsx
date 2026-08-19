@@ -13,9 +13,13 @@ import { Bell, X, ChevronLeft, ChevronRight } from "@/components/ui/Icon";
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 type PageSize = typeof PAGE_SIZE_OPTIONS[number];
 
-export function NewsList({ articles, activeTags = [] }: {
+export function NewsList({ articles, activeTags = [], searchQuery }: {
   articles: NewsArticle[];
   activeTags?: string[];
+  /** When set (search page only), NewsCard shows a short highlighted
+   *  excerpt around any match of this query in the article's summary —
+   *  a preview of "why this article matched" before expanding it. */
+  searchQuery?: string;
 }) {
   const { t, lang } = useLang();
   const { markRead, markReadRef, isRead } = useBookmarks();
@@ -132,6 +136,7 @@ export function NewsList({ articles, activeTags = [] }: {
                 key={a.id}
                 article={a}
                 activeTags={activeTags}
+                searchQuery={searchQuery}
                 isOpen={openId === a.id}
                 onToggle={handleToggle}
                 isReadProp={isRead(a.id)}

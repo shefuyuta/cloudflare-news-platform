@@ -101,12 +101,14 @@ export async function semanticSearch(
   const rows = await hydrate(env, ids, opts);
   if (!rows.length) return [];
 
-  // 6. Attach scores + sort by similarity, trim to limit.
+  // 6. Attach scores + sort by similarity, trim to limit. relevanceScore is
+  //    kept on the returned article (not just used for sorting) so the UI
+  //    can show it — search is the only path that sets this field.
   return rows
     .map(a => ({ a, score: byArticle.get(a.id) ?? 0 }))
     .sort((x, y) => y.score - x.score)
     .slice(0, limit)
-    .map(x => x.a);
+    .map(x => ({ ...x.a, relevanceScore: x.score }));
 }
 
 /**

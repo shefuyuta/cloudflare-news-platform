@@ -9,6 +9,44 @@ import { useLang } from "@/components/LangProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Check, MessageCircle } from "@/components/ui/Icon";
 
+/**
+ * Builds a short "why this matched" excerpt around the first match of any
+ * query word in the article's summary. Returns null when nothing matches —
+ * expected and fine for semantic-search results, where the match is by
+ * meaning rather than literal words, so there's often nothing to point at.
+ * Deliberately NOT shown for those cases rather than showing an unrelated
+ * sentence, which would be more misleading than no excerpt at all.
+ */
+const EXCERPT_WINDOW = 40; // chars of context on each side of the match
+function buildMatchExcerpt(summary: string | undefined, query: string | undefined): { before: string; match: string; after: string } | null {
+  if (!summary || !query?.trim()) return null;
+  // Split the query into words (2+ chars) rather than matching the whole
+  // phrase — a multi-word query rarely appears verbatim in a summary, but
+  // individual words often do.
+  const words = query.trim().split(/\s+/).filter(w => w.length >= 2);
+  if (!words.length) return null;
+
+  const lowerSummary = summary.toLowerCase();
+  let bestIndex = -1;
+  let bestLen = 0;
+  for (const w of words) {
+    const idx = lowerSummary.indexOf(w.toLowerCase());
+    if (idx !== -1 && (bestIndex === -1 || idx < bestIndex)) {
+      bestIndex = idx;
+      bestLen = w.length;
+    }
+  }
+  if (bestIndex === -1) return null;
+
+  const start = Math.max(0, bestIndex - EXCERPT_WINDOW);
+  const end   = Math.min(summary.length, bestIndex + bestLen + EXCERPT_WINDOW);
+  return {
+    before: (start > 0 ? "…" : "") + summary.slice(start, bestIndex),
+    match:  summary.slice(bestIndex, bestIndex + bestLen),
+    after:  summary.slice(bestIndex + bestLen, end) + (end < summary.length ? "…" : ""),
+  };
+}
+
 interface Props {
   article:     NewsArticle;
   onTagClick?: (tag: string) => void;
@@ -18,14 +56,19 @@ interface Props {
   // Passed from NewsList so all cards share the same read state
   isReadProp?: boolean;
   onAskChat?: (msg: string) => void;
+  /** Search page only: shows a short highlighted excerpt around a match of
+   *  this query in the collapsed card, as a preview of why it matched. */
+  searchQuery?: string;
 }
 
 export function NewsCard({
-  article, onTagClick, activeTags = [], isOpen, onToggle, isReadProp, onAskChat,
+  article, onTagClick, activeTags = [], isOpen, onToggle, isReadProp, onAskChat, searchQuery,
 }: Props) {
   const { lang, t } = useLang();
   // useBookmarks only for bookmark state — isRead comes from parent (NewsList)
   const { isBookmarked, toggleBookmark, mounted } = useBookmarks();
+
+  const matchExcerpt = buildMatchExcerpt(article.summary, searchQuery);
 
   const dt   = article.publishedAt ? new Date(article.publishedAt) : null;
   const date = dt && !isNaN(dt.getTime())
@@ -98,8 +141,23 @@ export function NewsCard({
           ].join(" ")}>
             {article.title}
           </h2>
+          {!isOpen && matchExcerpt && (
+            <p className="text-[13px] text-[var(--ink-3)] leading-snug mt-1 mb-0.5">
+              {matchExcerpt.before}
+              <mark className="bg-amber-200/60 text-[var(--ink)] rounded-sm px-0.5">{matchExcerpt.match}</mark>
+              {matchExcerpt.after}
+            </p>
+          )}
           <span className="text-[11px] text-[var(--ink-3)] font-mono mt-0.5 inline-flex items-center gap-1.5">
             {article.source}
+            {article.relevanceScore !== undefined && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-sans"
+                title={lang === "ja" ? "意味的な関連度スコア" : "Semantic relevance score"}
+              >
+                {Math.round(article.relevanceScore * 100)}% {lang === "ja" ? "一致" : "match"}
+              </span>
+            )}
             {!!article.relatedCount && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-sans">
                 +{article.relatedCount} {lang === "ja" ? "件" : "more"}

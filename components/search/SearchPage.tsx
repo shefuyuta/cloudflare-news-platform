@@ -261,7 +261,7 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
         </p>
       )}
 
-      <NewsList articles={filtered} activeTags={activeTags} />
+      <NewsList articles={filtered} activeTags={activeTags} searchQuery={params.get("q") ?? undefined} />
     </div>
   );
 }

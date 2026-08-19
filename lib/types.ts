@@ -15,6 +15,7 @@ export type NewsArticle = {
   url: string;
   publishedAt: string;            // ISO 8601 string
   relatedCount?: number;          // how many other recent same-story articles exist (see related_articles table)
+  relevanceScore?: number;        // 0-1 semantic similarity score, set only by semantic search results
 };
 
 /** Cloudflare bindings exposed via getCloudflareContext().env */
