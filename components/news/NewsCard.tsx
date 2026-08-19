@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { NewsArticle } from "@/lib/types";
-import { CategoryBadge, SubBadge, CrossBadge, TagChip } from "./TagBadge";
+import { CategoryBadge, SubBadge, CrossBadge, TagChip, TechBadge } from "./TagBadge";
 import { useLang } from "@/components/LangProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Check, MessageCircle } from "@/components/ui/Icon";
@@ -18,12 +18,32 @@ import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Check, MessageCirc
  * sentence, which would be more misleading than no excerpt at all.
  */
 const EXCERPT_WINDOW = 40; // chars of context on each side of the match
+
+/**
+ * Splits a query into candidate words. Plain whitespace-splitting is
+ * enough for English ("AI security" -> ["AI","security"]), but Japanese
+ * has no spaces between words, so a query like "AIセキュリティ" would stay
+ * one unmatchable blob (never appears verbatim in an English summary).
+ * This also splits at script-type boundaries (Latin/digits vs Katakana vs
+ * Hiragana vs Kanji), which approximates word boundaries well enough for
+ * short queries without a full morphological analyzer — "AIセキュリティ"
+ * splits into "AI" and "セキュリティ", either of which can then match.
+ */
+function extractQueryWords(query: string): string[] {
+  const bySpace = query.trim().split(/\s+/);
+  const words = new Set<string>();
+  for (const chunk of bySpace) {
+    // \p{Script} boundary split: group consecutive chars of the same script.
+    const parts = chunk.match(/[A-Za-z0-9]+|[\u30A0-\u30FF]+|[\u3040-\u309F]+|[\u4E00-\u9FFF]+|[^\sA-Za-z0-9\u30A0-\u30FF\u3040-\u309F\u4E00-\u9FFF]+/g) ?? [chunk];
+    for (const p of parts) words.add(p);
+    words.add(chunk); // keep the whole chunk too, in case it matches verbatim
+  }
+  return [...words].filter(w => w.length >= 2);
+}
+
 function buildMatchExcerpt(summary: string | undefined, query: string | undefined): { before: string; match: string; after: string } | null {
   if (!summary || !query?.trim()) return null;
-  // Split the query into words (2+ chars) rather than matching the whole
-  // phrase — a multi-word query rarely appears verbatim in a summary, but
-  // individual words often do.
-  const words = query.trim().split(/\s+/).filter(w => w.length >= 2);
+  const words = extractQueryWords(query);
   if (!words.length) return null;
 
   const lowerSummary = summary.toLowerCase();
@@ -99,9 +119,12 @@ export function NewsCard({
   const read = isReadProp ?? false;
 
   // Split control tags (multi-label routing) from user-facing tags.
-  // Cross-desk labels ("AI"/"Cyber") become badges; sub:* are hidden.
+  // Cross-desk labels ("AI"/"Cyber") become badges; sub:* and tech:* are
+  // hidden from the plain tag list — tech:* gets its own readable badge
+  // (TechBadge) instead of showing up as raw "#tech:phishing-genai" text.
   const crossLabels = article.tags.filter(t => t === "AI" || t === "Cyber");
-  const displayTags = article.tags.filter(t => !t.startsWith("sub:") && t !== "AI" && t !== "Cyber");
+  const techniqueTags = article.tags.filter(t => t.startsWith("tech:"));
+  const displayTags = article.tags.filter(t => !t.startsWith("sub:") && !t.startsWith("tech:") && t !== "AI" && t !== "Cyber");
 
   function handleHeaderClick() {
     if (onToggle) onToggle(article.id);
@@ -127,6 +150,9 @@ export function NewsCard({
             <SubBadge category={article.category} region={article.region} subcategory={article.subcategory} />
             {crossLabels.slice(0, 2).map(l => (
               <CrossBadge key={l} label={l} primary={article.category} />
+            ))}
+            {techniqueTags.map(t => (
+              <TechBadge key={t} tag={t} lang={lang} />
             ))}
             {read && (
               <span className="text-[10px] text-[var(--ink-4)] font-mono flex items-center gap-0.5">

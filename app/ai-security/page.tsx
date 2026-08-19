@@ -141,6 +141,9 @@ export default async function AiSecurityPage({ searchParams }: {
         <div className="mb-4">
           <p className="text-[11px] uppercase tracking-widest text-[var(--ink-3)] mb-2">
             {t("aiSecuritySurging", lang)}
+            <span className="normal-case tracking-normal opacity-60 ml-1.5">
+              ({lang === "ja" ? `過去${hoursAgo}時間` : `last ${hoursAgo}h`})
+            </span>
           </p>
           <div className="flex flex-wrap gap-2">
             {surgingTags.map(s => (

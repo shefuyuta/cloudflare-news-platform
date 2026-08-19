@@ -143,9 +143,18 @@ export function DashboardClient() {
          hourly chart. */}
       {stats.trendingTags.length > 0 && (
         <section>
-          <SectionHeading>{t("trendingTags")}</SectionHeading>
+          <SectionHeading>
+            {t("trendingTags")}
+            <span className="normal-case tracking-normal opacity-60 ml-1.5 text-[11px]">
+              ({lang === "ja" ? `過去${stats.hours}時間` : `last ${stats.hours}h`})
+            </span>
+          </SectionHeading>
           {stats.surgingTags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
+            <>
+              <p className="text-[10px] uppercase tracking-widest text-[var(--ink-4)] mb-1.5">
+                {lang === "ja" ? "急上昇（過去7日間）" : "Surging (last 7 days)"}
+              </p>
+              <div className="flex flex-wrap gap-2 mb-3">
               {stats.surgingTags.map(s => (
                 <a
                   key={s.group}
@@ -168,7 +177,8 @@ export function DashboardClient() {
                   </span>
                 </a>
               ))}
-            </div>
+              </div>
+            </>
           )}
           <div className="flex flex-wrap gap-2">
             {stats.trendingTags.map((tag) => {
@@ -361,7 +371,12 @@ export function DashboardClient() {
 
       {/* ── Source Heatmap ──────────────────────────────────────────── */}
       <section>
-        <SectionHeading>{t("bySource")}</SectionHeading>
+        <SectionHeading>
+          {t("bySource")}
+          <span className="normal-case tracking-normal opacity-60 ml-1.5 text-[11px]">
+            ({lang === "ja" ? `過去${stats.hours}時間` : `last ${stats.hours}h`})
+          </span>
+        </SectionHeading>
         <div className="border hairline rounded-lg overflow-hidden">
           {/* Header row */}
           <div className="grid grid-cols-[1fr_auto_auto_auto_auto] bg-[var(--line-soft)] px-4 py-2 text-[10px] uppercase tracking-widest text-[var(--ink-3)]">

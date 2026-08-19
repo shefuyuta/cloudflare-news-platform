@@ -49,6 +49,36 @@ export function CrossBadge({ label, primary }: { label: string; primary: Categor
   );
 }
 
+// Readable labels for tech:* tags (AI attack technique classification —
+// see lib/fetcher/technique-embed.ts, the source of truth for the label
+// set). Kept here as a small display-only lookup rather than importing
+// the classifier module into the UI bundle.
+const TECH_LABELS: Record<string, { en: string; ja: string }> = {
+  "phishing-genai": { en: "Generative-AI phishing", ja: "生成AIフィッシング" },
+  "deepfake":       { en: "Deepfake fraud",         ja: "ディープフェイク詐欺" },
+  "model-attack":   { en: "Attack on AI model",     ja: "AIモデルへの攻撃" },
+  "ai-automation":  { en: "AI-automated attack",    ja: "AIによる攻撃自動化" },
+};
+
+/** Badge for an AI attack-technique classification (tag name "tech:xxx").
+ *  Display-only — translates the raw tag into a readable label. Renders
+ *  nothing for a tag that isn't a recognized tech:* value (e.g. if the
+ *  label set changes later without this lookup being updated). */
+export function TechBadge({ tag, lang }: { tag: string; lang: string }) {
+  if (!tag.startsWith("tech:")) return null;
+  const key = tag.slice("tech:".length);
+  const entry = TECH_LABELS[key];
+  if (!entry) return null;
+  return (
+    <span
+      className="badge bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-200"
+      title={lang === "ja" ? "AI攻撃手法の分類" : "AI attack technique classification"}
+    >
+      {lang === "ja" ? entry.ja : entry.en}
+    </span>
+  );
+}
+
 export function TagChip({ tag, count, onClick, active }: { tag: string; count?: number; onClick?: () => void; active?: boolean }) {
   return (
     <button
