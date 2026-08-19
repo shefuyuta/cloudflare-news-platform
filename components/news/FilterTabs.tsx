@@ -4,6 +4,7 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { type Category } from "@/lib/categories";
 import { TagChip } from "./TagBadge";
+import { SavedFilters } from "./SavedFilters";
 import { useLang } from "@/components/LangProvider";
 import type { TKey } from "@/lib/i18n";
 
@@ -92,6 +93,8 @@ export function FilterTabs({ category, availableTags = [] }: Props) {
           ))}
         </div>
       )}
+
+      <SavedFilters />
 
       {availableTags.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap mt-4">

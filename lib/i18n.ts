@@ -79,8 +79,8 @@ const T = {
   // ---- Empty state --------------------------------------------------
   noArticles:       { en: "No articles match the current filters.",
                       ja: "条件に一致する記事がありません。" },
-  noArticlesSub:    { en: "Try clearing tags or switching tabs.",
-                      ja: "タグをクリアするか、タブを切り替えてみてください。" },
+  noArticlesSub:    { en: "Try widening the time range, clearing tags, or switching tabs.",
+                      ja: "期間を広げる、タグを解除する、タブを切り替えるなどを試してみてください。" },
 
   // ---- Chat ---------------------------------------------------------
   askNewsHub:       { en: "Ask NewsHub",   ja: "NewsHub AIに質問" },
