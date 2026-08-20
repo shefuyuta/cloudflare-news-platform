@@ -149,37 +149,6 @@ export function DashboardClient() {
               ({lang === "ja" ? `過去${stats.hours}時間` : `last ${stats.hours}h`})
             </span>
           </SectionHeading>
-          {stats.surgingTags.length > 0 && (
-            <>
-              <p className="text-[10px] uppercase tracking-widest text-[var(--ink-4)] mb-1.5">
-                {lang === "ja" ? "急上昇（過去7日間）" : "Surging (last 7 days)"}
-              </p>
-              <div className="flex flex-wrap gap-2 mb-3">
-              {stats.surgingTags.map(s => (
-                <a
-                  key={s.group}
-                  // Surging tags are computed server-side as recent-7d vs
-                  // prior-7d (see app/api/dashboard/route.ts's julianday
-                  // comparison) — completely independent of stats.hours
-                  // (the dashboard's 24h/48h/etc display window). Linking
-                  // with hours=${stats.hours} sent people to a 24h search
-                  // for a tag that only cleared the *7-day* surge floor,
-                  // landing on a confusing 0-result page for anything
-                  // published in the last 24-168h. hours=168 (7 days)
-                  // matches what actually made it "surging".
-                  href={`/search?tag=${encodeURIComponent(s.group)}&hours=168`}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors"
-                >
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  {s.group}
-                  <span className="opacity-70">
-                    {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
-                  </span>
-                </a>
-              ))}
-              </div>
-            </>
-          )}
           <div className="flex flex-wrap gap-2">
             {stats.trendingTags.map((tag) => {
               const max = stats.trendingTags[0].cnt;
@@ -198,6 +167,50 @@ export function DashboardClient() {
                 </a>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Surging tags ─────────────────────────────────────────────
+         Deliberately a SEPARATE section from Trending Tags above, not
+         nested inside it — the two use different windows (trending
+         follows the dashboard's hours selector; surging is a fixed
+         recent-vs-prior comparison, see the definition text below) and
+         showing them together read as if surging were a subset of
+         trending at the same time range, which it isn't. */}
+      {stats.surgingTags.length > 0 && (
+        <section>
+          <SectionHeading>
+            {lang === "ja" ? "急上昇" : "Surging"}
+          </SectionHeading>
+          <p className="text-[11px] text-[var(--ink-3)] mb-3">
+            {lang === "ja"
+              ? "直近7日間の件数が、その前の7日間より増えているキーワード。"
+              : "Keywords whose count in the last 7 days is higher than the 7 days before that."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {stats.surgingTags.map(s => (
+              <a
+                key={s.group}
+                // Surging tags are computed server-side as recent-7d vs
+                // prior-7d (see app/api/dashboard/route.ts's julianday
+                // comparison) — completely independent of stats.hours
+                // (the dashboard's 24h/48h/etc display window). Linking
+                // with hours=${stats.hours} sent people to a 24h search
+                // for a tag that only cleared the *7-day* surge floor,
+                // landing on a confusing 0-result page for anything
+                // published in the last 24-168h. hours=168 (7 days)
+                // matches what actually made it "surging".
+                href={`/search?tag=${encodeURIComponent(s.group)}&hours=168`}
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors"
+              >
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                {s.group}
+                <span className="opacity-70">
+                  {s.growthPct !== null ? `+${s.growthPct}%` : (lang === "ja" ? "新規" : "new")}
+                </span>
+              </a>
+            ))}
           </div>
         </section>
       )}

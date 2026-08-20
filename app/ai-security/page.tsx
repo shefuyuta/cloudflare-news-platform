@@ -145,6 +145,11 @@ export default async function AiSecurityPage({ searchParams }: {
               ({lang === "ja" ? `過去${hoursAgo}時間` : `last ${hoursAgo}h`})
             </span>
           </p>
+          <p className="text-[11px] text-[var(--ink-3)] mb-2">
+            {lang === "ja"
+              ? `直近${hoursAgo}時間の件数が、その前の${hoursAgo}時間より増えているキーワード。`
+              : `Keywords whose count in the last ${hoursAgo}h is higher than the ${hoursAgo}h before that.`}
+          </p>
           <div className="flex flex-wrap gap-2">
             {surgingTags.map(s => (
               <a

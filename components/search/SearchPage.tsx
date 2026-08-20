@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLang } from "@/components/LangProvider";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { NewsList } from "@/components/news/NewsList";
+import { SavedFilters } from "@/components/news/SavedFilters";
 import type { NewsArticle } from "@/lib/types";
 import { X, ArrowUpDown } from "@/components/ui/Icon";
 
@@ -254,6 +255,8 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
           </div>
         )}
       </div>
+
+      <SavedFilters />
 
       {readFilter !== "all" && mounted && (
         <p className="text-[11px] text-[var(--ink-3)] mb-3">
