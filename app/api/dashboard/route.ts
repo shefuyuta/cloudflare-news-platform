@@ -21,7 +21,7 @@ export async function GET(req: Request): Promise<Response> {
   const cutoff = new Date(Date.now() - hours * 3_600_000).toISOString();
 
   const [
-    totalRow, byCategoryRows, bySourceRows, trendingTagsRows,
+    totalRow, byCategoryRows, bySourceRows, sourceRegionRows, trendingTagsRows,
     hourlyRows, dbTotalRow, sourceHealthRows,
     rwRecentRow, rwTopGroupRows, rwSurgeRows, dormantGroupRows,
     rwRecentJpRow, rwTopGroupJpRows, rwSurgeJpRows,
@@ -30,6 +30,15 @@ export async function GET(req: Request): Promise<Response> {
     env.DB.prepare("SELECT COUNT(*) as cnt FROM articles WHERE published_at >= ?").bind(cutoff).first(),
     env.DB.prepare("SELECT category, COUNT(*) as cnt FROM articles WHERE published_at >= ? GROUP BY category ORDER BY cnt DESC").bind(cutoff).all(),
     env.DB.prepare(`SELECT source, category, COUNT(*) as cnt FROM articles WHERE published_at >= ? GROUP BY source, category ORDER BY cnt DESC LIMIT 60`).bind(cutoff).all(),
+    // Dominant region per source (most common non-empty `region` value,
+    // all-time not scoped by `hours`) — surfaces "where in the world does
+    // this source cover" directly in the By Source list, so the source mix
+    // (and its geographic coverage) is visible without a separate page.
+    env.DB.prepare(`
+      SELECT source, region, COUNT(*) AS cnt FROM articles
+      WHERE region IS NOT NULL AND region != ''
+      GROUP BY source, region
+    `).all(),
     env.DB.prepare(`SELECT t.name, COUNT(*) as cnt FROM tags t JOIN article_tags at ON t.id = at.tag_id JOIN articles a ON at.article_id = a.id WHERE a.published_at >= ? GROUP BY t.name ORDER BY cnt DESC LIMIT 20`).bind(cutoff).all(),
     env.DB.prepare(`SELECT CAST((strftime('%s','now') - strftime('%s', published_at)) / 3600 AS INTEGER) as hours_ago, CAST((strftime('%H', published_at, '+9 hours')) AS INTEGER) as jst_hour, COUNT(*) as cnt FROM articles WHERE published_at >= datetime('now','-24 hours') GROUP BY hours_ago ORDER BY hours_ago DESC`).all(),
     env.DB.prepare("SELECT COUNT(*) as cnt FROM articles").first(),
@@ -120,12 +129,27 @@ export async function GET(req: Request): Promise<Response> {
   const rwSurgingJp = shapeSurge((rwSurgeJpRows.results ?? []) as { g: string; bucket: string; cnt: number }[], 2, 3); // lower floor: JP volume is much smaller
   const tagSurging  = shapeSurge((tagSurgeRows.results  ?? []) as { g: string; bucket: string; cnt: number }[], 3, 5);
 
+  // Pick each source's single most common region, so the By Source table
+  // can show e.g. "japan" next to a source without listing every region
+  // it's ever touched.
+  const regionBySource = new Map<string, string>();
+  {
+    const best = new Map<string, number>();
+    for (const r of (sourceRegionRows.results ?? []) as { source: string; region: string; cnt: number }[]) {
+      const prevCnt = best.get(r.source) ?? 0;
+      if (r.cnt > prevCnt) { best.set(r.source, r.cnt); regionBySource.set(r.source, r.region); }
+    }
+  }
+
   const data = {
     hours,
     total:    (totalRow as { cnt: number } | null)?.cnt ?? 0,
     dbTotal:  (dbTotalRow as { cnt: number } | null)?.cnt ?? 0,
     byCategory:     (byCategoryRows.results  ?? []).map(r => r as { category: string; cnt: number }),
-    bySource:       (bySourceRows.results    ?? []).map(r => r as { source: string; category: string; cnt: number }),
+    bySource:       (bySourceRows.results    ?? []).map(r => {
+      const row = r as { source: string; category: string; cnt: number };
+      return { ...row, region: regionBySource.get(row.source) ?? null };
+    }),
     trendingTags:   (trendingTagsRows.results ?? []).map(r => r as { name: string; cnt: number }),
     surgingTags:    tagSurging,
     sourceHealth:   (sourceHealthRows.results ?? []).map(r => {

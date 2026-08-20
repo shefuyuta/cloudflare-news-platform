@@ -297,6 +297,9 @@ export function RansomwareClient({
                   <button
                     key={s.group}
                     onClick={() => setGroup(s.group)}
+                    title={ja
+                      ? "直近7日間の被害件数が、その前の7日間より増えているグループ"
+                      : "Groups whose victim count in the last 7 days is higher than the 7 days before that"}
                     className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full ring-1 ring-inset text-[11px] font-medium transition-colors hover:brightness-95"
                     style={{ background: `${color}14`, borderColor: color, color }}
                   >

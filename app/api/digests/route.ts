@@ -9,7 +9,7 @@ interface DigestRow {
   type: string;
   period_start: string;
   period_end: string;
-  content: string;   // JSON {"ja":"...","en":"..."}
+  content: string;   // JSON {"ja":"...","en":"...","usedFallback"?:bool}
   generated_at: string;
 }
 
@@ -25,7 +25,7 @@ export async function GET(): Promise<Response> {
 
   const all = (rows.results ?? []).map(r => {
     const row = r as unknown as DigestRow;
-    let content: { ja: string; en: string };
+    let content: { ja: string; en: string; usedFallback?: boolean };
     try { content = JSON.parse(row.content); } catch { content = { ja: "", en: "" }; }
     return {
       id: row.id,
@@ -34,6 +34,9 @@ export async function GET(): Promise<Response> {
       periodEnd: row.period_end,
       contentJa: content.ja,
       contentEn: content.en,
+      // undefined for digests generated before this field existed — the UI
+      // treats that as "unknown" rather than assuming either way.
+      usedFallback: content.usedFallback,
       generatedAt: row.generated_at,
     };
   });

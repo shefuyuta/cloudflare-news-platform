@@ -170,8 +170,13 @@ export default async function AiSecurityPage({ searchParams }: {
 
       {hasTechniqueData && (
         <div className="mb-6 border hairline rounded-lg p-5">
-          <p className="text-[11px] uppercase tracking-widest text-[var(--ink-3)] mb-3">
+          <p className="text-[11px] uppercase tracking-widest text-[var(--ink-3)] mb-1">
             {lang === "ja" ? "AI攻撃手法の推移" : "AI Attack Technique Trend"}
+          </p>
+          <p className="text-[10px] normal-case tracking-normal text-[var(--ink-4)] mb-3">
+            {lang === "ja"
+              ? "AIによる自動分類に基づく集計です。参考情報としてご覧ください。"
+              : "Based on automated AI classification — for reference only."}
           </p>
           <TechniqueTrendChart data={techniqueTrend} lang={lang} />
         </div>

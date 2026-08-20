@@ -12,7 +12,7 @@ interface DashStats {
   total: number;
   dbTotal: number;
   byCategory: { category: string; cnt: number }[];
-  bySource: { source: string; category: string; cnt: number }[];
+  bySource: { source: string; category: string; cnt: number; region: string | null }[];
   trendingTags: { name: string; cnt: number }[];
   surgingTags: { group: string; recent: number; prior: number; growthPct: number | null }[];
   hourly: { hours_ago: number; jst_hour: number; cnt: number }[];
@@ -102,12 +102,14 @@ export function DashboardClient() {
 
   // Build source heatmap data: sources × categories
   const sourceMap = new Map<string, Record<string, number>>();
+  const regionMap = new Map<string, string | null>();
   for (const s of stats.bySource) {
     if (!sourceMap.has(s.source)) sourceMap.set(s.source, {});
     sourceMap.get(s.source)![s.category] = (sourceMap.get(s.source)![s.category] ?? 0) + s.cnt;
+    regionMap.set(s.source, s.region);
   }
   const topSources = [...sourceMap.entries()]
-    .map(([source, cats]) => ({ source, total: Object.values(cats).reduce((a, b) => a + b, 0), cats }))
+    .map(([source, cats]) => ({ source, total: Object.values(cats).reduce((a, b) => a + b, 0), cats, region: regionMap.get(source) ?? null }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 12);
 
@@ -399,7 +401,7 @@ export function DashboardClient() {
             <span className="w-16 text-center">AI</span>
             <span className="w-12 text-right">Total</span>
           </div>
-          {topSources.map(({ source, total, cats }) => (
+          {topSources.map(({ source, total, cats, region }) => (
             <a
               key={source}
               href={`/search?source=${encodeURIComponent(source)}`}
@@ -423,6 +425,11 @@ export function DashboardClient() {
                   );
                 })()}
                 <span className="text-sm font-mono text-[var(--ink-2)] truncate">{source}</span>
+                {region && (
+                  <span className="text-[10px] text-[var(--ink-4)] font-sans flex-shrink-0">
+                    {regionLabel(region, lang)}
+                  </span>
+                )}
               </span>
               {(["general", "cybersecurity", "ai"] as const).map((cat) => {
                 const n = cats[cat] ?? 0;
@@ -566,6 +573,17 @@ function catLabel(cat: string, lang: string): string {
     ai: { ja: "AI", en: "AI" },
   };
   return labels[cat]?.[lang as "ja" | "en"] ?? cat;
+}
+
+function regionLabel(region: string, lang: string): string {
+  const labels: Record<string, { ja: string; en: string }> = {
+    japan:  { ja: "日本",       en: "Japan" },
+    us:     { ja: "アメリカ",   en: "US" },
+    asia:   { ja: "アジア",     en: "Asia" },
+    europe: { ja: "ヨーロッパ", en: "Europe" },
+    other:  { ja: "その他",     en: "Other" },
+  };
+  return labels[region]?.[lang as "ja" | "en"] ?? region;
 }
 
 

@@ -26,6 +26,15 @@ export function Header({ initialLastFetch = "" }: { initialLastFetch?: string })
   const [fetching,     setFetching]     = useState(false);
   const [lastFetchedAt, setLastFetchedAt] = useState<string>(initialLastFetch);
 
+  // Clear the search box once the person navigates away from /search — a
+  // typed query lingering in the box on other pages (General, Dashboard,
+  // etc.) looked like it was still "in effect" there, which it isn't.
+  // Pagination/filter changes WITHIN /search keep pathname === "/search",
+  // so this only fires on an actual page change, not on every re-render.
+  useEffect(() => {
+    if (pathname !== "/search") setVal("");
+  }, [pathname]);
+
   // Server value (from rag_config, reflects manual + cron) is the source of
   // truth. Fall back to localStorage only if the server didn't provide one.
   useEffect(() => {

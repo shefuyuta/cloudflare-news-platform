@@ -13,6 +13,8 @@ interface Digest {
   periodEnd: string;
   contentJa: string;
   contentEn: string;
+  // undefined for digests generated before this field existed.
+  usedFallback?: boolean;
   generatedAt: string;
 }
 
@@ -115,6 +117,13 @@ export function DigestClient({ lang }: { lang: string }) {
                     {ja ? "生成日時" : "generated"}: {fmtDate(selected.generatedAt)}
                   </span>
                 </div>
+                {selected.usedFallback && (
+                  <p className="text-[11px] text-amber-700 bg-amber-50 ring-1 ring-inset ring-amber-200 rounded-md px-2.5 py-1.5 mb-3">
+                    {ja
+                      ? "⚠ AIによる分析生成に失敗したため、簡易な件数サマリーのみを表示しています。"
+                      : "⚠ AI-generated analysis failed for this digest — showing a plain count summary instead."}
+                  </p>
+                )}
                 <p className="text-[15px] leading-relaxed text-[var(--ink-2)] whitespace-pre-line">
                   {ja ? selected.contentJa : selected.contentEn}
                 </p>

@@ -23,6 +23,7 @@ export interface DigestResult {
   periodEnd: string;
   contentJa: string;
   contentEn: string;
+  usedFallback: boolean;
 }
 
 /** Today's date in JST as YYYY-MM-DD, used for both period_end and the
@@ -40,15 +41,18 @@ export async function generateDigest(env: Env, type: DigestType): Promise<Digest
 
   const stats = await gatherStats(env, cutoff);
   const previous = await fetchPreviousDigestStats(env, type, periodEnd);
-  const { ja, en } = await summarize(env, type, stats, previous);
+  const { ja, en, usedFallback } = await summarize(env, type, stats, previous);
 
   const id = `${type}-${periodEnd}`;
+  // usedFallback lives inside the content JSON (not a new column) so this
+  // doesn't need a schema migration — the digest UI reads it to show
+  // whether this was an LLM-written summary or the plain-count fallback.
   await env.DB.prepare(`
     INSERT OR REPLACE INTO digests (id, type, period_start, period_end, content, stats, generated_at)
     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-  `).bind(id, type, periodStart, periodEnd, JSON.stringify({ ja, en }), JSON.stringify(stats)).run();
+  `).bind(id, type, periodStart, periodEnd, JSON.stringify({ ja, en, usedFallback }), JSON.stringify(stats)).run();
 
-  return { id, type, periodStart, periodEnd, contentJa: ja, contentEn: en };
+  return { id, type, periodStart, periodEnd, contentJa: ja, contentEn: en, usedFallback };
 }
 
 /** Load the immediately preceding digest of the same type (by period_end,
@@ -235,7 +239,7 @@ Groups surging in BOTH this period and the previous one (continuing trend): ${st
 `.trim();
 }
 
-async function summarize(env: Env, type: DigestType, stats: DigestStats, previous: DigestStats | null): Promise<{ ja: string; en: string }> {
+async function summarize(env: Env, type: DigestType, stats: DigestStats, previous: DigestStats | null): Promise<{ ja: string; en: string; usedFallback: boolean }> {
   const cfg = await loadRuntimeConfig(env);
 
   const facts = `
@@ -307,7 +311,7 @@ ${facts}`;
       }
     }
 
-    if (parsed?.ja && parsed?.en) return { ja: parsed.ja, en: parsed.en };
+    if (parsed?.ja && parsed?.en) return { ja: parsed.ja, en: parsed.en, usedFallback: false };
 
     // None of the three shapes yielded usable ja/en — this previously fell
     // through to the fallback SILENTLY (no exception, no log). Log the full
@@ -321,5 +325,5 @@ ${facts}`;
   // digest row still gets written rather than silently skipped.
   const fallbackJa = `${PERIOD_LABEL_JA[type]}ダイジェスト: 記事${stats.totalArticles}件、ランサムウェア新規被害${stats.ransomware.newVictims}件。`;
   const fallbackEn = `${PERIOD_LABEL_EN[type]} digest: ${stats.totalArticles} articles, ${stats.ransomware.newVictims} new ransomware victims.`;
-  return { ja: fallbackJa, en: fallbackEn };
+  return { ja: fallbackJa, en: fallbackEn, usedFallback: true };
 }

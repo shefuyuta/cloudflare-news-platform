@@ -179,13 +179,20 @@ export function NewsCard({
             {article.relevanceScore !== undefined && (
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-sans"
-                title={lang === "ja" ? "意味的な関連度スコア" : "Semantic relevance score"}
+                title={lang === "ja"
+                  ? "検索語との意味的な近さ（高いほど関連性が強いと推定）"
+                  : "How closely this article's meaning matches your search (higher = more relevant)"}
               >
                 {Math.round(article.relevanceScore * 100)}% {lang === "ja" ? "一致" : "match"}
               </span>
             )}
             {!!article.relatedCount && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-sans">
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--line-soft)] text-[var(--ink-3)] font-sans"
+                title={lang === "ja"
+                  ? "他のソースが報じた同一の話題の記事数"
+                  : "How many other sources covered this same story"}
+              >
                 +{article.relatedCount} {lang === "ja" ? "件" : "more"}
               </span>
             )}

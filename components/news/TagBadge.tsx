@@ -72,7 +72,9 @@ export function TechBadge({ tag, lang }: { tag: string; lang: string }) {
   return (
     <span
       className="badge bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-200"
-      title={lang === "ja" ? "AI攻撃手法の分類" : "AI attack technique classification"}
+      title={lang === "ja"
+        ? "AIによる自動分類（手口分析）— 参考情報であり、正確性を保証するものではありません"
+        : "Automated AI classification (technique analysis) — for reference; not guaranteed accurate"}
     >
       {lang === "ja" ? entry.ja : entry.en}
     </span>
