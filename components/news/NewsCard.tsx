@@ -132,11 +132,11 @@ export function NewsCard({
 
   return (
     <article className={[
-      "border-b hairline py-4 first:pt-0 last:border-b-0 transition-all duration-300",
-      read ? "opacity-60 saturate-50 bg-[var(--line-soft)]" : "",
+      "border-b hairline py-4 first:pt-0 last:border-b-0 transition-all duration-300 group",
+      read ? "opacity-60 saturate-50 bg-[var(--line-soft)] hover:bg-[var(--line)]" : "hover:bg-[var(--line-soft)]",
     ].join(" ")}>
 
-      <div className="flex items-start gap-3 cursor-pointer group" onClick={handleHeaderClick}>
+      <div className="flex items-start gap-3 cursor-pointer" onClick={handleHeaderClick}>
         <span className={[
           "mt-1.5 text-[var(--ink-4)] transition-transform duration-200 flex-shrink-0",
           isOpen ? "rotate-90" : "",
@@ -163,7 +163,7 @@ export function NewsCard({
           </div>
           <h2 className={[
             "font-display text-lg md:text-xl font-medium leading-snug transition-colors",
-            read ? "text-[var(--ink-3)]" : "text-[var(--ink)] group-hover:text-[var(--ink-2)]",
+            read ? "text-[var(--ink-3)]" : "text-[var(--ink)]",
           ].join(" ")}>
             {article.title}
           </h2>
