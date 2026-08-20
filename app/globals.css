@@ -13,6 +13,10 @@
   --ink-4:     #A1A1AA;   /* very muted */
   --line:      #E4E4E7;   /* hairline borders */
   --line-soft: #F4F4F5;   /* faint dividers */
+  --hover-strong: #D4D4D8; /* one step darker than --line — used for the
+    "already-read row" hover state, so it's visually distinct from both the
+    unread-row hover (--line-soft) and the read-row's resting background
+    (also --line-soft) */
 
   /* Accent — only used on small category badges. */
   --accent-general:  #1E3A8A;
@@ -114,6 +118,7 @@ a, button, [role="button"], [onclick], summary, label[for] {
     --ink-4:     #52525B;
     --line:      rgba(255,255,255,0.12);
     --line-soft: rgba(255,255,255,0.06);
+    --hover-strong: rgba(255,255,255,0.16);
     --accent-general:     #60A5FA;
     --accent-cyber:       #F87171;
     --accent-ai:          #A78BFA;
@@ -131,6 +136,7 @@ a, button, [role="button"], [onclick], summary, label[for] {
   --ink-4:     #52525B;
   --line:      rgba(255,255,255,0.12);
   --line-soft: rgba(255,255,255,0.06);
+  --hover-strong: rgba(255,255,255,0.16);
   --accent-general:     #60A5FA;
   --accent-cyber:       #F87171;
   --accent-ai:          #A78BFA;

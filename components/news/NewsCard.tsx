@@ -133,7 +133,7 @@ export function NewsCard({
   return (
     <article className={[
       "border-b hairline py-4 first:pt-0 last:border-b-0 transition-all duration-300 group",
-      read ? "opacity-60 saturate-50 bg-[var(--line-soft)] hover:bg-[var(--line)]" : "hover:bg-[var(--line-soft)]",
+      read ? "opacity-60 saturate-50 bg-[var(--line-soft)] hover:bg-[var(--hover-strong)]" : "hover:bg-[var(--line)]",
     ].join(" ")}>
 
       <div className="flex items-start gap-3 cursor-pointer" onClick={handleHeaderClick}>
