@@ -105,22 +105,49 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
       <div className="mb-6 space-y-3 p-4 border hairline rounded-lg bg-[var(--line-soft)]/40">
 
         {/* Search mode — only meaningful with a free-text query */}
-        {params.get("q") && (
-          <FilterRow label={lang === "ja" ? "検索方式" : "Mode"}>
-            <Chip2
-              active={searchMode === "semantic" && params.get("mode") !== "keyword"}
-              onClick={() => set("mode", null)}
-            >
-              {lang === "ja" ? "意味検索" : "Semantic"}
-            </Chip2>
-            <Chip2
-              active={params.get("mode") === "keyword"}
-              onClick={() => set("mode", "keyword")}
-            >
-              {lang === "ja" ? "キーワード" : "Keyword"}
-            </Chip2>
-          </FilterRow>
-        )}
+        {params.get("q") && (() => {
+          // The person can force keyword mode via ?mode=keyword. If they
+          // DIDN'T, but the server still used keyword (searchMode), that
+          // means semantic search ran and came back with 0 results, so the
+          // page silently fell back — previously the Semantic button still
+          // looked "active" in that case (it only checked the URL param,
+          // not what actually ran), which was confusing. Both buttons now
+          // reflect searchMode (what was actually used) consistently, and
+          // the fallback gets an explicit badge so it isn't silent.
+          const forcedKeyword = params.get("mode") === "keyword";
+          const autoFellBack = !forcedKeyword && searchMode === "keyword";
+          return (
+            <FilterRow label={lang === "ja" ? "検索方式" : "Mode"}>
+              <Chip2
+                active={searchMode === "semantic"}
+                dimmed={autoFellBack}
+                onClick={() => set("mode", null)}
+              >
+                {lang === "ja" ? "意味検索" : "Semantic"}
+              </Chip2>
+              <Chip2
+                active={searchMode === "keyword"}
+                onClick={() => set("mode", "keyword")}
+              >
+                {lang === "ja" ? "キーワード" : "Keyword"}
+                {autoFellBack && (
+                  <span className="ml-1 opacity-70">
+                    {lang === "ja" ? "（自動切替）" : "(auto)"}
+                  </span>
+                )}
+              </Chip2>
+              {autoFellBack && (
+                <span className="text-[11px] text-[var(--ink-4)]" title={
+                  lang === "ja"
+                    ? "このキーワードでは意味検索が0件だったため、自動的にキーワード検索に切り替わりました。"
+                    : "Semantic search found 0 results for this query, so it fell back to keyword search automatically."
+                }>
+                  {lang === "ja" ? "ⓘ 意味検索が0件のため切替" : "ⓘ Semantic found nothing"}
+                </span>
+              )}
+            </FilterRow>
+          );
+        })()}
 
         {/* Sort */}
         <FilterRow label={lang === "ja" ? "並び順" : "Sort"}>
@@ -278,11 +305,15 @@ function FilterRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function Chip2({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function Chip2({ active, dimmed, onClick, children }: { active: boolean; dimmed?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick} className={[
       "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
-      active ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)] bg-[var(--surface)]",
+      active
+        ? "bg-[var(--ink)] text-ink-contrast"
+        : dimmed
+        ? "text-[var(--ink-4)] ring-1 ring-inset ring-[var(--line)] bg-[var(--surface)] opacity-60"
+        : "text-[var(--ink-3)] hover:bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)] bg-[var(--surface)]",
     ].join(" ")}>
       {children}
     </button>
