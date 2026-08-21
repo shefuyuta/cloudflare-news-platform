@@ -308,7 +308,7 @@ function FilterRow({ label, children }: { label: string; children: React.ReactNo
 function Chip2({ active, dimmed, onClick, children }: { active: boolean; dimmed?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick} className={[
-      "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors",
+      "px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors min-h-[36px] sm:min-h-0",
       active
         ? "bg-[var(--ink)] text-ink-contrast"
         : dimmed

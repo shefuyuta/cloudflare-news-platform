@@ -114,7 +114,7 @@ export function SavedFilters() {
           </button>
           <button
             onClick={() => removeSaved(f.id)}
-            className="pr-2 py-1 text-[var(--ink-4)] hover:text-[var(--ink)] transition-colors"
+            className="pr-2.5 pl-1.5 py-1 min-h-[36px] min-w-[32px] text-[var(--ink-4)] hover:text-[var(--ink)] transition-colors"
             title={ja ? "削除" : "Remove"}
           >
             ×

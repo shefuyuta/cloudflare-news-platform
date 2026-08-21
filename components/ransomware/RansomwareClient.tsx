@@ -249,7 +249,7 @@ export function RansomwareClient({
                 key={r.key}
                 onClick={() => setRange(r.key)}
                 className={[
-                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
+                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors min-h-[36px] sm:min-h-0",
                   (selectedRange || "today") === r.key
                     ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
                     : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
@@ -300,7 +300,7 @@ export function RansomwareClient({
                     title={ja
                       ? "直近7日間の被害件数が、その前の7日間より増えているグループ"
                       : "Groups whose victim count in the last 7 days is higher than the 7 days before that"}
-                    className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full ring-1 ring-inset text-[11px] font-medium transition-colors hover:brightness-95"
+                    className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full ring-1 ring-inset text-[11px] font-medium transition-colors hover:brightness-95 min-h-[36px] sm:min-h-0"
                     style={{ background: `${color}14`, borderColor: color, color }}
                   >
                     <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: color }} />
@@ -369,7 +369,7 @@ export function RansomwareClient({
               <button
                 onClick={() => setCountry("all")}
                 className={[
-                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
+                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors min-h-[36px] sm:min-h-0",
                   !selectedCountry || selectedCountry === "all"
                     ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
                     : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
@@ -380,7 +380,7 @@ export function RansomwareClient({
               <button
                 onClick={() => setCountry("JP")}
                 className={[
-                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
+                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors min-h-[36px] sm:min-h-0",
                   selectedCountry === "JP"
                     ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]"
                     : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
@@ -434,7 +434,7 @@ export function RansomwareClient({
               <button
                 onClick={() => setGroup("")}
                 className={[
-                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
+                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors min-h-[36px] sm:min-h-0",
                   !selectedGroup ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]" : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
                 ].join(" ")}
               >
@@ -448,7 +448,7 @@ export function RansomwareClient({
                     key={g}
                     onClick={() => setGroup(g === selectedGroup ? "" : g)}
                     className={[
-                      "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors",
+                      "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors min-h-[36px] sm:min-h-0",
                       selectedGroup === g
                         ? "text-white border-transparent"
                         : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",

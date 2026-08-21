@@ -86,7 +86,7 @@ export function TagChip({ tag, count, onClick, active }: { tag: string; count?: 
     <button
       onClick={onClick}
       className={[
-        "badge font-mono",
+        "badge font-mono min-h-[36px] sm:min-h-0",
         active
           ? "bg-[var(--ink)] text-ink-contrast ring-1 ring-inset ring-[var(--ink)]"
           : "bg-transparent text-[var(--ink-2)] ring-1 ring-inset ring-[var(--line)] hover:bg-[var(--line-soft)]",

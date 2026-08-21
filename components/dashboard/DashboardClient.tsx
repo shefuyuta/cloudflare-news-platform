@@ -204,7 +204,7 @@ export function DashboardClient() {
                 // published in the last 24-168h. hours=168 (7 days)
                 // matches what actually made it "surging".
                 href={`/search?tag=${encodeURIComponent(s.group)}&hours=168`}
-                className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors"
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 transition-colors min-h-[36px] sm:min-h-0"
               >
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 {s.group}
@@ -234,7 +234,7 @@ export function DashboardClient() {
               <button
                 onClick={() => setRwScope("global")}
                 className={[
-                  "px-2.5 py-1 text-[10px] font-medium transition-colors",
+                  "px-2.5 py-1 text-[10px] font-medium transition-colors min-h-[36px] sm:min-h-0",
                   rwScope === "global" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
                 ].join(" ")}
               >
@@ -243,7 +243,7 @@ export function DashboardClient() {
               <button
                 onClick={() => setRwScope("jp")}
                 className={[
-                  "px-2.5 py-1 text-[10px] font-medium transition-colors",
+                  "px-2.5 py-1 text-[10px] font-medium transition-colors min-h-[36px] sm:min-h-0",
                   rwScope === "jp" ? "bg-[var(--ink)] text-ink-contrast" : "text-[var(--ink-3)] hover:bg-[var(--line-soft)]",
                 ].join(" ")}
               >
