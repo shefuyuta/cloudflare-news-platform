@@ -92,7 +92,13 @@ async function fetchRelatedCountsFor(env: Env, articleIds: string[]): Promise<Ma
  * having at least one of those tags matches. Returned `tags` always
  * contains the article's full tag list, not just the matched ones.
  */
-export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<NewsArticle[]> {
+/**
+ * Builds the WHERE clause + bind params shared by listArticles and
+ * countArticles, so the two can never drift out of sync (a common bug
+ * source: filtering logic duplicated in two places that quietly diverge).
+ * Does NOT include LIMIT/OFFSET/ORDER BY — those are query-shape specific.
+ */
+function buildArticleWhere(q: ArticleQuery): { where: string[]; binds: unknown[] } {
   const where:  string[] = [];
   const binds:  unknown[] = [];
 
@@ -178,6 +184,25 @@ export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<News
       binds.push(tag);
     }
   }
+
+  return { where, binds };
+}
+
+/**
+ * Total count of articles matching the same filters as listArticles, for
+ * server-side pagination (total page count). Deliberately shares
+ * buildArticleWhere so the count and the actual results can never
+ * disagree about what "matches the filters" means.
+ */
+export async function countArticles(env: Env, q: ArticleQuery = {}): Promise<number> {
+  const { where, binds } = buildArticleWhere(q);
+  const sql = `SELECT COUNT(*) AS cnt FROM articles a ${where.length ? "WHERE " + where.join(" AND ") : ""}`;
+  const row = await env.DB.prepare(sql).bind(...binds).first() as { cnt: number } | null;
+  return row?.cnt ?? 0;
+}
+
+export async function listArticles(env: Env, q: ArticleQuery = {}): Promise<NewsArticle[]> {
+  const { where, binds } = buildArticleWhere(q);
 
   const sql = `
     SELECT a.id, a.title, a.summary, a.content,

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { NewsArticle } from "@/lib/types";
 import { NewsCard } from "./NewsCard";
 import { ExportButton } from "./ExportButton";
@@ -13,22 +14,38 @@ import { Bell, X, ChevronLeft, ChevronRight } from "@/components/ui/Icon";
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 type PageSize = typeof PAGE_SIZE_OPTIONS[number];
 
-export function NewsList({ articles, activeTags = [], searchQuery }: {
+export function NewsList({ articles, totalCount, page, pageSize, activeTags = [], searchQuery, disablePagination }: {
+  /** Only the CURRENT PAGE's rows — the server already applied
+   *  LIMIT/OFFSET (see countArticles/listArticles in lib/db.ts). This is
+   *  NOT the full result set; do not slice it further client-side. */
   articles: NewsArticle[];
+  /** Total rows matching the current filters, across ALL pages — powers
+   *  the page-count display and the last-page calculation. */
+  totalCount: number;
+  /** Current page (1-indexed) and page size, both read from the URL by
+   *  the caller (e.g. app/general/page.tsx) and passed straight through —
+   *  NewsList doesn't own this state anymore; changing it navigates. */
+  page: number;
+  pageSize: PageSize;
   activeTags?: string[];
   /** When set (search page only), NewsCard shows a short highlighted
    *  excerpt around any match of this query in the article's summary —
    *  a preview of "why this article matched" before expanding it. */
   searchQuery?: string;
+  /** Search page opts out of server-side pagination for now (it applies
+   *  its own client-side read/unread filter on top of the fetched set,
+   *  which doesn't compose cleanly with a fixed page size yet) — hides
+   *  the pager and the page-size selector, showing exactly what was
+   *  passed in as `articles`. */
+  disablePagination?: boolean;
 }) {
   const { t, lang } = useLang();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { markRead, markReadRef, isRead } = useBookmarks();
   const { keywords, matches, newCount, dismissAlerts, mounted } = useKeywordAlerts(articles);
   const [alertDismissed, setAlertDismissed] = useState(false);
-
-  // Pagination state
-  const [page, setPage]           = useState(1);
-  const [pageSize, setPageSize]   = useState<PageSize>(20);
 
   // Accordion: one open at a time. Closing → mark read.
   const [openId, setOpenId] = useState<string | null>(null);
@@ -47,22 +64,31 @@ export function NewsList({ articles, activeTags = [], searchQuery }: {
     });
   }, []);
 
-  // Reset to page 1 when pageSize changes
-  function handlePageSizeChange(size: PageSize) {
-    setPageSize(size);
-    setPage(1);
-    setOpenId(null);
-  }
-
-  const totalPages = Math.max(1, Math.ceil(articles.length / pageSize));
-  const paginated  = articles.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   function handleDismiss() { dismissAlerts(); setAlertDismissed(true); }
 
-  function goPage(n: number) {
-    setPage(Math.max(1, Math.min(totalPages, n)));
+  /** Navigates to a new page/pageSize by rewriting the URL — this re-runs
+   *  the server component with new limit/offset, rather than re-slicing
+   *  an already-truncated client-side array (the bug this replaces: the
+   *  old version capped every desk at whatever `limit` the caller passed,
+   *  silently dropping everything past it no matter which page you were
+   *  "on"). */
+  function navigate(nextPage: number, nextPageSize: PageSize) {
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set("page", String(nextPage));
+    sp.set("pageSize", String(nextPageSize));
     setOpenId(null);
+    router.push(`${pathname}?${sp.toString()}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handlePageSizeChange(size: PageSize) {
+    navigate(1, size);
+  }
+
+  function goPage(n: number) {
+    navigate(Math.max(1, Math.min(totalPages, n)), pageSize);
   }
 
   return (
@@ -71,16 +97,17 @@ export function NewsList({ articles, activeTags = [], searchQuery }: {
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-[var(--ink-3)]">
-            {articles.length.toLocaleString()} {lang === "ja" ? "件" : "articles"}
+            {totalCount.toLocaleString()} {lang === "ja" ? "件" : "articles"}
           </span>
           {/* Page size selector */}
+          {!disablePagination && (
           <div className="flex items-center gap-1">
             {PAGE_SIZE_OPTIONS.map(n => (
               <button
                 key={n}
                 onClick={() => handlePageSizeChange(n)}
                 className={[
-                  "px-2 py-0.5 text-[11px] font-medium rounded transition-colors",
+                  "px-2 py-0.5 text-[11px] font-medium rounded transition-colors min-h-[36px] sm:min-h-0",
                   pageSize === n
                     ? "bg-[var(--ink)] text-ink-contrast"
                     : "text-[var(--ink-3)] hover:text-[var(--ink)] hover:bg-[var(--line-soft)]",
@@ -90,6 +117,7 @@ export function NewsList({ articles, activeTags = [], searchQuery }: {
               </button>
             ))}
           </div>
+          )}
         </div>
         <ExportButton articleIds={articles.map(a => a.id)} />
       </div>
@@ -131,7 +159,7 @@ export function NewsList({ articles, activeTags = [], searchQuery }: {
             key={`${page}|${articles.length}|${articles[0]?.id ?? ""}`}
             className="divide-y divide-[var(--line)] stagger"
           >
-            {paginated.map(a => (
+            {articles.map(a => (
               <NewsCard
                 key={a.id}
                 article={a}
@@ -146,12 +174,12 @@ export function NewsList({ articles, activeTags = [], searchQuery }: {
           </div>
 
           {/* ── Pagination ───────────────────────────────────────────── */}
-          {totalPages > 1 && (
+          {!disablePagination && totalPages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-2">
               <button
                 onClick={() => goPage(page - 1)}
                 disabled={page === 1}
-                className="p-1.5 rounded-md text-[var(--ink-3)] hover:text-[var(--ink)] hover:bg-[var(--line-soft)] disabled:opacity-30 transition-colors"
+                className="p-1.5 rounded-md text-[var(--ink-3)] hover:text-[var(--ink)] hover:bg-[var(--line-soft)] disabled:opacity-30 transition-colors min-h-[36px] sm:min-h-0"
               >
                 <ChevronLeft size={16} strokeWidth={1.5} />
               </button>
@@ -172,7 +200,7 @@ export function NewsList({ articles, activeTags = [], searchQuery }: {
                       key={n}
                       onClick={() => goPage(n as number)}
                       className={[
-                        "min-w-[32px] h-8 px-2 text-sm rounded-md transition-colors",
+                        "min-w-[32px] h-8 px-2 text-sm rounded-md transition-colors min-h-[36px] sm:min-h-0",
                         page === n
                           ? "bg-[var(--ink)] text-ink-contrast font-medium"
                           : "text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
@@ -186,7 +214,7 @@ export function NewsList({ articles, activeTags = [], searchQuery }: {
               <button
                 onClick={() => goPage(page + 1)}
                 disabled={page === totalPages}
-                className="p-1.5 rounded-md text-[var(--ink-3)] hover:text-[var(--ink)] hover:bg-[var(--line-soft)] disabled:opacity-30 transition-colors"
+                className="p-1.5 rounded-md text-[var(--ink-3)] hover:text-[var(--ink)] hover:bg-[var(--line-soft)] disabled:opacity-30 transition-colors min-h-[36px] sm:min-h-0"
               >
                 <ChevronRight size={16} strokeWidth={1.5} />
               </button>

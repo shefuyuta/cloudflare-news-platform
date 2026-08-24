@@ -291,7 +291,15 @@ export function SearchPage({ articles, activeTags, title, subtitle, lang, allTag
         </p>
       )}
 
-      <NewsList articles={filtered} activeTags={activeTags} searchQuery={params.get("q") ?? undefined} />
+      <NewsList
+        articles={filtered}
+        totalCount={filtered.length}
+        page={1}
+        pageSize={20}
+        disablePagination
+        activeTags={activeTags}
+        searchQuery={params.get("q") ?? undefined}
+      />
     </div>
   );
 }

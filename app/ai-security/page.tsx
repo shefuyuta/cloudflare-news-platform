@@ -1,6 +1,6 @@
 // app/ai-security/page.tsx
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { listArticles, listAllTags } from "@/lib/db";
+import { listArticles, countArticles, listAllTags } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import { FilterTabs } from "@/components/news/FilterTabs";
 import { TechniqueTrendChart } from "@/components/ai-security/TechniqueTrendChart";
@@ -51,11 +51,15 @@ export default async function AiSecurityPage({ searchParams }: {
   const lang = (cookieStore.get(LANG_COOKIE)?.value as Lang) ?? DEFAULT_LANG;
   const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
   const hoursAgo = parseInt(sp.hours ?? "24", 10);
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const pageSize = [20, 50, 100].includes(parseInt(sp.pageSize ?? "20", 10)) ? parseInt(sp.pageSize ?? "20", 10) : 20;
   const cutoff = new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
   const priorCutoff = new Date(Date.now() - hoursAgo * 2 * 3_600_000).toISOString();
+  const query = { aiSecurityOnly: true as const, q: sp.q, tags, hoursAgo };
 
-  const [items, available, tagSurgeRows, techniqueMonthRows] = await Promise.all([
-    listArticles(env, { aiSecurityOnly: true, q: sp.q, tags, hoursAgo, limit: 200 }),
+  const [items, totalCount, available, tagSurgeRows, techniqueMonthRows] = await Promise.all([
+    listArticles(env, { ...query, limit: pageSize, offset: (page - 1) * pageSize }),
+    countArticles(env, query),
     listAllTags(env, undefined, { hoursAgo, aiSecurityOnly: true }),
     // Surging tags/keywords, scoped to the AI×Security intersection only —
     // same recent-vs-prior comparison as the Dashboard, but restricted to
@@ -183,7 +187,7 @@ export default async function AiSecurityPage({ searchParams }: {
       )}
 
       <FilterTabs category="ai-security" availableTags={available} />
-      <NewsList articles={items} activeTags={tags} />
+      <NewsList articles={items} totalCount={totalCount} page={page} pageSize={pageSize as 20 | 50 | 100} activeTags={tags} />
     </>
   );
 }

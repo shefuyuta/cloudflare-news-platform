@@ -1,6 +1,6 @@
 // app/general/page.tsx
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { listArticles, listAllTags } from "@/lib/db";
+import { listArticles, countArticles, listAllTags } from "@/lib/db";
 import { NewsList } from "@/components/news/NewsList";
 import { FilterTabs } from "@/components/news/FilterTabs";
 import type { Env } from "@/lib/types";
@@ -17,9 +17,13 @@ export default async function GeneralPage({ searchParams }: {
   const lang = (cookieStore.get(LANG_COOKIE)?.value as Lang) ?? DEFAULT_LANG;
   const tags = Array.isArray(sp.tag) ? sp.tag : sp.tag ? [sp.tag] : [];
   const hoursAgo = parseInt(sp.hours ?? "24", 10);
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const pageSize = [20, 50, 100].includes(parseInt(sp.pageSize ?? "20", 10)) ? parseInt(sp.pageSize ?? "20", 10) : 20;
+  const query = { category: "general" as const, region: sp.region, q: sp.q, tags, hoursAgo };
 
-  const [items, available] = await Promise.all([
-    listArticles(env, { category: "general", region: sp.region, q: sp.q, tags, hoursAgo, limit: 200 }),
+  const [items, totalCount, available] = await Promise.all([
+    listArticles(env, { ...query, limit: pageSize, offset: (page - 1) * pageSize }),
+    countArticles(env, query),
     listAllTags(env, "general", { hoursAgo, region: sp.region }),
   ]);
 
@@ -32,7 +36,7 @@ export default async function GeneralPage({ searchParams }: {
         <p className="text-sm text-[var(--ink-3)] mt-2">{t("generalSub", lang)}</p>
       </header>
       <FilterTabs category="general" availableTags={available} />
-      <NewsList articles={items} activeTags={tags} />
+      <NewsList articles={items} totalCount={totalCount} page={page} pageSize={pageSize as 20 | 50 | 100} activeTags={tags} />
     </>
   );
 }
