@@ -255,6 +255,31 @@ export function isControlTag(name: string): boolean {
 }
 
 /**
+ * Compact volume breakdown for the homepage's "last N hours" summary card —
+ * deliberately lighter than the Dashboard's full stats (no region, no
+ * trend history): just category counts and a short top-sources list,
+ * scoped to `hoursAgo`. Kept as its own function (rather than reusing
+ * countArticles per category) since it's one query per breakdown, not N.
+ */
+export async function getVolumeSummary(env: Env, hoursAgo: number): Promise<{
+  byCategory: { category: string; cnt: number }[];
+  bySource: { source: string; cnt: number }[];
+  total: number;
+}> {
+  const cutoff = new Date(Date.now() - hoursAgo * 3600_000).toISOString();
+  const [catRows, sourceRows, totalRow] = await Promise.all([
+    env.DB.prepare(`SELECT category, COUNT(*) AS cnt FROM articles WHERE published_at >= ? GROUP BY category ORDER BY cnt DESC`).bind(cutoff).all(),
+    env.DB.prepare(`SELECT source, COUNT(*) AS cnt FROM articles WHERE published_at >= ? GROUP BY source ORDER BY cnt DESC LIMIT 6`).bind(cutoff).all(),
+    env.DB.prepare(`SELECT COUNT(*) AS cnt FROM articles WHERE published_at >= ?`).bind(cutoff).first() as Promise<{ cnt: number } | null>,
+  ]);
+  return {
+    byCategory: (catRows.results ?? []).map(r => r as { category: string; cnt: number }),
+    bySource: (sourceRows.results ?? []).map(r => r as { source: string; cnt: number }),
+    total: totalRow?.cnt ?? 0,
+  };
+}
+
+/**
  * Distinct tags for a category, scoped to the SAME time window + region
  * the person is currently viewing (not all-time) — so counts reflect what
  * clicking that tag will actually show, and the list doesn't include tags
