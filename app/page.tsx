@@ -24,10 +24,15 @@ export default async function HomePage({ searchParams }: {
   // category is a lightweight quick-filter (see CategoryQuickFilter) —
   // unlike the desk pages, the homepage mixes all three by design, so this
   // narrows to one without changing hoursAgo or adding sub-tabs/tags.
+  // "ai-security" is a special value (not a real Category) that maps to
+  // aiSecurityOnly instead — same convention the /ai-security page itself
+  // uses, and aiSecurityOnly takes priority over category in
+  // buildArticleWhere (see lib/db.ts), so passing both is safe.
+  const isAiSecurity = sp.category === "ai-security";
   const category = ["general", "cybersecurity", "ai"].includes(sp.category ?? "")
     ? (sp.category as "general" | "cybersecurity" | "ai")
     : undefined;
-  const query = { q: sp.q, tags, hoursAgo: HOURS_AGO, category };
+  const query = { q: sp.q, tags, hoursAgo: HOURS_AGO, category, aiSecurityOnly: isAiSecurity || undefined };
   const [items, totalCount, volume] = await Promise.all([
     listArticles(env, { ...query, limit: pageSize, offset: (page - 1) * pageSize }),
     countArticles(env, query),

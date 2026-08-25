@@ -8,6 +8,7 @@ const CATEGORIES = [
   { key: "general", labelJa: "一般", labelEn: "General" },
   { key: "cybersecurity", labelJa: "サイバー", labelEn: "Cyber" },
   { key: "ai", labelJa: "AI", labelEn: "AI" },
+  { key: "ai-security", labelJa: "サイバー×AI", labelEn: "Cyber × AI" },
 ] as const;
 
 /**
