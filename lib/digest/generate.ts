@@ -78,6 +78,12 @@ interface DigestStats {
   topSources: { source: string; cnt: number }[];
   notableStories: { title: string; source: string; summary: string; relatedCount: number }[];  // multi-source coverage = notable
   surgingTags: { tag: string; growthPct: number | null; recent: number }[];
+  // Domestic (Japan) incident/ransomware coverage, kept separate from the
+  // general stats so the digest prompt can be told to always mention these
+  // by name if present, rather than letting them get summarized away
+  // amidst a larger volume of international stories.
+  japanIncidents: { title: string; source: string; summary: string }[];
+  japanRansomware: { victim: string; group: string; activity: string | null }[];
   ransomware: {
     newVictims: number;
     topGroups: { group: string; cnt: number }[];
@@ -90,6 +96,7 @@ async function gatherStats(env: Env, cutoff: string): Promise<DigestStats> {
   const [
     totalRow, byCategoryRows, sourceRows, notableRows,
     rwTotalRow, rwTopGroupRows,
+    japanIncidentRows, japanRwRows,
   ] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS cnt FROM articles WHERE published_at >= ?").bind(cutoff).first() as Promise<{ cnt: number } | null>,
     env.DB.prepare("SELECT category, COUNT(*) AS cnt FROM articles WHERE published_at >= ? GROUP BY category ORDER BY cnt DESC").bind(cutoff).all(),
@@ -112,6 +119,31 @@ async function gatherStats(env: Env, cutoff: string): Promise<DigestStats> {
     `).bind(cutoff).all(),
     env.DB.prepare("SELECT COUNT(*) AS cnt FROM ransomware_victims WHERE discovered >= ?").bind(cutoff).first() as Promise<{ cnt: number } | null>,
     env.DB.prepare("SELECT group_name AS g, COUNT(*) AS cnt FROM ransomware_victims WHERE discovered >= ? GROUP BY g ORDER BY cnt DESC LIMIT 5").bind(cutoff).all(),
+    // Japan-specific incidents: category=cybersecurity + region=japan +
+    // sub:incident tag, within this digest's period. Deliberately a small,
+    // explicit list (not just a count) so the LLM can be told to name them
+    // rather than summarize into a vague "some domestic incidents
+    // occurred" -- domestic coverage is easy to bury under a larger volume
+    // of international stories otherwise.
+    env.DB.prepare(`
+      SELECT a.title, a.source, a.summary
+      FROM articles a
+      JOIN article_tags at ON at.article_id = a.id
+      JOIN tags t ON t.id = at.tag_id
+      WHERE a.published_at >= ? AND a.region = 'japan' AND t.name = 'sub:incident'
+      ORDER BY a.published_at DESC
+      LIMIT 10
+    `).bind(cutoff).all(),
+    // Japan-specific new ransomware victims — same country-literal
+    // convention as the Dashboard (data has been seen stored as any of
+    // 'JP'/'Japan'/'日本').
+    env.DB.prepare(`
+      SELECT victim, victim_ja, group_name AS g, activity
+      FROM ransomware_victims
+      WHERE discovered >= ? AND country IN ('JP','Japan','日本')
+      ORDER BY discovered DESC
+      LIMIT 10
+    `).bind(cutoff).all(),
   ]);
 
   // Surging tags reuse the dashboard's recent-vs-prior logic, scoped to
@@ -180,6 +212,14 @@ async function gatherStats(env: Env, cutoff: string): Promise<DigestStats> {
       return { title: row.title, source: row.source, summary, relatedCount: row.related_count };
     }),
     surgingTags,
+    japanIncidents: (japanIncidentRows.results ?? []).map(r => {
+      const row = r as { title: string; source: string; summary: string | null };
+      return { title: row.title, source: row.source, summary: (row.summary ?? "").slice(0, 200) };
+    }),
+    japanRansomware: (japanRwRows.results ?? []).map(r => {
+      const row = r as { victim: string; victim_ja: string | null; g: string; activity: string | null };
+      return { victim: row.victim_ja || row.victim, group: row.g, activity: row.activity };
+    }),
     ransomware: {
       newVictims: rwTotalRow?.cnt ?? 0,
       topGroups: (rwTopGroupRows.results ?? []).map(r => r as { g: string; cnt: number }).map(r => ({ group: r.g, cnt: r.cnt })),
@@ -256,6 +296,11 @@ New victims: ${stats.ransomware.newVictims}
 Top groups: ${stats.ransomware.topGroups.map(g => `${g.group} (${g.cnt})`).join(", ") || "none"}
 Surging groups: ${stats.ransomware.surging.map(g => `${g.group} (${g.growthPct !== null ? `+${g.growthPct}%` : "new"}${g.targetIndustries.length ? `, hitting: ${g.targetIndustries.join("/")}` : ""})`).join(", ") || "none"}
 Groups gone quiet (60+ days no new victims): ${stats.ransomware.dormant.map(g => `${g.group} (${g.daysSince}d)`).join(", ") || "none"}
+
+Domestic (Japan) incidents this period:
+${stats.japanIncidents.map(i => `- "${i.title}" (${i.source}): ${i.summary || "(no summary available)"}`).join("\n") || "none"}
+Domestic (Japan) new ransomware victims this period:
+${stats.japanRansomware.map(v => `- ${v.victim} (${v.group}${v.activity ? `, ${v.activity}` : ""})`).join("\n") || "none"}
 ${buildComparisonFacts(type, stats, previous)}
 `.trim();
 
@@ -266,6 +311,7 @@ ${buildComparisonFacts(type, stats, previous)}
   const systemPrompt = `You are writing a ${PERIOD_LABEL_EN[type]} cybersecurity news digest for a security engineer.
 Use ONLY the facts given below — do not invent article titles, numbers, or events not listed.
 Write 3-6 short sentences: lead with the most notable development — use its summary to say WHAT actually happened and why it matters, not just that it was covered by multiple outlets — then key numbers/trends, then anything unusual (surges, dormant groups).
+If the "Domestic (Japan) incidents" or "Domestic (Japan) new ransomware victims" facts below list anything (i.e. not "none"), you MUST mention it by name in the digest — name the company/incident, don't just say "there were domestic incidents." This is a hard requirement, not optional color: domestic coverage must never be silently summarized away just because international stories are more numerous. If both sections say "none," don't mention Japan at all — don't invent domestic coverage that doesn't exist.
 ${comparisonInstruction}
 Keep it dense and factual, not fluffy. No headers, no bullet points — plain prose paragraph(s).
 If a surging group has listed target industries, you may add ONE brief, hedged observation tied directly to that data (e.g. "healthcare organizations may want to note X's current focus there") — never a general security recommendation, never phrased as certain or prescriptive, and only when the underlying data (industries hit) is actually present. Skip this entirely if there's nothing concrete to point at.
