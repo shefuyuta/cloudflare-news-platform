@@ -428,37 +428,30 @@ export function RansomwareClient({
             )}
           </div>
 
-          {/* ── Group filter ──────────────────────────────────────────── */}
-          {groups.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-6">
-              <button
-                onClick={() => setGroup("")}
-                className={[
-                  "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors min-h-[36px] sm:min-h-0",
-                  !selectedGroup ? "bg-[var(--ink)] text-ink-contrast border-[var(--ink)]" : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
-                ].join(" ")}
+          {/* ── Group filter — set from the "By group" chart in
+             RansomwareStats (graph click), shown here as a clearable
+             badge, same pattern as the industry filter below. Previously
+             also had a dedicated row of one button per group; removed in
+             favor of a single consistent selection method (graph click)
+             now that the chart itself has a visible hover affordance. ─── */}
+          {selectedGroup && (
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-[11px] text-[var(--ink-3)]">
+                {ja ? "グループで絞り込み中:" : "Filtered by group:"}
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full text-white"
+                style={{ background: groupColor(selectedGroup) }}
               >
-                {ja ? "すべて" : "All"} ({statTotal.toLocaleString()})
-              </button>
-              {groups.map(g => {
-                const count = victims.filter(v => v.group === g).length;
-                if (!count) return null;
-                return (
-                  <button
-                    key={g}
-                    onClick={() => setGroup(g === selectedGroup ? "" : g)}
-                    className={[
-                      "px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors min-h-[36px] sm:min-h-0",
-                      selectedGroup === g
-                        ? "text-white border-transparent"
-                        : "border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--line-soft)]",
-                    ].join(" ")}
-                    style={selectedGroup === g ? { background: groupColor(g) } : undefined}
-                  >
-                    {g} ({count})
-                  </button>
-                );
-              })}
+                {selectedGroup}
+                <button
+                  onClick={() => setGroup("")}
+                  aria-label={ja ? "グループフィルタを解除" : "Clear group filter"}
+                  className="hover:opacity-70"
+                >
+                  ×
+                </button>
+              </span>
             </div>
           )}
 

@@ -324,9 +324,19 @@ export default async function RansomwarePage({
     const newsMap = new Map<string, VictimWithNews["relatedNews"]>();
 
     if (rawVictims.length > 0) {
-      // Collect unique meaningful search terms from victim/group names
-      // Build search terms: Japanese name → individual English words → group name
+      // Collect unique meaningful search terms from victim names only.
+      // Build search terms: Japanese name → individual English words.
       // Word-splitting handles "Nara Medical University Hospital" → ["Nara", "Medical"] etc.
+      //
+      // Deliberately NOT including v.group_name as a search term (it was,
+      // until this fix): a group name alone matches ANY article about that
+      // ransomware group, including its other, unrelated victims — e.g. a
+      // RedPacketSecurity feed posts near-identical "[QILIN] – Ransomware
+      // Victim: X" articles for every Qilin victim, and group-name matching
+      // pulled ALL of them into every Qilin victim's "related articles",
+      // regardless of whether the article was actually about that specific
+      // company. Matching on victim name only keeps this section on-topic
+      // for the company it's attached to.
       const rawTerms: string[] = [];
       for (const v of rawVictims.slice(0, 40)) {
         // Japanese name (best match for JP news)
@@ -343,7 +353,6 @@ export default async function RansomwarePage({
             rawTerms.push(...words.slice(0, 3));
           }
         }
-        if (v.group_name) rawTerms.push(v.group_name);
       }
       const terms = [...new Set(rawTerms)].slice(0, 15); // max 15 queries
 
@@ -360,7 +369,11 @@ export default async function RansomwarePage({
             const r = row as RawNews;
             // Associate with victims whose name/group contains this term
             for (const v of rawVictims.slice(0, 40)) {
-              const haystack = `${v.victim} ${v.victim_ja ?? ""} ${v.group_name}`.toLowerCase();
+              // Match against victim name only (see the comment above on
+              // why group_name was removed from the search terms) — kept
+              // consistent here too, since terms are now always
+              // victim-derived.
+              const haystack = `${v.victim} ${v.victim_ja ?? ""}`.toLowerCase();
               if (haystack.includes(term.toLowerCase())) {
                 const arr = newsMap.get(v.id) ?? [];
                 if (!arr.find(n => n.id === r.id) && arr.length < 3) {

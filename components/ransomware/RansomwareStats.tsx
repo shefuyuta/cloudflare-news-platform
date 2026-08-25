@@ -150,7 +150,7 @@ export function RansomwareStats({
                   key={group}
                   onClick={() => onFilterGroup?.(isActive ? null : group)}
                   className={[
-                    "w-full flex items-center gap-3 rounded-md px-1 py-0.5 transition-colors text-left",
+                    "w-full flex items-center gap-3 rounded-md px-1 py-0.5 transition-colors text-left group",
                     clickable ? "hover:bg-[var(--line-soft)] cursor-pointer" : "cursor-default",
                     isActive ? "bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)]" : "",
                   ].join(" ")}
@@ -161,7 +161,7 @@ export function RansomwareStats({
                   <div className="flex-1 flex items-center gap-2">
                     <div className="flex-1 h-4 bg-[var(--line-soft)] rounded-sm overflow-hidden">
                       <div
-                        className="h-full rounded-sm transition-all duration-500 animate-bar"
+                        className="h-full rounded-sm transition-all duration-500 animate-bar group-hover:brightness-110"
                         style={{ width: `${pct * 100}%`, background: color }}
                       />
                     </div>
@@ -228,7 +228,7 @@ export function RansomwareStats({
                   key={act}
                   onClick={() => onFilterAct?.(isActive ? null : act)}
                   className={[
-                    "w-full flex items-center gap-3 rounded-md px-1 py-0.5 transition-colors text-left",
+                    "w-full flex items-center gap-3 rounded-md px-1 py-0.5 transition-colors text-left group",
                     clickable ? "hover:bg-[var(--line-soft)] cursor-pointer" : "cursor-default",
                     isActive ? "bg-[var(--line-soft)] ring-1 ring-inset ring-[var(--line)]" : "",
                   ].join(" ")}
@@ -239,7 +239,7 @@ export function RansomwareStats({
                   <div className="flex-1 flex items-center gap-2">
                     <div className="flex-1 h-4 bg-[var(--line-soft)] rounded-sm overflow-hidden">
                       <div
-                        className="h-full rounded-sm bg-[var(--ink)] transition-all duration-500 animate-bar"
+                        className="h-full rounded-sm bg-[var(--ink)] transition-all duration-500 animate-bar group-hover:brightness-125"
                         style={{ width: `${pct * 100}%`, opacity: 0.4 + pct * 0.6 }}
                       />
                     </div>
