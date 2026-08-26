@@ -67,8 +67,17 @@ export async function POST(req: Request): Promise<Response> {
 
   // Fetch each article's existing embedding from Vectorize by its stored
   // vector_id — no new embeddings generated.
-  const vecResult = await env.VECTORIZE.getByIds(targets.map(t => t.vector_id));
-  const vecById = new Map(vecResult.map(v => [v.id, Array.from(v.values) as number[]]));
+  // Vectorize's getByIds caps at 20 IDs per call (confirmed via production
+  // error: "VECTOR_GET_ERROR (code = 40007): too many ids in payload; max
+  // id count is 20, got 50") — chunk regardless of how many `targets` this
+  // batch has (which can be up to `limit`, default 50).
+  const VECTORIZE_GET_CHUNK = 20;
+  const vecById = new Map<string, number[]>();
+  for (let i = 0; i < targets.length; i += VECTORIZE_GET_CHUNK) {
+    const chunk = targets.slice(i, i + VECTORIZE_GET_CHUNK);
+    const vecResult = await env.VECTORIZE.getByIds(chunk.map(t => t.vector_id));
+    for (const v of vecResult) vecById.set(v.id, Array.from(v.values) as number[]);
+  }
 
   let fixed = 0;
   let skippedNoVector = 0;
