@@ -131,10 +131,10 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
     <button
       onClick={onClick}
       className={[
-        "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
+        "px-4 py-2.5 text-sm transition-colors whitespace-nowrap border-b-[3px] -mb-px",
         active
-          ? "border-[var(--ink)] text-[var(--ink)]"
-          : "border-transparent text-[var(--ink-3)] hover:text-[var(--ink-2)]",
+          ? "border-[var(--ink)] text-[var(--ink)] font-semibold"
+          : "border-transparent text-[var(--ink-3)] font-medium hover:text-[var(--ink-2)] hover:border-[var(--line)]",
       ].join(" ")}
     >
       {label}

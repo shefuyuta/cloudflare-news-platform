@@ -204,11 +204,22 @@ export async function runEmbedMissing(env: Env): Promise<EmbedMissingResult> {
   }
 
   // Refine subcategory tags for cyber articles (embedding similarity).
+  // IMPORTANT: always call refineSubTags, even when classifyByEmbedding
+  // returns [] (neither label clears the threshold) — embedding is meant
+  // to be the FINAL authority on sub:* tags, overwriting whatever
+  // fetch-news.ts's keyword classifier (classifySubcategories) initially
+  // assigned. classifySubcategories is multi-label by design (it can
+  // legitimately tag an article as BOTH vulnerability and incident when
+  // both keyword sets score > 0), and skipping the call here whenever
+  // embedding was inconclusive left that dual-tagged state in place
+  // permanently — confirmed as the cause of articles (e.g. a batch of JVN
+  // Oracle Hyperion advisories) carrying both sub:vulnerability and
+  // sub:incident simultaneously, showing up in both tabs.
   for (const { id, vec0 } of refineList) {
     if (Date.now() - startTime > BATCH_TIMEOUT_MS) break;
     try {
       const labels = classifyByEmbedding(vec0, subRefs!, subThreshold);
-      if (labels.length) await refineSubTags(env, id, labels);
+      await refineSubTags(env, id, labels);
     } catch (e) {
       console.warn(`[embed-missing] refine failed for ${id}:`, e);
     }
@@ -332,7 +343,7 @@ async function findRelatedArticles(
 }
 
 /** Load the subcategory similarity threshold from rag_config (default 0.5). */
-async function loadSubThreshold(env: Env): Promise<number> {
+export async function loadSubThreshold(env: Env): Promise<number> {
   try {
     const row = await env.DB.prepare(
       "SELECT value FROM rag_config WHERE key = 'subcategory_threshold'"
