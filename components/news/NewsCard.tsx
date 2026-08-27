@@ -223,7 +223,9 @@ export function NewsCard({
             <p className="text-sm text-[var(--ink-2)] leading-relaxed mb-3">{article.summary}</p>
           ) : (
             <p className="text-sm text-[var(--ink-4)] italic mb-3">
-              {lang === "ja" ? "本文取得中…次回更新時に表示されます。" : "Content will appear after the next refresh."}
+              {lang === "ja"
+                ? "このソースは概要・本文を配信していません。原文をご覧ください。"
+                : "This source doesn't provide a summary or body text. See the original article."}
             </p>
           )}
 
