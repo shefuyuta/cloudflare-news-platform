@@ -2,6 +2,8 @@
 // Re-exports lucide-react icons used across the app.
 // All icons inherit currentColor — place color on the parent element.
 export {
+  ArrowUp,
+  ArrowUpDown,
   Bell,
   Bookmark,
   BookmarkCheck,
@@ -25,7 +27,6 @@ export {
   Cpu,
   Newspaper,
   Trash2,
-  ArrowUpDown,
   MessageCircle,
   Sun,
   Moon,

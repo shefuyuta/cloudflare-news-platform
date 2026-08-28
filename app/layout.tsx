@@ -4,6 +4,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { AIChatDock } from "@/components/chat/AIChatDock";
+import { ScrollToTopButton } from "@/components/layout/ScrollToTopButton";
 import { LangProvider } from "@/components/LangProvider";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
@@ -48,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Suspense>
             <AIChatDock />
           </Suspense>
+          <ScrollToTopButton />
         </LangProvider>
       </body>
     </html>
